@@ -1,0 +1,24 @@
+# /public/build
+.env
+.env.backup
+.env.production
+.mcp.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.phpunit.cache
+/.vscode
+/database/database.sqlite
+/node_modules
+/public/hot
+/public/storage
+/public/vendor
+/storage/*.key
+/vendor
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+CLAUDE.md
+/.superpowers

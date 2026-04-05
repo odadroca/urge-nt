@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    /* Interactive cards: subtle lift on hover */
+    .bg-white.rounded-lg.border,
+    .dark\:bg-gray-800.rounded-lg.border {
+        @apply transition-all duration-150;
+    }
+    a.block.bg-white.rounded-lg:hover,
+    a.block.dark\:bg-gray-800.rounded-lg:hover {
+        @apply -translate-y-px;
+    }
+
+    /* Monospace for prompt content areas */
+    textarea.font-mono,
+    pre,
+    code,
+    .prompt-content {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+}

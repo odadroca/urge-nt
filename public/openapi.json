@@ -1,0 +1,1942 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "URGE v2 API",
+        "description": "Prompt registry and version control API. Manage prompts, versions, render templates, store LLM results, and collaborate via teams.",
+        "version": "3.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://urge-next.acordado.org/api/v1"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "description": "API key with 'urge_' prefix"
+            }
+        },
+        "schemas": {
+            "Prompt": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "prompt",
+                            "fragment"
+                        ]
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "category_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "visibility": {
+                        "type": "string",
+                        "enum": [
+                            "private",
+                            "shared"
+                        ]
+                    },
+                    "created_by": {
+                        "type": "integer"
+                    },
+                    "owner": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "slug": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PromptVersion": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "prompt_id": {
+                        "type": "integer"
+                    },
+                    "version_number": {
+                        "type": "integer"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "commit_message": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "variables": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "variable_metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "includes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Result": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "prompt_id": {
+                        "type": "integer"
+                    },
+                    "prompt_version_id": {
+                        "type": "integer"
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "api",
+                            "manual",
+                            "import",
+                            "mcp"
+                        ]
+                    },
+                    "provider_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "model_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "response_text": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "rating": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "nullable": true
+                    },
+                    "starred": {
+                        "type": "boolean"
+                    },
+                    "input_tokens": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "output_tokens": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "duration_ms": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "RenderResult": {
+                "type": "object",
+                "properties": {
+                    "rendered": {
+                        "type": "string"
+                    },
+                    "variables_used": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "variables_missing": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "includes_resolved": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "prompt": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "PaginationMeta": {
+                "type": "object",
+                "properties": {
+                    "current_page": {
+                        "type": "integer"
+                    },
+                    "last_page": {
+                        "type": "integer"
+                    },
+                    "per_page": {
+                        "type": "integer"
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "Category": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "color": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Collection": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created_by": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "CollectionItem": {
+                "type": "object",
+                "description": "A collection item with resolved content. Fields vary by item_type.",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "sort_order": {
+                        "type": "integer"
+                    },
+                    "item_type": {
+                        "type": "string",
+                        "enum": [
+                            "prompt_version",
+                            "result"
+                        ]
+                    },
+                    "item_id": {
+                        "type": "integer"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "prompt_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Name of the parent prompt"
+                    },
+                    "prompt_slug": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Slug of the parent prompt"
+                    },
+                    "version_number": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "Version number"
+                    },
+                    "content": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Prompt template content (prompt_version only)"
+                    },
+                    "variables": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true,
+                        "description": "Template variables (prompt_version only)"
+                    },
+                    "commit_message": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Version commit message (prompt_version only)"
+                    },
+                    "provider_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "LLM provider (result only)"
+                    },
+                    "model_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "LLM model (result only)"
+                    },
+                    "response_text": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "LLM response text (result only)"
+                    },
+                    "rating": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "nullable": true,
+                        "description": "Star rating (result only)"
+                    },
+                    "starred": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Whether starred (result only)"
+                    },
+                    "input_tokens": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "Input token count (result only)"
+                    },
+                    "output_tokens": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "Output token count (result only)"
+                    },
+                    "duration_ms": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "Response duration in ms (result only)"
+                    }
+                }
+            },
+            "ShareLink": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "label": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "url": {
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "expired": {
+                        "type": "boolean"
+                    },
+                    "access_count": {
+                        "type": "integer"
+                    },
+                    "last_accessed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "TeamMember": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "owner",
+                            "member"
+                        ]
+                    }
+                }
+            },
+            "DeletedResponse": {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "message": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "error": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "operationId": "getHealth",
+                "summary": "Health check",
+                "security": [],
+                "responses": {
+                    "200": {
+                        "description": "Server status",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "status": {
+                                            "type": "string"
+                                        },
+                                        "version": {
+                                            "type": "string"
+                                        },
+                                        "timestamp": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prompts": {
+            "get": {
+                "operationId": "listPrompts",
+                "summary": "List prompts visible to the authenticated user",
+                "parameters": [
+                    {
+                        "name": "scope",
+                        "in": "query",
+                        "description": "Filter scope: 'mine' (own only), 'shared' (team-shared only), 'all' (default)",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "mine",
+                                "shared",
+                                "all"
+                            ],
+                            "default": "all"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "prompt",
+                                "fragment"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "tag",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of prompts",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Prompt"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createPrompt",
+                "summary": "Create a prompt",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "prompt",
+                                            "fragment"
+                                        ],
+                                        "default": "prompt"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "category_id": {
+                                        "type": "integer"
+                                    },
+                                    "tags": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "visibility": {
+                                        "type": "string",
+                                        "enum": [
+                                            "private",
+                                            "shared"
+                                        ],
+                                        "default": "private"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created prompt",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Prompt"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}": {
+            "get": {
+                "operationId": "getPrompt",
+                "summary": "Get a prompt by namespace",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Prompt with active version and counts",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Prompt"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "updatePrompt",
+                "summary": "Update a prompt (owner only)",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "prompt",
+                                            "fragment"
+                                        ]
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "category_id": {
+                                        "type": "integer"
+                                    },
+                                    "tags": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated prompt",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Prompt"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deletePrompt",
+                "summary": "Delete a prompt (owner only)",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Prompt deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeletedResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/versions": {
+            "get": {
+                "operationId": "listVersions",
+                "summary": "List versions",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated versions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/PromptVersion"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createVersion",
+                "summary": "Create a version",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "content"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "type": "string"
+                                    },
+                                    "commit_message": {
+                                        "type": "string"
+                                    },
+                                    "variable_metadata": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created version",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PromptVersion"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/versions/{version}": {
+            "get": {
+                "operationId": "getVersion",
+                "summary": "Get a version",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "version",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Version details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PromptVersion"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/branches": {
+            "get": {
+                "operationId": "listBranches",
+                "summary": "List branches for a prompt",
+                "tags": [
+                    "Branches"
+                ],
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of branches with version counts and HEAD info"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createBranch",
+                "summary": "Create a new branch",
+                "tags": [
+                    "Branches"
+                ],
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "description": "Branch name (will be slugified)"
+                                    },
+                                    "from_version": {
+                                        "type": "integer",
+                                        "description": "Version number to fork from"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Branch created"
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/branches/{branch}": {
+            "get": {
+                "operationId": "showBranch",
+                "summary": "Get branch details with HEAD content",
+                "tags": [
+                    "Branches"
+                ],
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "branch",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Branch details"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteBranch",
+                "summary": "Delete a non-default branch",
+                "tags": [
+                    "Branches"
+                ],
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "branch",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Branch deleted"
+                    },
+                    "422": {
+                        "description": "Cannot delete default branch"
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/branches/{branch}/default": {
+            "patch": {
+                "operationId": "setDefaultBranch",
+                "summary": "Set branch as the default",
+                "tags": [
+                    "Branches"
+                ],
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "branch",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Default branch updated"
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/render": {
+            "post": {
+                "operationId": "renderPrompt",
+                "summary": "Render a prompt template",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "version": {
+                                        "type": "integer"
+                                    },
+                                    "variables": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Rendered template",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/RenderResult"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/prompts/{username}/{promptSlug}/results": {
+            "get": {
+                "operationId": "listResults",
+                "summary": "List results for a prompt",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "version",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "starred",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated results",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Result"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createResult",
+                "summary": "Create a result",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "in": "path",
+                        "required": true,
+                        "description": "User slug (owner of the prompt)",
+                        "schema": { "type": "string" }
+                    },
+                    {
+                        "name": "promptSlug",
+                        "in": "path",
+                        "required": true,
+                        "description": "Prompt slug (unique per user)",
+                        "schema": { "type": "string" }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "version",
+                                    "response_text"
+                                ],
+                                "properties": {
+                                    "version": {
+                                        "type": "integer"
+                                    },
+                                    "response_text": {
+                                        "type": "string"
+                                    },
+                                    "source": {
+                                        "type": "string",
+                                        "enum": [
+                                            "api",
+                                            "manual",
+                                            "import",
+                                            "mcp"
+                                        ],
+                                        "default": "api"
+                                    },
+                                    "provider_name": {
+                                        "type": "string"
+                                    },
+                                    "model_name": {
+                                        "type": "string"
+                                    },
+                                    "notes": {
+                                        "type": "string"
+                                    },
+                                    "rating": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                    },
+                                    "starred": {
+                                        "type": "boolean"
+                                    },
+                                    "rendered_content": {
+                                        "type": "string"
+                                    },
+                                    "variables_used": {
+                                        "type": "object"
+                                    },
+                                    "input_tokens": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "output_tokens": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "duration_ms": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Result"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/results/{id}": {
+            "get": {
+                "operationId": "getResult",
+                "summary": "Get a result",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Result"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "updateResult",
+                "summary": "Update a result (rating, starred, notes)",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "rating": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 5
+                                    },
+                                    "starred": {
+                                        "type": "boolean"
+                                    },
+                                    "notes": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Result"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteResult",
+                "summary": "Delete a result",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeletedResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/collections": {
+            "get": {
+                "operationId": "listCollections",
+                "summary": "List collections",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Search by title or description"
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list of collections",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Collection"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createCollection",
+                "summary": "Create a collection",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "title"
+                                ],
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "description": "Collection title"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "description": "Optional description"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Collection"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/collections/{slug}": {
+            "get": {
+                "operationId": "getCollection",
+                "summary": "Get a collection with its items",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Collection slug"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collection with items",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "allOf": [
+                                                {
+                                                    "$ref": "#/components/schemas/Collection"
+                                                },
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "items": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "$ref": "#/components/schemas/CollectionItem"
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Collection not found"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "updateCollection",
+                "summary": "Update a collection",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Collection slug"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "title": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Collection"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "deleteCollection",
+                "summary": "Delete a collection",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Collection slug"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collection deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeletedResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/collections/{slug}/items": {
+            "post": {
+                "operationId": "addToCollection",
+                "summary": "Add an item to a collection",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Collection slug"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "item_type",
+                                    "item_id"
+                                ],
+                                "properties": {
+                                    "item_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "prompt_version",
+                                            "result"
+                                        ],
+                                        "description": "Type of item to add"
+                                    },
+                                    "item_id": {
+                                        "type": "integer",
+                                        "description": "ID of the prompt version or result"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "description": "Optional notes for this item"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Item added to collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/CollectionItem"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Referenced item not found"
+                    },
+                    "409": {
+                        "description": "Item already exists in collection"
+                    }
+                }
+            }
+        },
+        "/collections/{slug}/items/{item}": {
+            "delete": {
+                "operationId": "removeFromCollection",
+                "summary": "Remove an item from a collection",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Collection slug"
+                    },
+                    {
+                        "name": "item",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "Collection item ID"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Item removed from collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeletedResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Item does not belong to this collection"
+                    }
+                }
+            }
+        },
+        "/categories": {
+            "get": {
+                "operationId": "listCategories",
+                "summary": "List all categories",
+                "responses": {
+                    "200": {
+                        "description": "All categories ordered by name",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Category"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "createCategory",
+                "summary": "Create a category",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "maxLength": 255
+                                    },
+                                    "color": {
+                                        "type": "string",
+                                        "maxLength": 30,
+                                        "description": "Display color (e.g. 'blue', '#3B82F6')"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created category",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Category"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
