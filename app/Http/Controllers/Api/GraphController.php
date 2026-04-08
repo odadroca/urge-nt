@@ -158,4 +158,53 @@ class GraphController extends ApiController
 
         return $this->success(['saved' => $count]);
     }
+
+    public function edges(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Composition edges: derived from {{>slug}} includes in prompt content
+        $prompts = Prompt::visibleTo($user)->get();
+        $compositionEdges = [];
+
+        foreach ($prompts as $prompt) {
+            $activeVersion = $prompt->activeVersion;
+            if (! $activeVersion) {
+                continue;
+            }
+
+            $includes = $this->templateEngine->extractIncludes($activeVersion->content);
+            foreach ($includes as $includeSlug) {
+                $compositionEdges[] = [
+                    'source_id' => $prompt->id,
+                    'source_slug' => $prompt->slug,
+                    'source_type' => $prompt->type,
+                    'target_slug' => $includeSlug,
+                    'type' => 'includes',
+                ];
+            }
+        }
+
+        // Collection edges: from CollectionItem relationships
+        $collections = Collection::where('created_by', $user->id)->with('items')->get();
+        $collectionEdges = [];
+
+        foreach ($collections as $collection) {
+            foreach ($collection->items as $item) {
+                $collectionEdges[] = [
+                    'collection_id' => $collection->id,
+                    'collection_slug' => $collection->slug,
+                    'item_type' => $item->item_type,
+                    'item_id' => $item->item_id,
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => [
+                'composition' => $compositionEdges,
+                'collection' => $collectionEdges,
+            ],
+        ]);
+    }
 }

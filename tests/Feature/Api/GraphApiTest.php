@@ -216,4 +216,88 @@ class GraphApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('data.saved', 0);
     }
+
+    public function test_get_edges_from_includes(): void
+    {
+        $prompt = Prompt::create([
+            'name' => 'Main Prompt',
+            'type' => 'prompt',
+            'created_by' => $this->user->id,
+        ]);
+        $fragment = Prompt::create([
+            'name' => 'My Fragment',
+            'slug' => 'my-fragment',
+            'type' => 'fragment',
+            'created_by' => $this->user->id,
+        ]);
+
+        $branchId = $this->createDefaultBranch($prompt);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'content' => 'Hello {{>my-fragment}} world',
+            'version_number' => 1,
+            'variables' => [],
+            'includes' => ['my-fragment'],
+            'branch_id' => $branchId,
+            'branch_version_number' => 1,
+        ]);
+
+        $response = $this->getJson('/api/v1/graph/edges', $this->headers);
+
+        $response->assertStatus(200);
+
+        $edges = $response->json('data.composition');
+        $this->assertCount(1, $edges);
+        $this->assertEquals($prompt->slug, $edges[0]['source_slug']);
+        $this->assertEquals('my-fragment', $edges[0]['target_slug']);
+        $this->assertEquals('includes', $edges[0]['type']);
+    }
+
+    public function test_get_edges_from_collections(): void
+    {
+        $prompt = Prompt::create([
+            'name' => 'Collected Prompt',
+            'type' => 'prompt',
+            'created_by' => $this->user->id,
+        ]);
+        $branchId = $this->createDefaultBranch($prompt);
+        $version = PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'content' => 'Simple content',
+            'version_number' => 1,
+            'variables' => [],
+            'includes' => [],
+            'branch_id' => $branchId,
+            'branch_version_number' => 1,
+        ]);
+        $collection = Collection::create([
+            'title' => 'My Collection',
+            'created_by' => $this->user->id,
+        ]);
+        $collection->items()->create([
+            'item_type' => 'prompt_version',
+            'item_id' => $version->id,
+            'sort_order' => 0,
+        ]);
+
+        $response = $this->getJson('/api/v1/graph/edges', $this->headers);
+
+        $response->assertStatus(200);
+
+        $collectionEdges = $response->json('data.collection');
+        $this->assertCount(1, $collectionEdges);
+        $this->assertEquals($collection->slug, $collectionEdges[0]['collection_slug']);
+    }
+
+    private function createDefaultBranch(Prompt $prompt): int
+    {
+        $branch = \App\Models\PromptBranch::create([
+            'prompt_id' => $prompt->id,
+            'name' => 'main',
+            'is_default' => true,
+            'created_by' => $this->user->id,
+        ]);
+        $prompt->update(['default_branch_id' => $branch->id]);
+        return $branch->id;
+    }
 }
