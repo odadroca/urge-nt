@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\PipelineTemplateController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
+use App\Http\Controllers\Api\GraphController;
 use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\PromptController;
@@ -93,6 +94,9 @@ Route::prefix('v1')->group(function () {
         Route::get('collections/{collection:slug}/share-links', [ShareLinkController::class, 'index']);
         Route::post('collections/{collection:slug}/share-links', [ShareLinkController::class, 'store']);
         Route::delete('collections/{collection:slug}/share-links/{shareLink}', [ShareLinkController::class, 'destroy']);
+
+        // Graph endpoints
+        Route::get('graph/nodes', [GraphController::class, 'nodes']);
 
         // MCP
         Route::post('mcp', [McpController::class, 'handle']);
