@@ -289,6 +289,106 @@ class GraphApiTest extends TestCase
         $this->assertEquals($collection->slug, $collectionEdges[0]['collection_slug']);
     }
 
+    public function test_append_include(): void
+    {
+        $prompt = Prompt::create([
+            'name' => 'Target Prompt',
+            'type' => 'prompt',
+            'created_by' => $this->user->id,
+        ]);
+        $branchId = $this->createDefaultBranch($prompt);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'content' => 'Original content',
+            'version_number' => 1,
+            'variables' => [],
+            'includes' => [],
+            'branch_id' => $branchId,
+            'branch_version_number' => 1,
+        ]);
+
+        Prompt::create([
+            'name' => 'Fragment To Include',
+            'slug' => 'fragment-to-include',
+            'type' => 'fragment',
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/append-include",
+            ['fragment_slug' => 'fragment-to-include'],
+            $this->headers
+        );
+
+        $response->assertStatus(200);
+
+        $newVersion = PromptVersion::where('prompt_id', $prompt->id)
+            ->latest('version_number')
+            ->first();
+        $this->assertStringContainsString('{{>fragment-to-include}}', $newVersion->content);
+        $this->assertEquals(2, $newVersion->version_number);
+    }
+
+    public function test_append_include_rejects_nonexistent_fragment(): void
+    {
+        $prompt = Prompt::create([
+            'name' => 'Target',
+            'type' => 'prompt',
+            'created_by' => $this->user->id,
+        ]);
+        $branchId = $this->createDefaultBranch($prompt);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'content' => 'Content',
+            'version_number' => 1,
+            'variables' => [],
+            'includes' => [],
+            'branch_id' => $branchId,
+            'branch_version_number' => 1,
+        ]);
+
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/append-include",
+            ['fragment_slug' => 'nonexistent'],
+            $this->headers
+        );
+
+        $response->assertStatus(404);
+    }
+
+    public function test_remove_include(): void
+    {
+        $prompt = Prompt::create([
+            'name' => 'Has Include',
+            'type' => 'prompt',
+            'created_by' => $this->user->id,
+        ]);
+        $branchId = $this->createDefaultBranch($prompt);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'content' => "First line\n{{>my-frag}}\nLast line",
+            'version_number' => 1,
+            'variables' => [],
+            'includes' => ['my-frag'],
+            'branch_id' => $branchId,
+            'branch_version_number' => 1,
+        ]);
+
+        $response = $this->deleteJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/remove-include",
+            ['fragment_slug' => 'my-frag'],
+            $this->headers
+        );
+
+        $response->assertStatus(200);
+
+        $newVersion = PromptVersion::where('prompt_id', $prompt->id)
+            ->latest('version_number')
+            ->first();
+        $this->assertStringNotContainsString('{{>my-frag}}', $newVersion->content);
+        $this->assertEquals(2, $newVersion->version_number);
+    }
+
     private function createDefaultBranch(Prompt $prompt): int
     {
         $branch = \App\Models\PromptBranch::create([

@@ -99,6 +99,8 @@ Route::prefix('v1')->group(function () {
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
         Route::post('graph/positions', [GraphController::class, 'positions']);
         Route::get('graph/edges', [GraphController::class, 'edges']);
+        Route::post('prompts/{username}/{promptSlug}/append-include', [GraphController::class, 'appendInclude']);
+        Route::delete('prompts/{username}/{promptSlug}/remove-include', [GraphController::class, 'removeInclude']);
 
         // MCP
         Route::post('mcp', [McpController::class, 'handle']);

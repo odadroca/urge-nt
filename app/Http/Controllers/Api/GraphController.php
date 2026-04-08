@@ -159,6 +159,86 @@ class GraphController extends ApiController
         return $this->success(['saved' => $count]);
     }
 
+    public function appendInclude(Request $request, string $username, string $promptSlug): JsonResponse
+    {
+        $validated = $request->validate([
+            'fragment_slug' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        $prompt = Prompt::visibleTo($user)->whereHas('creator', fn ($q) => $q->where('slug', $username))
+            ->where('slug', $promptSlug)->first();
+
+        if (! $prompt) {
+            return $this->error('Prompt not found', 404);
+        }
+
+        // Verify fragment exists
+        $fragment = Prompt::where('slug', $validated['fragment_slug'])->where('type', 'fragment')->first();
+        if (! $fragment) {
+            return $this->error('Fragment not found', 404);
+        }
+
+        $activeVersion = $prompt->activeVersion;
+        if (! $activeVersion) {
+            return $this->error('Prompt has no active version', 400);
+        }
+
+        $newContent = $activeVersion->content . "\n{{>" . $validated['fragment_slug'] . "}}";
+
+        $version = $this->versioningService->createVersion($prompt, [
+            'content' => $newContent,
+            'commit_message' => "Added include: {$validated['fragment_slug']}",
+            'variable_metadata' => $activeVersion->variable_metadata,
+        ], $user);
+
+        return $this->success([
+            'version_number' => $version->version_number,
+            'content' => $version->content,
+            'includes' => $version->includes,
+        ]);
+    }
+
+    public function removeInclude(Request $request, string $username, string $promptSlug): JsonResponse
+    {
+        $validated = $request->validate([
+            'fragment_slug' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        $prompt = Prompt::visibleTo($user)->whereHas('creator', fn ($q) => $q->where('slug', $username))
+            ->where('slug', $promptSlug)->first();
+
+        if (! $prompt) {
+            return $this->error('Prompt not found', 404);
+        }
+
+        $activeVersion = $prompt->activeVersion;
+        if (! $activeVersion) {
+            return $this->error('Prompt has no active version', 400);
+        }
+
+        $slug = preg_quote($validated['fragment_slug'], '/');
+        $newContent = preg_replace("/\n?\{\{>{$slug}\}\}/", '', $activeVersion->content);
+        $newContent = trim($newContent);
+
+        if ($newContent === trim($activeVersion->content)) {
+            return $this->error('Include not found in content', 400);
+        }
+
+        $version = $this->versioningService->createVersion($prompt, [
+            'content' => $newContent,
+            'commit_message' => "Removed include: {$validated['fragment_slug']}",
+            'variable_metadata' => $activeVersion->variable_metadata,
+        ], $user);
+
+        return $this->success([
+            'version_number' => $version->version_number,
+            'content' => $version->content,
+            'includes' => $version->includes,
+        ]);
+    }
+
     public function edges(Request $request): JsonResponse
     {
         $user = $request->user();
