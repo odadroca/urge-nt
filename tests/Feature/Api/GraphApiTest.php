@@ -23,6 +23,15 @@ class GraphApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Create a dummy admin first so our test user is NOT auto-admin
+        User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => bcrypt('password'),
+            'slug' => 'admin',
+            'role' => 'admin',
+        ]);
+
         $this->user = User::create([
             'name' => 'Graph User',
             'email' => 'graph@example.com',
@@ -232,14 +241,9 @@ class GraphApiTest extends TestCase
         ]);
 
         $branchId = $this->createDefaultBranch($prompt);
-        PromptVersion::create([
-            'prompt_id' => $prompt->id,
+        $this->createVersion($prompt, $branchId, [
             'content' => 'Hello {{>my-fragment}} world',
-            'version_number' => 1,
-            'variables' => [],
             'includes' => ['my-fragment'],
-            'branch_id' => $branchId,
-            'branch_version_number' => 1,
         ]);
 
         $response = $this->getJson('/api/v1/graph/edges', $this->headers);
@@ -261,14 +265,8 @@ class GraphApiTest extends TestCase
             'created_by' => $this->user->id,
         ]);
         $branchId = $this->createDefaultBranch($prompt);
-        $version = PromptVersion::create([
-            'prompt_id' => $prompt->id,
+        $version = $this->createVersion($prompt, $branchId, [
             'content' => 'Simple content',
-            'version_number' => 1,
-            'variables' => [],
-            'includes' => [],
-            'branch_id' => $branchId,
-            'branch_version_number' => 1,
         ]);
         $collection = Collection::create([
             'title' => 'My Collection',
@@ -297,14 +295,8 @@ class GraphApiTest extends TestCase
             'created_by' => $this->user->id,
         ]);
         $branchId = $this->createDefaultBranch($prompt);
-        PromptVersion::create([
-            'prompt_id' => $prompt->id,
+        $this->createVersion($prompt, $branchId, [
             'content' => 'Original content',
-            'version_number' => 1,
-            'variables' => [],
-            'includes' => [],
-            'branch_id' => $branchId,
-            'branch_version_number' => 1,
         ]);
 
         Prompt::create([
@@ -337,14 +329,8 @@ class GraphApiTest extends TestCase
             'created_by' => $this->user->id,
         ]);
         $branchId = $this->createDefaultBranch($prompt);
-        PromptVersion::create([
-            'prompt_id' => $prompt->id,
+        $this->createVersion($prompt, $branchId, [
             'content' => 'Content',
-            'version_number' => 1,
-            'variables' => [],
-            'includes' => [],
-            'branch_id' => $branchId,
-            'branch_version_number' => 1,
         ]);
 
         $response = $this->postJson(
@@ -364,14 +350,9 @@ class GraphApiTest extends TestCase
             'created_by' => $this->user->id,
         ]);
         $branchId = $this->createDefaultBranch($prompt);
-        PromptVersion::create([
-            'prompt_id' => $prompt->id,
+        $this->createVersion($prompt, $branchId, [
             'content' => "First line\n{{>my-frag}}\nLast line",
-            'version_number' => 1,
-            'variables' => [],
             'includes' => ['my-frag'],
-            'branch_id' => $branchId,
-            'branch_version_number' => 1,
         ]);
 
         $response = $this->deleteJson(
@@ -399,5 +380,27 @@ class GraphApiTest extends TestCase
         ]);
         $prompt->update(['default_branch_id' => $branch->id]);
         return $branch->id;
+    }
+
+    /**
+     * Create a PromptVersion and update the branch HEAD.
+     */
+    private function createVersion(Prompt $prompt, int $branchId, array $overrides = []): PromptVersion
+    {
+        $version = PromptVersion::create(array_merge([
+            'prompt_id' => $prompt->id,
+            'content' => 'Default content',
+            'version_number' => 1,
+            'variables' => [],
+            'includes' => [],
+            'branch_id' => $branchId,
+            'branch_version_number' => 1,
+            'created_by' => $this->user->id,
+        ], $overrides));
+
+        // Update branch HEAD so activeVersion accessor works
+        \App\Models\PromptBranch::where('id', $branchId)->update(['head_version_id' => $version->id]);
+
+        return $version;
     }
 }

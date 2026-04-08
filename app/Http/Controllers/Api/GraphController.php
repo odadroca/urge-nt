@@ -144,7 +144,7 @@ class GraphController extends ApiController
     public function positions(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'positions' => ['required', 'array'],
+            'positions' => ['present', 'array'],
             'positions.*.node_type' => ['required', 'string', 'in:prompt,fragment,collection'],
             'positions.*.node_id' => ['required', 'integer', 'min:1'],
             'positions.*.x' => ['required', 'numeric'],
