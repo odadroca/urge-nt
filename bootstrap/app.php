@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role'     => \App\Http\Middleware\RequireRole::class,
             'api.auth' => \App\Http\Middleware\ApiKeyAuthentication::class,
+            'spa.auth' => 'auth',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

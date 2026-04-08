@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\PipelineTemplateController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
+use App\Http\Controllers\Api\GraphController;
 use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\PromptController;
@@ -93,6 +94,13 @@ Route::prefix('v1')->group(function () {
         Route::get('collections/{collection:slug}/share-links', [ShareLinkController::class, 'index']);
         Route::post('collections/{collection:slug}/share-links', [ShareLinkController::class, 'store']);
         Route::delete('collections/{collection:slug}/share-links/{shareLink}', [ShareLinkController::class, 'destroy']);
+
+        // Graph endpoints
+        Route::get('graph/nodes', [GraphController::class, 'nodes']);
+        Route::post('graph/positions', [GraphController::class, 'positions']);
+        Route::get('graph/edges', [GraphController::class, 'edges']);
+        Route::post('prompts/{username}/{promptSlug}/append-include', [GraphController::class, 'appendInclude']);
+        Route::delete('prompts/{username}/{promptSlug}/remove-include', [GraphController::class, 'removeInclude']);
 
         // MCP
         Route::post('mcp', [McpController::class, 'handle']);

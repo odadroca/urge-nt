@@ -54,3 +54,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+// SPA catch-all — serves React app at /app/*
+Route::get('/app/{any?}', function () {
+    return view('spa');
+})->where('any', '.*')->middleware('auth')->name('spa');
