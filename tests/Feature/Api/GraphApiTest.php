@@ -169,4 +169,51 @@ class GraphApiTest extends TestCase
             ->assertJsonPath('meta.total_count', 1)
             ->assertJsonPath('meta.truncated', false);
     }
+
+    public function test_save_positions(): void
+    {
+        Prompt::create([
+            'name' => 'P1',
+            'type' => 'prompt',
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson('/api/v1/graph/positions', [
+            'positions' => [
+                ['node_type' => 'prompt', 'node_id' => 1, 'x' => 100.5, 'y' => 200.5],
+                ['node_type' => 'fragment', 'node_id' => 2, 'x' => 300.0, 'y' => 400.0],
+            ],
+        ], $this->headers);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.saved', 2);
+
+        $this->assertDatabaseHas('graph_positions', [
+            'user_id' => $this->user->id,
+            'node_type' => 'prompt',
+            'node_id' => 1,
+            'x' => 100.5,
+        ]);
+    }
+
+    public function test_save_positions_validates_input(): void
+    {
+        $response = $this->postJson('/api/v1/graph/positions', [
+            'positions' => [
+                ['node_type' => 'invalid', 'node_id' => 1, 'x' => 100, 'y' => 200],
+            ],
+        ], $this->headers);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_save_positions_empty_array(): void
+    {
+        $response = $this->postJson('/api/v1/graph/positions', [
+            'positions' => [],
+        ], $this->headers);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.saved', 0);
+    }
 }

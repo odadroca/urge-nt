@@ -97,6 +97,7 @@ Route::prefix('v1')->group(function () {
 
         // Graph endpoints
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
+        Route::post('graph/positions', [GraphController::class, 'positions']);
 
         // MCP
         Route::post('mcp', [McpController::class, 'handle']);
