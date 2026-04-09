@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name', 'URGE') }}</title>
     @viteReactRefresh
-    @vite(['resources/js/spa/main.jsx'])
+    @vite(['resources/css/app.css', 'resources/js/spa/main.jsx'])
 </head>
 <body>
     <div id="app"></div>
