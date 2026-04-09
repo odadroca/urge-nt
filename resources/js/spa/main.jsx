@@ -1,11 +1,22 @@
 import React from 'react';
-import { createRoot } from 'react-dom/client';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import App from './App.jsx';
+import './styles/flow.css';
 
-function App() {
-    return <div>SPA placeholder</div>;
-}
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: { staleTime: 30_000, retry: 1 },
+    },
+});
 
-const el = document.getElementById('spa-root');
-if (el) {
-    createRoot(el).render(<App />);
-}
+ReactDOM.createRoot(document.getElementById('app')).render(
+    <React.StrictMode>
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter basename="/app">
+                <App />
+            </BrowserRouter>
+        </QueryClientProvider>
+    </React.StrictMode>
+);

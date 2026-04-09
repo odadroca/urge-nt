@@ -1,4 +1,4 @@
-import client from './client';
+import client from './client.js';
 
 export async function getNodes() {
     const { data } = await client.get('/graph/nodes');
