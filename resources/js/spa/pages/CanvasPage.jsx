@@ -1,9 +1,39 @@
+import { useState, useEffect, useCallback } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import useGraphData from '../hooks/useGraphData.js';
+import useElkLayout from '../hooks/useElkLayout.js';
 import FlowCanvas from '../components/canvas/FlowCanvas.jsx';
+import Sidebar from '../components/canvas/Sidebar.jsx';
+import { savePositions } from '../api/graph.js';
 
 export default function CanvasPage() {
-    const { nodes, edges, meta, isLoading, error } = useGraphData();
+    const { nodes, edges, meta, isLoading, error, refetch } = useGraphData();
+    const { getLayoutedNodes, isLayouting } = useElkLayout();
+    const [sidebarVisible, setSidebarVisible] = useState(true);
+    const [layoutMode, setLayoutMode] = useState('free');
+
+    useEffect(() => {
+        const handler = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+                e.preventDefault();
+                setSidebarVisible((v) => !v);
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
+
+    const handleLayoutChange = useCallback(async (mode) => {
+        setLayoutMode(mode);
+        if (mode === 'free') return;
+        const layouted = await getLayoutedNodes(nodes, edges, mode);
+        const positions = layouted.map((n) => {
+            const [type, id] = n.id.split('-');
+            return { node_type: type, node_id: parseInt(id), x: n.position.x, y: n.position.y };
+        });
+        await savePositions(positions);
+        refetch();
+    }, [nodes, edges, getLayoutedNodes, refetch]);
 
     if (isLoading) {
         return (
@@ -32,6 +62,12 @@ export default function CanvasPage() {
                         Showing 500 of {meta.total_count} nodes.
                     </div>
                 )}
+                <Sidebar
+                    visible={sidebarVisible}
+                    nodes={nodes}
+                    layoutMode={layoutMode}
+                    onLayoutChange={handleLayoutChange}
+                />
                 <FlowCanvas initialNodes={nodes} initialEdges={edges} />
             </div>
         </ReactFlowProvider>
