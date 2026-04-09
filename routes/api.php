@@ -95,16 +95,18 @@ Route::prefix('v1')->group(function () {
         Route::post('collections/{collection:slug}/share-links', [ShareLinkController::class, 'store']);
         Route::delete('collections/{collection:slug}/share-links/{shareLink}', [ShareLinkController::class, 'destroy']);
 
-        // Graph endpoints
+        // MCP
+        Route::post('mcp', [McpController::class, 'handle']);
+        Route::get('mcp', [McpController::class, 'stream']);
+    });
+
+    // Graph endpoints — accept both session auth (SPA) and Bearer token (API)
+    Route::middleware('dual.auth')->group(function () {
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
         Route::post('graph/positions', [GraphController::class, 'positions']);
         Route::get('graph/edges', [GraphController::class, 'edges']);
         Route::post('prompts/{username}/{promptSlug}/append-include', [GraphController::class, 'appendInclude']);
         Route::delete('prompts/{username}/{promptSlug}/remove-include', [GraphController::class, 'removeInclude']);
-
-        // MCP
-        Route::post('mcp', [McpController::class, 'handle']);
-        Route::get('mcp', [McpController::class, 'stream']);
     });
 });
 
