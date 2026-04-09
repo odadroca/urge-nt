@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import useGraphData from '../hooks/useGraphData.js';
 import useElkLayout from '../hooks/useElkLayout.js';
+import useMermaidExport from '../hooks/useMermaidExport.js';
 import FlowCanvas from '../components/canvas/FlowCanvas.jsx';
 import Sidebar from '../components/canvas/Sidebar.jsx';
+import PropertiesPanel from '../components/canvas/PropertiesPanel.jsx';
+import Toolbar from '../components/canvas/Toolbar.jsx';
 import { savePositions } from '../api/graph.js';
 
 export default function CanvasPage() {
@@ -11,6 +14,12 @@ export default function CanvasPage() {
     const { getLayoutedNodes, isLayouting } = useElkLayout();
     const [sidebarVisible, setSidebarVisible] = useState(true);
     const [layoutMode, setLayoutMode] = useState('free');
+    const [selectedNode, setSelectedNode] = useState(null);
+    const { copyToClipboard } = useMermaidExport(nodes, edges);
+
+    const handleMermaidExport = useCallback(async () => {
+        await copyToClipboard();
+    }, [copyToClipboard]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -68,7 +77,15 @@ export default function CanvasPage() {
                     layoutMode={layoutMode}
                     onLayoutChange={handleLayoutChange}
                 />
-                <FlowCanvas initialNodes={nodes} initialEdges={edges} />
+                <FlowCanvas initialNodes={nodes} initialEdges={edges} onNodeSelect={setSelectedNode} />
+                <PropertiesPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
+                <Toolbar
+                    layoutMode={layoutMode}
+                    onLayoutChange={handleLayoutChange}
+                    onMermaidExport={handleMermaidExport}
+                    onToggleSidebar={() => setSidebarVisible((v) => !v)}
+                    isLayouting={isLayouting}
+                />
             </div>
         </ReactFlowProvider>
     );
