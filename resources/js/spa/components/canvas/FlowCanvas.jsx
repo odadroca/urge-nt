@@ -3,10 +3,12 @@ import {
     ReactFlow, useNodesState, useEdgesState, Background, Controls, MiniMap,
 } from '@xyflow/react';
 import { savePositions } from '../../api/graph.js';
+import PromptNode from './nodes/PromptNode.jsx';
+import FragmentNode from './nodes/FragmentNode.jsx';
+import CollectionNode from './nodes/CollectionNode.jsx';
 
-// nodeTypes and edgeTypes will be added in Tasks 3-4
-// For now, use defaults so the canvas renders with basic rectangles
-const nodeTypes = {};
+// edgeTypes will be added in Task 4
+const nodeTypes = { prompt: PromptNode, fragment: FragmentNode, collection: CollectionNode };
 const edgeTypes = {};
 
 export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect }) {
