@@ -2,18 +2,20 @@ import { useCallback } from 'react';
 import {
     ReactFlow, useNodesState, useEdgesState, Background, Controls, MiniMap,
 } from '@xyflow/react';
-import { savePositions } from '../../api/graph.js';
+import { useQueryClient } from '@tanstack/react-query';
+import { savePositions, appendInclude } from '../../api/graph.js';
 import PromptNode from './nodes/PromptNode.jsx';
 import FragmentNode from './nodes/FragmentNode.jsx';
 import CollectionNode from './nodes/CollectionNode.jsx';
+import CompositionEdge from './edges/CompositionEdge.jsx';
 
-// edgeTypes will be added in Task 4
 const nodeTypes = { prompt: PromptNode, fragment: FragmentNode, collection: CollectionNode };
-const edgeTypes = {};
+const edgeTypes = { composition: CompositionEdge };
 
 export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect }) {
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const queryClient = useQueryClient();
 
     const handleNodeDragStop = useCallback((_event, node) => {
         const [type, id] = node.id.split('-');
@@ -24,6 +26,20 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
         onNodeSelect?.(selected.length === 1 ? selected[0] : null);
     }, [onNodeSelect]);
 
+    const handleConnect = useCallback(async (params) => {
+        const sourceNode = nodes.find((n) => n.id === params.source);
+        const targetNode = nodes.find((n) => n.id === params.target);
+        if (!sourceNode || !targetNode) return;
+        if (targetNode.type !== 'fragment') return;
+
+        try {
+            await appendInclude(sourceNode.data.owner, sourceNode.data.slug, targetNode.data.slug);
+            queryClient.invalidateQueries({ queryKey: ['graph'] });
+        } catch (err) {
+            console.error('Failed to add include:', err);
+        }
+    }, [nodes, queryClient]);
+
     return (
         <div className="w-full h-full">
             <ReactFlow
@@ -33,6 +49,7 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
                 onEdgesChange={onEdgesChange}
                 onNodeDragStop={handleNodeDragStop}
                 onSelectionChange={handleSelectionChange}
+                onConnect={handleConnect}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 fitView
