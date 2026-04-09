@@ -101,7 +101,12 @@ Route::prefix('v1')->group(function () {
     });
 
     // Graph endpoints — accept both session auth (SPA) and Bearer token (API)
-    Route::middleware('dual.auth')->group(function () {
+    // StartSession + cookies needed so Auth::guard('web') can read session from SPA requests
+    Route::middleware([
+        \Illuminate\Cookie\Middleware\EncryptCookies::class,
+        \Illuminate\Session\Middleware\StartSession::class,
+        'dual.auth',
+    ])->group(function () {
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
         Route::post('graph/positions', [GraphController::class, 'positions']);
         Route::get('graph/edges', [GraphController::class, 'edges']);
