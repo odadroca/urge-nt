@@ -63,6 +63,21 @@ export default function CanvasPage() {
         );
     }
 
+    if (nodes.length === 0) {
+        return (
+            <div className="h-full flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                    <div className="text-4xl mb-4">🗂️</div>
+                    <h2 className="text-lg mb-2">No prompts yet</h2>
+                    <p className="text-sm mb-4">Create your first prompt to see it on the canvas.</p>
+                    <a href="/browse" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">
+                        Go to Browse →
+                    </a>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <ReactFlowProvider>
             <div className="h-full relative">
