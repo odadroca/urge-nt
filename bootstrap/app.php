@@ -15,8 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role'     => \App\Http\Middleware\RequireRole::class,
             'api.auth' => \App\Http\Middleware\ApiKeyAuthentication::class,
-            'spa.auth'  => 'auth',
+            'spa.auth'  => 'auth:sanctum',
             'dual.auth' => \App\Http\Middleware\DualAuthentication::class,
+        ]);
+
+        $middleware->api(prepend: [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

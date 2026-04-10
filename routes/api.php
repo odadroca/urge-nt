@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\PipelineTemplateController;
 use App\Http\Controllers\Api\CategoryController;
@@ -17,6 +18,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::get('health', HealthController::class);
+
+    // SPA auth endpoints (Sanctum session-based)
+    Route::post('auth/login', [AuthController::class, 'login']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('auth/logout', [AuthController::class, 'logout']);
+        Route::get('auth/user', [AuthController::class, 'user']);
+    });
 
     Route::middleware('api.auth')->group(function () {
         // Prompts (namespaced)
@@ -101,12 +109,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // Graph endpoints — accept both session auth (SPA) and Bearer token (API)
-    // StartSession + cookies needed so Auth::guard('web') can read session from SPA requests
-    Route::middleware([
-        \Illuminate\Cookie\Middleware\EncryptCookies::class,
-        \Illuminate\Session\Middleware\StartSession::class,
-        'dual.auth',
-    ])->group(function () {
+    Route::middleware('dual.auth')->group(function () {
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
         Route::post('graph/positions', [GraphController::class, 'positions']);
         Route::get('graph/edges', [GraphController::class, 'edges']);

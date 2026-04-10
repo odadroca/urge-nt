@@ -4,20 +4,19 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 class DualAuthentication
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Try web guard (session auth from SPA cookies)
-        if (Auth::guard('web')->check()) {
-            Auth::setUser(Auth::guard('web')->user());
+        // Sanctum handles session auth for stateful requests.
+        // $request->user() works for session (SPA) auth.
+        if ($request->user()) {
             return $next($request);
         }
 
-        // Fall back to API key auth (Bearer token)
+        // Fall back to API key auth (Bearer token for external consumers)
         return app(ApiKeyAuthentication::class)->handle($request, $next);
     }
 }
