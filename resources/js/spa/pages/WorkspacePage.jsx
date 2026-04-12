@@ -5,6 +5,7 @@ import { getPrompt } from '../api/prompts.js';
 import { listVersions } from '../api/versions.js';
 import Editor from '../components/workspace/Editor.jsx';
 import VersionSidebar from '../components/workspace/VersionSidebar.jsx';
+import ResultsPanel from '../components/workspace/ResultsPanel.jsx';
 
 export default function WorkspacePage() {
     const { username, slug } = useParams();
@@ -82,12 +83,14 @@ export default function WorkspacePage() {
                 />
             </div>
 
-            {/* Right: Results Panel placeholder */}
+            {/* Right: Results Panel */}
             <div className="w-80 border-l border-gray-700 bg-gray-800 overflow-y-auto shrink-0">
-                <div className="p-3 border-b border-gray-700">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">Results</span>
-                </div>
-                <div className="p-3 text-sm text-gray-500">Results panel coming in Task 4</div>
+                <ResultsPanel
+                    prompt={prompt}
+                    username={username}
+                    slug={slug}
+                    currentVersionId={currentVersion?.id}
+                />
             </div>
         </div>
     );
