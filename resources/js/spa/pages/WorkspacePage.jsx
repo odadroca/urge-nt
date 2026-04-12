@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getPrompt } from '../api/prompts.js';
 import { listVersions } from '../api/versions.js';
 import Editor from '../components/workspace/Editor.jsx';
+import VersionSidebar from '../components/workspace/VersionSidebar.jsx';
 
 export default function WorkspacePage() {
     const { username, slug } = useParams();
@@ -59,29 +60,15 @@ export default function WorkspacePage() {
 
     return (
         <div className="h-full flex">
-            {/* Left: Version Sidebar placeholder */}
+            {/* Left: Version Sidebar */}
             <div className="w-64 border-r border-gray-700 bg-gray-800 overflow-y-auto shrink-0">
-                <div className="p-3 border-b border-gray-700">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">Versions</span>
-                </div>
-                <div className="p-2 space-y-1">
-                    {versions.map(v => (
-                        <button
-                            key={v.id}
-                            onClick={() => handleVersionSelected(v.id)}
-                            className={`w-full text-left px-3 py-2 rounded text-xs transition-colors ${
-                                v.id === (currentVersion?.id)
-                                    ? 'bg-indigo-900/50 text-indigo-200 border border-indigo-700'
-                                    : 'text-gray-300 hover:bg-gray-700'
-                            }`}
-                        >
-                            <span className="font-medium">v{v.version_number}</span>
-                            {v.commit_message && (
-                                <div className="text-[10px] text-gray-500 mt-0.5 truncate">{v.commit_message}</div>
-                            )}
-                        </button>
-                    ))}
-                </div>
+                <VersionSidebar
+                    prompt={prompt}
+                    username={username}
+                    slug={slug}
+                    currentVersionId={currentVersion?.id}
+                    onVersionSelect={handleVersionSelected}
+                />
             </div>
 
             {/* Center: Editor */}
