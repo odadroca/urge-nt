@@ -90,6 +90,7 @@ export default function WorkspacePage() {
                     username={username}
                     slug={slug}
                     currentVersionId={currentVersion?.id}
+                    currentVersionNumber={currentVersion?.version_number}
                 />
             </div>
         </div>

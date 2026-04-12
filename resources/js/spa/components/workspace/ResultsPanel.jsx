@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listResults, updateResult, deleteResult } from '../../api/results.js';
+import ManualResultForm from './ManualResultForm.jsx';
 
-export default function ResultsPanel({ prompt, username, slug, currentVersionId }) {
+export default function ResultsPanel({ prompt, username, slug, currentVersionId, currentVersionNumber }) {
     const queryClient = useQueryClient();
     const [sortBy, setSortBy] = useState('newest');
     const [showAllVersions, setShowAllVersions] = useState(false);
+    const [showManualForm, setShowManualForm] = useState(false);
 
     const { data: resultsData, isLoading } = useQuery({
         queryKey: ['workspace', username, slug, 'results', { sortBy, showAllVersions, currentVersionId }],
@@ -75,7 +77,34 @@ export default function ResultsPanel({ prompt, username, slug, currentVersionId 
                         All versions
                     </label>
                 </div>
+                <div className="flex items-center gap-2 mt-2">
+                    <button
+                        onClick={() => setShowManualForm(!showManualForm)}
+                        className={`text-xs px-2 py-1 rounded ${showManualForm ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                    >
+                        + Add Result
+                    </button>
+                    <a
+                        href={`/prompts/${username}/${slug}`}
+                        className="text-xs text-gray-500 hover:text-indigo-400"
+                        title="Run with LLM in Classic UI"
+                    >
+                        Run LLM &rarr;
+                    </a>
+                </div>
             </div>
+
+            {/* Manual result form */}
+            {showManualForm && (
+                <div className="border-b border-gray-700">
+                    <ManualResultForm
+                        username={username}
+                        slug={slug}
+                        currentVersionNumber={currentVersionNumber}
+                        onClose={() => setShowManualForm(false)}
+                    />
+                </div>
+            )}
 
             {/* Results list */}
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
