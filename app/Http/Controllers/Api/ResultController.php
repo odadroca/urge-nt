@@ -79,6 +79,18 @@ class ResultController extends ApiController
         return $this->success($result, 201);
     }
 
+    public function starred(Request $request): JsonResponse
+    {
+        $query = Result::where('starred', true)
+            ->whereHas('prompt', function ($q) use ($request) {
+                $q->visibleTo($request->user());
+            })
+            ->with(['prompt.creator', 'promptVersion'])
+            ->orderByDesc('created_at');
+
+        return $this->paginated($query, $request);
+    }
+
     public function destroy(Result $result): JsonResponse
     {
         $result->delete();
