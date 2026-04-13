@@ -19,3 +19,8 @@ export async function deleteResult(resultId) {
     const { data } = await client.delete(`/results/${resultId}`);
     return data;
 }
+
+export async function listStarredResults(params = {}) {
+    const { data } = await client.get('/results/starred', { params });
+    return data;
+}

@@ -54,6 +54,7 @@ Route::prefix('v1')->group(function () {
         Route::post('prompts/{username}/{promptSlug}/results', [ResultController::class, 'store']);
 
         // Results (standalone)
+        Route::get('results/starred', [ResultController::class, 'starred']);
         Route::get('results/{result}', [ResultController::class, 'show']);
         Route::patch('results/{result}', [ResultController::class, 'update']);
         Route::delete('results/{result}', [ResultController::class, 'destroy']);

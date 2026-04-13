@@ -12,7 +12,7 @@ use App\Livewire\Workspace\WorkspacePage;
 use App\Models\Prompt;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('browse'));
+Route::get('/', fn () => redirect('/app/browse'));
 
 // Public share routes (no auth required)
 Route::get('/share/{token}', [ShareController::class, 'show'])
@@ -21,7 +21,7 @@ Route::get('/share/{token}', [ShareController::class, 'show'])
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/browse', Browse::class)->name('browse');
-    Route::get('/dashboard', fn () => redirect()->route('browse'))->name('dashboard');
+    Route::get('/dashboard', fn () => redirect('/app/browse'))->name('dashboard');
     Route::get('/prompts/{username}/{slug}', WorkspacePage::class)->name('workspace');
 
     // Legacy redirect: /prompts/{slug} → /prompts/{owner}/{slug}

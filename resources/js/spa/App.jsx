@@ -19,7 +19,7 @@ export default function App() {
                             <Route path="/workspace/:username/:slug" element={<WorkspacePage />} />
                             <Route path="/browse" element={<BrowsePage />} />
                             <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="*" element={<Navigate to="/canvas" replace />} />
+                            <Route path="*" element={<Navigate to="/browse" replace />} />
                         </Routes>
                     </Layout>
                 </ProtectedRoute>
