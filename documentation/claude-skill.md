@@ -10,11 +10,19 @@ https://urge-next.acordado.org/api/v1
 
 ## Authentication
 
-All API requests (except health check) require a Bearer token:
+All API requests (except health check) require authentication. Two options:
 
+**API key** (simplest):
 ```
 Authorization: Bearer urge_YOUR_API_KEY
 ```
+
+**OAuth 2.1 token** (for third-party clients):
+```
+Authorization: Bearer <oauth_access_token>
+```
+
+OAuth discovery flow: send a request → receive 401 → follow `/.well-known/oauth-protected-resource` → `/.well-known/oauth-authorization-server` → authorize with PKCE → exchange code for token. Scopes: `mcp:read`, `mcp:write`, `mcp:admin`.
 
 ## Namespaces
 
@@ -107,6 +115,7 @@ curl -X POST \
 | POST | `/prompts/{username}/{slug}/results` | Store result |
 | POST | `/prompts/{username}/{slug}/share` | Share with team |
 | DELETE | `/prompts/{username}/{slug}/share/{team}` | Unshare from team |
+| GET | `/results/starred` | List starred results across all prompts |
 | GET | `/results/{id}` | Get single result |
 | PATCH | `/results/{id}` | Update result (rating, starred, notes) |
 | DELETE | `/results/{id}` | Delete result |
@@ -125,7 +134,7 @@ Legacy URLs (`/prompts/{slug}`) redirect to the namespaced version automatically
 
 URGE also supports the Model Context Protocol (MCP). Connect Claude Desktop or Claude Code to URGE as an MCP server.
 
-### Available MCP Tools
+### Available MCP Tools (15)
 
 - **get_prompt** — Fetch a prompt by slug (+ optional `owner` for namespace resolution)
 - **list_prompts** — List/search prompts (scope: mine/shared/team:{slug}/all)
@@ -138,17 +147,23 @@ URGE also supports the Model Context Protocol (MCP). Connect Claude Desktop or C
 - **delete_prompt** — Delete a prompt (owner/admin only)
 - **share_prompt** — Share a prompt with a team
 - **list_teams** — List user's teams with member/prompt counts
+- **list_branches** — List branches for a prompt
+- **create_branch** — Create a new branch
+- **list_templates** — List available prompt templates
+- **run_template** — Render and execute a template
 
-### MCP Resources
+### MCP Resources (6)
 
 - `urge://prompts` — Visible prompts as JSON (namespace-scoped)
 - `urge://prompts/{username}/{slug}` — Active version content
 - `urge://prompts/{username}/{slug}/v/{n}` — Specific version content
+- `urge://prompts/{username}/{slug}/branches` — List branches for a prompt
+- `urge://prompts/{username}/{slug}/branches/{branch}` — Branch HEAD content
 - `urge://teams` — User's teams as JSON
 
 Legacy resource URIs (`urge://prompts/{slug}`) still work as fallbacks.
 
-### Claude Desktop Configuration (SSE)
+### Claude Desktop Configuration (Streamable HTTP)
 
 Add to `claude_desktop_config.json`:
 
@@ -164,6 +179,8 @@ Add to `claude_desktop_config.json`:
   }
 }
 ```
+
+The server uses Streamable HTTP transport (protocol 2025-06-18). Session state is managed via the `Mcp-Session-Id` header. You can also use an OAuth token in place of the API key.
 
 ### Claude Code Configuration (stdio)
 

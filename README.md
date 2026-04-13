@@ -7,7 +7,7 @@ Self-hosted prompt registry and version control system.
 URGE is a **prompt memory layer** that sits behind any LLM. Instead of URGE calling LLMs, **LLMs call URGE** — pulling prompts, filling variables, resolving includes, and storing results back via API or MCP.
 
 Two access patterns, one backend:
-- **Humans** manage and curate prompts through a Livewire 3 web UI
+- **Humans** manage and curate prompts through a React SPA (primary UI) and Livewire 3 pages (settings, teams)
 - **Machines** (any LLM) consume and contribute to the registry via REST API or MCP server
 
 ## Features
@@ -15,11 +15,13 @@ Two access patterns, one backend:
 - **Prompt versioning** — immutable versions with auto-numbering, pin a specific version or default to latest
 - **Version branching** — non-linear version history with named branches, independent version numbers per branch, create/delete/set-default
 - **Template engine** — `{{variables}}` for substitution, `{{>slug}}` for recursive includes, circular reference detection
+- **React SPA** — Browse, Canvas (graph visualization), and Workspace pages with slim icon-rail sidebar and mobile bottom tab bar
 - **3-panel workspace** — editor, version sidebar, and results panel in a single screen
 - **Live preview** — rendered preview with include resolution and variable fill from defaults
 - **Visual composer** — drag-and-drop blocks (text, variable chips, include chips) via SortableJS
-- **REST API** — full CRUD with Bearer token auth, rate limiting, OpenAPI 3.0 spec
-- **MCP server** — dual transport (SSE for remote, stdio for local) with 13 tools and 6 resources
+- **REST API** — full CRUD with Bearer token auth, rate limiting, OpenAPI 3.1 spec
+- **OAuth 2.1** — PKCE (S256), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub as external provider
+- **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 15 tools and 6 resources
 - **6 LLM drivers** — OpenAI, Anthropic, Mistral, Gemini, Ollama, OpenRouter
 - **Import/export** — Markdown with YAML frontmatter for prompts and results
 - **Collections** — curated groupings of prompt versions, results, and nested collections (DAG) with ordering and public share links
@@ -35,11 +37,12 @@ Two access patterns, one backend:
 | Component | Technology |
 |-----------|------------|
 | Backend | Laravel 12 / PHP 8.3+ |
-| Frontend | Livewire 3, Alpine.js |
+| Frontend (SPA) | React 19, React Query, @xyflow/react |
+| Frontend (settings/teams) | Livewire 3, Alpine.js |
 | Styling | Tailwind CSS 3.1 |
 | Database | SQLite (default, configurable) |
 | Build | Vite 7 |
-| Testing | PHPUnit 11 (307 tests) |
+| Testing | PHPUnit 11 (357 tests) |
 
 ## Quick Start
 
@@ -98,6 +101,7 @@ All API endpoints are under `/api/v1/` and require Bearer token authentication (
 | DELETE | `/prompts/{username}/{slug}/share/{team}` | Unshare from team |
 | GET | `/results/{id}` | Get single result |
 | PATCH | `/results/{id}` | Update rating/starred/notes |
+| GET | `/results/starred` | List starred results across all prompts |
 | GET | `/teams` | List user's teams |
 | POST | `/teams` | Create team |
 | GET | `/teams/{slug}` | Get team details |
@@ -114,9 +118,9 @@ Full spec available at [`public/openapi.json`](public/openapi.json), importable 
 
 ## MCP Integration
 
-URGE exposes an MCP server with two transports. Both share the same tool dispatch layer.
+URGE exposes an MCP server (protocol version 2025-06-18) with two transports. Both share the same tool dispatch layer.
 
-**SSE transport** (for hosted/remote URGE — Claude Desktop connecting over the network):
+**Streamable HTTP transport** (for hosted/remote URGE — Claude Desktop connecting over the network):
 
 ```json
 {
@@ -130,6 +134,8 @@ URGE exposes an MCP server with two transports. Both share the same tool dispatc
   }
 }
 ```
+
+Session state is managed via the `Mcp-Session-Id` header (set by the server on first response).
 
 **stdio transport** (for local dev — Claude Code or Claude Desktop on the same machine):
 
@@ -145,16 +151,24 @@ URGE exposes an MCP server with two transports. Both share the same tool dispatc
 }
 ```
 
-**Tools:** `get_prompt`, `list_prompts`, `render_prompt`, `save_version`, `store_result`, `get_results`, `update_result`, `delete_result`, `delete_prompt`, `share_prompt`, `list_teams`, `list_branches`, `create_branch`
+**Tools (15):** `get_prompt`, `list_prompts`, `render_prompt`, `save_version`, `store_result`, `get_results`, `update_result`, `delete_result`, `delete_prompt`, `share_prompt`, `list_teams`, `list_branches`, `create_branch`, `list_templates`, `run_template`
 
 **Resources:** `urge://prompts`, `urge://prompts/{username}/{slug}`, `urge://prompts/{username}/{slug}/v/{n}`, `urge://prompts/{username}/{slug}/branches`, `urge://prompts/{username}/{slug}/branches/{branch}`, `urge://teams`
 
 See [`documentation/claude-skill.md`](documentation/claude-skill.md) for full API usage examples.
 
+## Authentication
+
+Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix). OAuth 2.1 with PKCE (S256 only). Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access).
+
+**OAuth endpoints:** `GET/POST /oauth/authorize`, `POST /oauth/token`, `GET /oauth/github`, `GET /oauth/github/callback`
+
+**Discovery:** `GET /.well-known/oauth-protected-resource`, `GET /.well-known/oauth-authorization-server`
+
 ## Testing
 
 ```bash
-php artisan test    # 307 tests
+php artisan test    # 357 tests
 ```
 
 ## Artisan Commands

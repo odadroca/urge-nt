@@ -3,7 +3,7 @@
 ## Vision
 
 URGE is a **prompt registry, version control, and result archive** with two access patterns:
-- **Human access** via a Livewire 3 web UI (workspace-centric, minimal navigation)
+- **Human access** via a React SPA (primary: Browse, Canvas, Workspace) and Livewire 3 pages (settings, teams)
 - **Machine access** via REST API + MCP server (LLMs consume and contribute to the registry)
 
 The key insight: instead of URGE calling LLMs, **LLMs call URGE**. URGE is the memory and management layer; any LLM can pull prompts, render templates, and store results back.
@@ -58,45 +58,60 @@ ApiKey ──<> Prompt (pivot: api_key_prompt)
 
 ## Integration Architecture
 
-### Five Surfaces, One Backend
+### Six Surfaces, One Backend
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                      Laravel App                          │
-│                                                           │
-│  ┌──────────┐  ┌──────────┐  ┌─────────┐  ┌──────────┐  │
-│  │ Livewire │  │ REST API │  │ MCP SSE │  │MCP stdio │  │
-│  │ Web UI   │  │ /api/v1/ │  │ /mcp    │  │ artisan  │  │
-│  └────┬─────┘  └────┬─────┘  └────┬────┘  └────┬─────┘  │
-│       │              │             │             │        │
-│       └──────────────┼─────────────┴─────────────┘        │
-│                      v                                    │
-│            ┌──────────────────┐                           │
-│            │  Service Layer   │                           │
-│            │  TemplateEngine  │                           │
-│            │  VersioningSvc   │                           │
-│            │  McpToolHandler  │                           │
-│            │  ApiKeySvc       │                           │
-│            │  LlmDispatchSvc  │                           │
-│            │  AiAssistantSvc  │                           │
-│            │  ImportExportSvc │                           │
-│            └────────┬─────────┘                           │
-│                     v                                     │
-│            ┌──────────────────┐                           │
-│            │  Eloquent/SQLite │                           │
-│            └──────────────────┘                           │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                         Laravel App                                │
+│                                                                    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐ ┌────────┐│
+│  │React SPA │ │ Livewire │ │ REST API │ │MCP Stream.│ │MCP     ││
+│  │ /app/*   │ │ Pages    │ │ /api/v1/ │ │HTTP /mcp  │ │stdio   ││
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └─────┬─────┘ └───┬────┘│
+│       │             │            │              │            │     │
+│       └─────────────┼────────────┼──────────────┴────────────┘     │
+│                     v            v                                  │
+│            ┌──────────────────┐                                    │
+│            │  Service Layer   │                                    │
+│            │  TemplateEngine  │                                    │
+│            │  VersioningSvc   │                                    │
+│            │  McpToolHandler  │                                    │
+│            │  ApiKeySvc       │                                    │
+│            │  LlmDispatchSvc  │                                    │
+│            │  AiAssistantSvc  │                                    │
+│            │  ImportExportSvc │                                    │
+│            └────────┬─────────┘                                    │
+│                     v                                              │
+│            ┌──────────────────┐                                    │
+│            │  Eloquent/SQLite │                                    │
+│            └──────────────────┘                                    │
+└───────────────────────────────────────────────────────────────────┘
 
 External consumers:
-  Browser (human)  ──> Livewire Web UI
+  Browser (human)  ──> React SPA (primary) + Livewire Pages (settings/teams)
   Any HTTP client  ──> REST API
-  Claude Desktop   ──> MCP SSE (remote) or MCP stdio (local)
+  OAuth client     ──> OAuth 2.1 (PKCE) ──> REST API / MCP
+  Claude Desktop   ──> MCP Streamable HTTP (remote) or MCP stdio (local)
   CustomGPT        ──> REST API (via OpenAPI spec)
+```
+
+### OAuth 2.1
+
+Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix).
+
+OAuth 2.1 with PKCE (S256 only). Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access). GitHub as external provider.
+
+```
+Client ──401──> /.well-known/oauth-protected-resource
+             ──> /.well-known/oauth-authorization-server
+             ──> GET/POST /oauth/authorize (PKCE challenge)
+             ──> POST /oauth/token (exchange code for token)
+             ──> API/MCP with Bearer token
 ```
 
 ### REST API (`/api/v1/`)
 
-Bearer token auth via `ApiKeyAuthentication` middleware. Rate limited per key.
+Bearer token or OAuth token auth via middleware cascade. Rate limited per key.
 
 ```
 Prompts:
@@ -125,6 +140,7 @@ Branches:
 Results:
   GET    /prompts/{username}/{slug}/results    — list (filter: version, starred)
   POST   /prompts/{username}/{slug}/results    — store
+  GET    /results/starred                      — list starred results across all prompts
   GET    /results/{id}                         — get single
   PATCH  /results/{id}                         — update rating/starred/notes
   DELETE /results/{id}                         — delete result
@@ -160,15 +176,15 @@ System:
   GET    /health                               — health check
 ```
 
-### MCP Server (dual transport)
+### MCP Server (dual transport, protocol 2025-06-18)
 
 Two transports, one shared handler layer:
 
-**SSE transport (primary, for hosted/remote URGE):**
-- HTTP endpoint at `/mcp`, authenticated via Bearer token (same API keys)
+**Streamable HTTP transport (primary, for hosted/remote URGE):**
+- `POST /api/v1/mcp`, authenticated via Bearer token or OAuth token
+- Session state via `Mcp-Session-Id` header (set by server on first response)
 - Use case: Claude Desktop on your laptop connects to URGE on Hostinger
 - Runs within the Laravel HTTP server — no extra process needed
-- SSE (Server-Sent Events) for server→client streaming, POST for client→server
 
 **stdio transport (secondary, for local dev):**
 - Artisan command: `php artisan urge:mcp-server`
@@ -177,7 +193,7 @@ Two transports, one shared handler layer:
 
 Both transports dispatch to the same `McpToolHandler` service, which maps tool calls to TemplateEngine, VersioningService, and Eloquent queries.
 
-**Tools:**
+**Tools (15):**
 | Tool | Purpose |
 |---|---|
 | `get_prompt` | Fetch prompt by slug (+ optional owner for namespace), optionally specific version |
@@ -193,6 +209,8 @@ Both transports dispatch to the same `McpToolHandler` service, which maps tool c
 | `list_teams` | List user's teams |
 | `list_branches` | List branches for a prompt |
 | `create_branch` | Create a new branch |
+| `list_templates` | List available prompt templates |
+| `run_template` | Render and execute a template |
 
 **Resources:**
 | URI | Purpose |
@@ -247,6 +265,24 @@ app/Livewire/
     └── PromptMetadata.php     # Name, type, category, tags, description
 ```
 
+### React SPA (mounted at `/app/*`)
+
+```
+resources/js/
+├── app.jsx                    # React root, BrowserRouter basename="/app"
+├── components/
+│   ├── Sidebar.jsx            # Slim icon-rail navigation (desktop)
+│   ├── BottomTabBar.jsx       # Mobile bottom tab bar
+│   ├── PromptCard.jsx         # Card component for browse grid
+│   └── ...
+├── pages/
+│   ├── BrowsePage.jsx         # Tabs: prompts/fragments/collections/starred, filters, card grid
+│   ├── CanvasPage.jsx         # Graph visualization with @xyflow/react
+│   └── WorkspacePage.jsx      # 3-panel editor (React version)
+└── hooks/
+    └── ...                    # React Query hooks for API data fetching
+```
+
 ### Service Layer
 
 ```
@@ -292,3 +328,6 @@ app/Services/
 | 7 (done) | Namespaces + teams | User-scoped prompts, team sharing, namespace-aware API/MCP/UI |
 | Post-7 | Version branching | Non-linear version history with PromptBranch, branch CRUD, MCP/API support |
 | Post-7 | Nested collections | Collections inside collections (DAG), circular ref detection, configurable depth, public share rendering |
+| Post-7 | React SPA | React 19 primary UI (Browse, Canvas, Workspace), sidebar nav, mobile bottom tab bar |
+| Post-7 | OAuth 2.1 | PKCE (S256), scoped tokens, GitHub provider, discovery endpoints |
+| Post-7 | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 15 tools |
