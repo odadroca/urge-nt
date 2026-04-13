@@ -9,3 +9,8 @@ export async function updatePrompt(username, slug, data) {
     const { data: response } = await client.patch(`/prompts/${username}/${slug}`, data);
     return response;
 }
+
+export async function createPrompt({ name, type }) {
+    const { data } = await client.post('/prompts', { name, type });
+    return data;
+}
