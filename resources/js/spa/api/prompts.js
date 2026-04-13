@@ -1,5 +1,10 @@
 import client from './client.js';
 
+export async function listPrompts(params = {}) {
+    const { data } = await client.get('/prompts', { params });
+    return data;
+}
+
 export async function getPrompt(username, slug) {
     const { data } = await client.get(`/prompts/${username}/${slug}`);
     return data;
