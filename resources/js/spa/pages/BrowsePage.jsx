@@ -4,6 +4,7 @@ import { listPrompts } from '../api/prompts.js';
 import { listCategories } from '../api/categories.js';
 import PromptCard from '../components/browse/PromptCard.jsx';
 import CreatePromptForm from '../components/browse/CreatePromptForm.jsx';
+import CollectionList from '../components/browse/CollectionList.jsx';
 
 const TABS = [
     { key: 'prompts', label: 'Prompts' },
@@ -172,9 +173,7 @@ export default function BrowsePage() {
                     </>
                 )}
 
-                {tab === 'collections' && (
-                    <div className="text-gray-500 text-sm py-4">Collections tab — coming next</div>
-                )}
+                {tab === 'collections' && <CollectionList />}
 
                 {tab === 'starred' && (
                     <div className="text-gray-500 text-sm py-4">Starred results — coming next</div>
