@@ -51,11 +51,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // OAuth 2.1 authorization (requires login)
+    Route::get('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'showAuthorize']);
+    Route::post('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'handleAuthorize']);
 });
 
 // OAuth 2.1 well-known discovery (no auth required)
 Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
 Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
+
+// OAuth 2.1 token exchange (public — client authenticates via code+PKCE)
+Route::post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
 
 require __DIR__.'/auth.php';
 
