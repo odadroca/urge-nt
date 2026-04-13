@@ -55,7 +55,13 @@ Route::middleware(['auth'])->group(function () {
     // OAuth 2.1 authorization (requires login)
     Route::get('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'showAuthorize']);
     Route::post('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'handleAuthorize']);
+
+    // GitHub OAuth — redirect (stores MCP params in session, then goes to GitHub)
+    Route::get('/oauth/github', [App\Http\Controllers\OAuthGitHubController::class, 'redirect']);
 });
+
+// GitHub OAuth callback (no auth — user is not logged in yet)
+Route::get('/oauth/github/callback', [App\Http\Controllers\OAuthGitHubController::class, 'callback']);
 
 // OAuth 2.1 well-known discovery (no auth required)
 Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
