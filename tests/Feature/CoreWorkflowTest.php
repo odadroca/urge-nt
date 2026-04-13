@@ -127,7 +127,7 @@ class CoreWorkflowTest extends TestCase
     public function test_dashboard_redirects_to_browse(): void
     {
         $response = $this->actingAs($this->user)->get('/dashboard');
-        $response->assertRedirect('/browse');
+        $response->assertRedirect('/app/browse');
     }
 
     public function test_browse_requires_auth(): void

@@ -11,7 +11,7 @@ export default function LoginPage() {
     const navigate = useNavigate();
 
     if (isAuthenticated) {
-        navigate('/canvas', { replace: true });
+        navigate('/browse', { replace: true });
         return null;
     }
 
@@ -21,7 +21,7 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await login(email, password);
-            navigate('/canvas');
+            navigate('/browse');
         } catch (err) {
             setError(err.response?.data?.message || err.response?.data?.errors?.email?.[0] || 'Login failed');
         } finally {
