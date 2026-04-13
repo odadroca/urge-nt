@@ -26,7 +26,7 @@ Route::prefix('v1')->group(function () {
         Route::get('auth/user', [AuthController::class, 'user']);
     });
 
-    Route::middleware('api.auth')->group(function () {
+    Route::middleware('dual.auth')->group(function () {
         // Prompts (namespaced)
         Route::get('prompts', [PromptController::class, 'index']);
         Route::post('prompts', [PromptController::class, 'store']);
@@ -106,10 +106,8 @@ Route::prefix('v1')->group(function () {
         // MCP
         Route::post('mcp', [McpController::class, 'handle']);
         Route::get('mcp', [McpController::class, 'stream']);
-    });
 
-    // Graph endpoints — accept both session auth (SPA) and Bearer token (API)
-    Route::middleware('dual.auth')->group(function () {
+        // Graph
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
         Route::post('graph/positions', [GraphController::class, 'positions']);
         Route::get('graph/edges', [GraphController::class, 'edges']);
