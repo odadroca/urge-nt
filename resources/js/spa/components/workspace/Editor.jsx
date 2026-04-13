@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createVersion } from '../../api/versions.js';
+import PreviewPanel from './PreviewPanel.jsx';
 
 const VAR_PATTERN = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
 const INCLUDE_PATTERN = /\{\{>([a-zA-Z0-9_-]+)\}\}/g;
@@ -12,6 +13,7 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
     const [saving, setSaving] = useState(false);
     const [variables, setVariables] = useState([]);
     const [includes, setIncludes] = useState([]);
+    const [showPreview, setShowPreview] = useState(false);
     const textareaRef = useRef(null);
     const queryClient = useQueryClient();
 
@@ -80,18 +82,36 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
                     {includes.length > 0 && (
                         <span className="text-[10px] text-indigo-400">{includes.length} includes</span>
                     )}
+                    <button
+                        onClick={() => setShowPreview(!showPreview)}
+                        className={`text-xs px-2 py-0.5 rounded transition-colors ${
+                            showPreview
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                        }`}
+                    >
+                        Preview
+                    </button>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden flex flex-col">
                 <textarea
                     ref={textareaRef}
                     value={content}
                     onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
-                    className="w-full h-full bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none border-none"
+                    className={`w-full bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none border-none ${showPreview ? 'h-1/2' : 'h-full'}`}
                     placeholder="Write your prompt..."
                     spellCheck={false}
                 />
+                {showPreview && (
+                    <PreviewPanel
+                        username={username}
+                        slug={slug}
+                        versionNumber={version?.version_number}
+                        variables={variables}
+                    />
+                )}
             </div>
 
             <div className="flex items-center gap-2 px-4 py-2 border-t border-gray-700 bg-gray-800/50">
