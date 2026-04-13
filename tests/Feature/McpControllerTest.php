@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Services\ApiKeyService;
 use App\Services\VersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class McpControllerTest extends TestCase
@@ -49,7 +48,7 @@ class McpControllerTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('jsonrpc', '2.0')
             ->assertJsonPath('id', '1')
-            ->assertJsonPath('result.protocolVersion', '2024-11-05')
+            ->assertJsonPath('result.protocolVersion', '2025-06-18')
             ->assertJsonPath('result.serverInfo.name', 'urge');
     }
 
@@ -165,109 +164,49 @@ class McpControllerTest extends TestCase
             'method' => 'initialize',
         ]);
 
-        $response->assertStatus(401);
+        $response->assertStatus(401)
+            ->assertHeader('WWW-Authenticate');
     }
 
-    // --- SSE transport (with sessionId) ---
+    // --- Streamable HTTP transport ---
 
-    public function test_sse_post_with_session_id_returns_202_and_queues_response(): void
+    public function test_initialize_returns_session_id_header(): void
     {
-        $sessionId = 'test-session-' . uniqid();
-
-        $response = $this->postJson('/api/v1/mcp?sessionId=' . $sessionId, [
+        $response = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
             'id' => '1',
             'method' => 'initialize',
             'params' => [],
         ], $this->headers);
 
-        $response->assertStatus(202);
-
-        // Verify the response was queued in cache
-        $counter = Cache::get("mcp_sse:{$sessionId}:counter");
-        $this->assertEquals(1, $counter);
-
-        $queued = Cache::get("mcp_sse:{$sessionId}:msg:1");
-        $this->assertNotNull($queued);
-        $this->assertEquals('2.0', $queued['jsonrpc']);
-        $this->assertEquals('1', $queued['id']);
-        $this->assertEquals('2024-11-05', $queued['result']['protocolVersion']);
-        $this->assertEquals('urge', $queued['result']['serverInfo']['name']);
+        $response->assertStatus(200)
+            ->assertHeader('Mcp-Session-Id');
     }
 
-    public function test_sse_tools_list_queued(): void
+    public function test_delete_terminates_session(): void
     {
-        $sessionId = 'test-session-' . uniqid();
-
-        $response = $this->postJson('/api/v1/mcp?sessionId=' . $sessionId, [
-            'jsonrpc' => '2.0',
-            'id' => '2',
-            'method' => 'tools/list',
-        ], $this->headers);
-
-        $response->assertStatus(202);
-
-        $queued = Cache::get("mcp_sse:{$sessionId}:msg:1");
-        $this->assertNotNull($queued);
-        $this->assertCount(15, $queued['result']['tools']);
-        $this->assertEquals('get_prompt', $queued['result']['tools'][0]['name']);
-    }
-
-    public function test_sse_notification_returns_202_without_queueing(): void
-    {
-        $sessionId = 'test-session-' . uniqid();
-
-        $response = $this->postJson('/api/v1/mcp?sessionId=' . $sessionId, [
-            'jsonrpc' => '2.0',
-            'method' => 'notifications/initialized',
-        ], $this->headers);
-
-        $response->assertStatus(202);
-
-        // No message should be queued
-        $counter = Cache::get("mcp_sse:{$sessionId}:counter");
-        $this->assertNull($counter);
-    }
-
-    public function test_sse_multiple_messages_queued_sequentially(): void
-    {
-        $sessionId = 'test-session-' . uniqid();
-
-        // Send initialize
-        $this->postJson('/api/v1/mcp?sessionId=' . $sessionId, [
+        // First initialize to get a session
+        $response = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
             'id' => '1',
             'method' => 'initialize',
             'params' => [],
-        ], $this->headers)->assertStatus(202);
+        ], $this->headers);
 
-        // Send tools/list
-        $this->postJson('/api/v1/mcp?sessionId=' . $sessionId, [
-            'jsonrpc' => '2.0',
-            'id' => '2',
-            'method' => 'tools/list',
-        ], $this->headers)->assertStatus(202);
+        $sessionId = $response->headers->get('Mcp-Session-Id');
 
-        // Verify both queued
-        $this->assertEquals(2, Cache::get("mcp_sse:{$sessionId}:counter"));
+        // Delete session
+        $deleteResponse = $this->delete('/api/v1/mcp', [], array_merge($this->headers, [
+            'Mcp-Session-Id' => $sessionId,
+        ]));
 
-        $msg1 = Cache::get("mcp_sse:{$sessionId}:msg:1");
-        $this->assertEquals('1', $msg1['id']);
-        $this->assertArrayHasKey('protocolVersion', $msg1['result']);
-
-        $msg2 = Cache::get("mcp_sse:{$sessionId}:msg:2");
-        $this->assertEquals('2', $msg2['id']);
-        $this->assertArrayHasKey('tools', $msg2['result']);
+        $deleteResponse->assertStatus(204);
     }
 
-    public function test_sse_stream_returns_event_stream_content_type(): void
+    public function test_get_returns_405(): void
     {
         $response = $this->get('/api/v1/mcp', $this->headers);
 
-        $response->assertStatus(200);
-        $this->assertStringContainsString(
-            'text/event-stream',
-            $response->headers->get('Content-Type')
-        );
+        $response->assertStatus(405);
     }
 }
