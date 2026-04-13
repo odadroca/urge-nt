@@ -53,6 +53,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// OAuth 2.1 well-known discovery (no auth required)
+Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
+Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
+
 require __DIR__.'/auth.php';
 
 // SPA catch-all — serves React app at /app/*
