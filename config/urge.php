@@ -16,4 +16,17 @@ return [
     // Collection nesting
     'max_collection_depth'       => (int) env('URGE_MAX_COLLECTION_DEPTH', 5),
     'unlimited_collection_depth' => (bool) env('URGE_UNLIMITED_COLLECTION_DEPTH', false),
+
+    // OAuth 2.1
+    'oauth' => [
+        'token_ttl'  => (int) env('OAUTH_TOKEN_TTL', 3600),
+        'code_ttl'   => 600,
+        'scopes'     => ['mcp:read', 'mcp:write', 'mcp:admin'],
+    ],
+
+    // GitHub OAuth (external provider)
+    'github' => [
+        'client_id'     => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+    ],
 ];
