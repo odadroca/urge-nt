@@ -2,153 +2,160 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ApiKeyService;
 use App\Services\McpToolHandler;
+use App\Services\OAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class McpController
 {
     public function __construct(private McpToolHandler $handler) {}
 
     /**
-     * POST /api/v1/mcp — Handle JSON-RPC 2.0 requests.
-     *
-     * If a sessionId query param is present (SSE transport), the response is
-     * queued for delivery on the SSE stream and 202 Accepted is returned.
-     * Otherwise the JSON-RPC response is returned directly (backwards compat).
+     * POST /api/v1/mcp — Streamable HTTP transport.
      */
     public function handle(Request $request): JsonResponse|Response
     {
-        // Rate limiting: 60 requests per minute per user/IP
-        $key = 'mcp:' . ($request->user()?->id ?? $request->ip());
+        // Validate Origin header
+        $origin = $request->header('Origin');
+        if ($origin && !$this->isAllowedOrigin($origin)) {
+            return response()->json([
+                'jsonrpc' => '2.0',
+                'id'      => null,
+                'error'   => ['code' => -32000, 'message' => 'Origin not allowed.'],
+            ], 403);
+        }
+
+        // Attempt authentication (non-aborting — handles OAuth 401 discovery)
+        $this->resolveAuth($request);
+
+        if (!$request->user()) {
+            return response()->json([
+                'jsonrpc' => '2.0',
+                'id'      => null,
+                'error'   => ['code' => -32000, 'message' => 'Authentication required.'],
+            ], 401)->withHeaders([
+                'WWW-Authenticate' => 'Bearer resource_metadata="' . url('/.well-known/oauth-protected-resource') . '"',
+            ]);
+        }
+
+        // Rate limiting
+        $key = 'mcp:' . $request->user()->id;
         if (RateLimiter::tooManyAttempts($key, 60)) {
             return response()->json([
                 'jsonrpc' => '2.0',
                 'id'      => null,
-                'error'   => [
-                    'code'    => -32000,
-                    'message' => 'Rate limit exceeded. Try again later.',
-                ],
+                'error'   => ['code' => -32000, 'message' => 'Rate limit exceeded.'],
             ], 429);
         }
         RateLimiter::hit($key, 60);
 
         $body = $request->json()->all();
 
-        // Validate JSON-RPC version
         if (!isset($body['jsonrpc']) || $body['jsonrpc'] !== '2.0') {
             return response()->json([
                 'jsonrpc' => '2.0',
                 'id'      => $body['id'] ?? null,
-                'error'   => [
-                    'code'    => -32600,
-                    'message' => 'Invalid Request: missing or invalid "jsonrpc" field. Must be "2.0".',
-                ],
+                'error'   => ['code' => -32600, 'message' => 'Invalid Request: jsonrpc must be "2.0".'],
             ]);
         }
 
         $method = $body['method'] ?? '';
         $id = $body['id'] ?? null;
 
-        // Notifications (no id) — acknowledge without queueing a response
+        // Notifications — acknowledge without response
         if ($id === null && str_starts_with($method, 'notifications/')) {
-            $sessionId = $request->query('sessionId');
-            if ($sessionId) {
-                return response('', 202);
+            return response('', 204);
+        }
+
+        // Validate session for non-initialize requests
+        $sessionId = $request->header('Mcp-Session-Id');
+        if ($method !== 'initialize' && $sessionId) {
+            if (!Cache::has("mcp_session:{$sessionId}")) {
+                return response()->json([
+                    'jsonrpc' => '2.0',
+                    'id'      => $id,
+                    'error'   => ['code' => -32000, 'message' => 'Invalid or expired session.'],
+                ], 400);
             }
-            return response()->json(['jsonrpc' => '2.0', 'id' => null, 'result' => new \stdClass()]);
+            Cache::put("mcp_session:{$sessionId}", $request->user()->id, 3600);
         }
 
         $response = $this->processJsonRpc($body, $request);
 
-        // SSE transport: queue response for the SSE stream
-        $sessionId = $request->query('sessionId');
-        if ($sessionId) {
-            $msgId = Cache::increment("mcp_sse:{$sessionId}:counter");
-            Cache::put("mcp_sse:{$sessionId}:msg:{$msgId}", $response, 300);
+        $headers = ['Content-Type' => 'application/json'];
 
-            return response('', 202);
+        // On initialize, create session
+        if ($method === 'initialize') {
+            $newSessionId = Str::uuid()->toString();
+            Cache::put("mcp_session:{$newSessionId}", $request->user()->id, 3600);
+            $headers['Mcp-Session-Id'] = $newSessionId;
         }
 
-        // Direct transport: return JSON-RPC response inline
-        return response()->json($response);
+        return response()->json($response)->withHeaders($headers);
     }
 
     /**
-     * GET /api/v1/mcp — SSE endpoint for MCP streaming.
-     *
-     * Opens a persistent SSE connection, sends the message endpoint URL
-     * (with a unique sessionId), then polls for queued JSON-RPC responses
-     * and delivers them as `event: message` SSE events.
+     * GET /api/v1/mcp — Server-initiated messages (not implemented).
      */
-    public function stream(Request $request): StreamedResponse
+    public function stream(): Response
     {
-        $sessionId = Str::uuid()->toString();
-
-        return new StreamedResponse(function () use ($sessionId) {
-            // Disable output buffering
-            while (ob_get_level()) {
-                ob_end_flush();
-            }
-
-            // Send the message endpoint URL
-            $messageUrl = url('/api/v1/mcp') . '?' . http_build_query(['sessionId' => $sessionId]);
-            echo "event: endpoint\n";
-            echo "data: {$messageUrl}\n\n";
-            flush();
-
-            // Poll for queued messages and deliver as SSE events
-            $lastSeen = 0;
-            $timeout = 300; // 5 minutes
-            $start = time();
-            $lastPing = time();
-
-            while ((time() - $start) < $timeout) {
-                if (connection_aborted()) {
-                    break;
-                }
-
-                $counter = (int) Cache::get("mcp_sse:{$sessionId}:counter", 0);
-
-                for ($i = $lastSeen + 1; $i <= $counter; $i++) {
-                    $cacheKey = "mcp_sse:{$sessionId}:msg:{$i}";
-                    $msg = Cache::pull($cacheKey);
-                    if ($msg) {
-                        echo "event: message\n";
-                        echo "data: " . json_encode($msg) . "\n\n";
-                        flush();
-                    }
-                }
-                $lastSeen = $counter;
-
-                // Keepalive ping every 15 seconds
-                if ((time() - $lastPing) >= 15) {
-                    echo ": ping\n\n";
-                    flush();
-                    $lastPing = time();
-                }
-
-                usleep(100000); // 100ms poll interval
-            }
-
-            // Cleanup session keys
-            Cache::forget("mcp_sse:{$sessionId}:counter");
-        }, 200, [
-            'Content-Type'       => 'text/event-stream',
-            'Cache-Control'      => 'no-cache',
-            'Connection'         => 'keep-alive',
-            'X-Accel-Buffering'  => 'no',
+        return response('', 405)->withHeaders([
+            'Allow' => 'POST, DELETE',
         ]);
     }
 
     /**
-     * Process a JSON-RPC 2.0 request and return the response envelope.
+     * DELETE /api/v1/mcp — Terminate session.
      */
+    public function destroy(Request $request): Response
+    {
+        $sessionId = $request->header('Mcp-Session-Id');
+        if ($sessionId) {
+            Cache::forget("mcp_session:{$sessionId}");
+        }
+
+        return response('', 204);
+    }
+
+    /**
+     * Non-aborting auth resolution — try Sanctum, OAuth, API key.
+     */
+    private function resolveAuth(Request $request): void
+    {
+        if ($request->user()) {
+            return;
+        }
+
+        $bearer = $request->bearerToken();
+        if (!$bearer) {
+            return;
+        }
+
+        // OAuth token (non-prefixed)
+        if (!str_starts_with($bearer, config('urge.key_prefix', 'urge_'))) {
+            $oauthToken = app(OAuthService::class)->findByToken($bearer);
+            if ($oauthToken) {
+                $request->setUserResolver(fn () => $oauthToken->user);
+                $request->attributes->set('oauth_token', $oauthToken);
+                return;
+            }
+        }
+
+        // API key (urge_ prefixed)
+        $apiKey = app(ApiKeyService::class)->findByToken($bearer);
+        if ($apiKey && $apiKey->is_active) {
+            $apiKey->update(['last_used_at' => now()]);
+            $request->setUserResolver(fn () => $apiKey->user);
+            $request->attributes->set('api_key', $apiKey);
+        }
+    }
+
     private function processJsonRpc(array $body, Request $request): array
     {
         $method = $body['method'] ?? '';
@@ -157,7 +164,7 @@ class McpController
 
         $result = match ($method) {
             'initialize' => [
-                'protocolVersion' => '2024-11-05',
+                'protocolVersion' => '2025-06-18',
                 'capabilities'    => [
                     'tools'     => ['listChanged' => false],
                     'resources' => ['subscribe' => false, 'listChanged' => false],
@@ -180,10 +187,7 @@ class McpController
             return [
                 'jsonrpc' => '2.0',
                 'id'      => $id,
-                'error'   => [
-                    'code'    => -32601,
-                    'message' => "Method not found: {$method}",
-                ],
+                'error'   => ['code' => -32601, 'message' => "Method not found: {$method}"],
             ];
         }
 
@@ -199,6 +203,20 @@ class McpController
         $toolName = $params['name'] ?? '';
         $arguments = $params['arguments'] ?? [];
         $user = $request->user();
+
+        // Scope enforcement for OAuth tokens
+        $oauthToken = $request->attributes->get('oauth_token');
+        if ($oauthToken) {
+            $requiredScope = $this->handler->getRequiredScope($toolName);
+            if ($requiredScope && !$oauthToken->hasScope($requiredScope)) {
+                return [
+                    'content' => [
+                        ['type' => 'text', 'text' => "Insufficient scope. Required: {$requiredScope}"],
+                    ],
+                    'isError' => true,
+                ];
+            }
+        }
 
         $result = $this->handler->callTool($toolName, $arguments, $user);
 
@@ -227,8 +245,18 @@ class McpController
             return ['contents' => []];
         }
 
-        return [
-            'contents' => [$resource],
-        ];
+        return ['contents' => [$resource]];
+    }
+
+    private function isAllowedOrigin(string $origin): bool
+    {
+        $appUrl = config('app.url');
+        if (str_starts_with($origin, $appUrl)) {
+            return true;
+        }
+        if (str_starts_with($origin, 'http://localhost') || str_starts_with($origin, 'http://127.0.0.1')) {
+            return true;
+        }
+        return false;
     }
 }

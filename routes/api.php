@@ -104,10 +104,6 @@ Route::prefix('v1')->group(function () {
         Route::post('collections/{collection:slug}/share-links', [ShareLinkController::class, 'store']);
         Route::delete('collections/{collection:slug}/share-links/{shareLink}', [ShareLinkController::class, 'destroy']);
 
-        // MCP
-        Route::post('mcp', [McpController::class, 'handle']);
-        Route::get('mcp', [McpController::class, 'stream']);
-
         // Graph
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
         Route::post('graph/positions', [GraphController::class, 'positions']);
@@ -115,6 +111,11 @@ Route::prefix('v1')->group(function () {
         Route::post('prompts/{username}/{promptSlug}/append-include', [GraphController::class, 'appendInclude']);
         Route::delete('prompts/{username}/{promptSlug}/remove-include', [GraphController::class, 'removeInclude']);
     });
+
+    // MCP — auth handled internally for OAuth 2.1 discovery flow
+    Route::post('mcp', [McpController::class, 'handle']);
+    Route::get('mcp', [McpController::class, 'stream']);
+    Route::delete('mcp', [McpController::class, 'destroy']);
 });
 
 // Serve OpenAPI spec

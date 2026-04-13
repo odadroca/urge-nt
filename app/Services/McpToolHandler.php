@@ -26,6 +26,35 @@ class McpToolHandler
         ];
     }
 
+    public function getRequiredScope(string $toolName): ?string
+    {
+        $readTools = [
+            'get_prompt', 'list_prompts', 'render_prompt',
+            'get_results', 'list_branches', 'list_teams', 'list_templates',
+        ];
+
+        $writeTools = [
+            'save_version', 'store_result', 'update_result',
+            'create_branch', 'share_prompt', 'run_template',
+        ];
+
+        $adminTools = [
+            'delete_prompt', 'delete_result',
+        ];
+
+        if (in_array($toolName, $readTools)) {
+            return 'mcp:read';
+        }
+        if (in_array($toolName, $writeTools)) {
+            return 'mcp:write';
+        }
+        if (in_array($toolName, $adminTools)) {
+            return 'mcp:admin';
+        }
+
+        return null;
+    }
+
     public function getToolDefinitions(): array
     {
         return [
