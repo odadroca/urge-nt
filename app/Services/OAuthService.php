@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\OAuthAccessToken;
 use App\Models\OAuthAuthorizationCode;
+use App\Models\OAuthClient;
 use App\Models\User;
 use Illuminate\Support\Str;
 
@@ -129,13 +130,26 @@ class OAuthService
         return null;
     }
 
+    public function findClient(string $clientId): ?OAuthClient
+    {
+        return OAuthClient::where('client_id', $clientId)->first();
+    }
+
     public function validateRedirectUri(string $clientId, string $redirectUri): bool
     {
+        // 1. Check registered client (DB lookup)
+        $client = $this->findClient($clientId);
+        if ($client) {
+            return in_array($redirectUri, $client->redirect_uris);
+        }
+
+        // 2. Fetch client metadata from URL (existing logic)
         $metadata = $this->fetchClientMetadata($clientId);
         if ($metadata && isset($metadata['redirect_uris'])) {
             return in_array($redirectUri, $metadata['redirect_uris']);
         }
 
+        // 3. Allow localhost/loopback (existing fallback)
         $parsed = parse_url($redirectUri);
         $host = $parsed['host'] ?? '';
 

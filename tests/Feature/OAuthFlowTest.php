@@ -218,4 +218,152 @@ class OAuthFlowTest extends TestCase
         $response->assertStatus(200);
         $this->assertStringContainsString('Insufficient scope', $response->json('result.content.0.text'));
     }
+
+    public function test_dynamic_client_registration_returns_client_id(): void
+    {
+        $response = $this->postJson('/oauth/register', [
+            'redirect_uris' => ['http://127.0.0.1:3000/callback'],
+            'client_name' => 'Test Client',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure(['client_id', 'client_name', 'redirect_uris', 'client_id_issued_at'])
+            ->assertJsonPath('client_name', 'Test Client');
+    }
+
+    public function test_dynamic_registration_rejects_missing_redirect_uris(): void
+    {
+        $response = $this->postJson('/oauth/register', [
+            'client_name' => 'Bad Client',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_client_metadata');
+    }
+
+    public function test_dynamic_registration_rejects_non_loopback_http_redirect(): void
+    {
+        $response = $this->postJson('/oauth/register', [
+            'redirect_uris' => ['http://evil.com/callback'],
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_client_metadata');
+    }
+
+    public function test_dynamic_registration_allows_https_redirect(): void
+    {
+        $response = $this->postJson('/oauth/register', [
+            'redirect_uris' => ['https://example.com/callback'],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure(['client_id']);
+    }
+
+    public function test_full_oauth_flow_with_dynamic_registration(): void
+    {
+        $this->actingAs($this->user);
+
+        // Step 1: Register client
+        $regResponse = $this->postJson('/oauth/register', [
+            'redirect_uris' => ['http://127.0.0.1:3000/callback'],
+            'client_name' => 'E2E Test',
+        ]);
+        $regResponse->assertStatus(201);
+        $clientId = $regResponse->json('client_id');
+
+        // Step 2: PKCE
+        $verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+
+        // Step 3: Authorize
+        $authResponse = $this->post('/oauth/authorize', [
+            'client_id' => $clientId,
+            'redirect_uri' => 'http://127.0.0.1:3000/callback',
+            'scope' => 'mcp:write',
+            'code_challenge' => $challenge,
+            'code_challenge_method' => 'S256',
+            'decision' => 'approve',
+        ]);
+        $authResponse->assertRedirect();
+        parse_str(parse_url($authResponse->headers->get('Location'), PHP_URL_QUERY), $query);
+        $this->assertArrayHasKey('code', $query);
+
+        // Step 4: Token exchange
+        $tokenResponse = $this->postJson('/oauth/token', [
+            'grant_type' => 'authorization_code',
+            'code' => $query['code'],
+            'code_verifier' => $verifier,
+            'client_id' => $clientId,
+            'redirect_uri' => 'http://127.0.0.1:3000/callback',
+        ]);
+        $tokenResponse->assertOk()
+            ->assertJsonStructure(['access_token', 'token_type']);
+
+        // Step 5: Use token on MCP
+        $mcpResponse = $this->postJson('/api/v1/mcp', [
+            'jsonrpc' => '2.0',
+            'id' => '1',
+            'method' => 'initialize',
+            'params' => [],
+        ], ['Authorization' => 'Bearer ' . $tokenResponse->json('access_token')]);
+
+        $mcpResponse->assertOk()
+            ->assertJsonPath('result.protocolVersion', '2025-06-18');
+    }
+
+    public function test_registered_client_rejects_unregistered_redirect_uri(): void
+    {
+        $this->actingAs($this->user);
+
+        // Register with one URI
+        $regResponse = $this->postJson('/oauth/register', [
+            'redirect_uris' => ['http://127.0.0.1:3000/callback'],
+        ]);
+        $clientId = $regResponse->json('client_id');
+
+        $verifier = 'test-verifier-string-for-redirect-check';
+        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+
+        // Try to authorize with a DIFFERENT URI
+        $response = $this->get('/oauth/authorize?' . http_build_query([
+            'client_id' => $clientId,
+            'redirect_uri' => 'http://127.0.0.1:9999/evil',
+            'scope' => 'mcp:read',
+            'code_challenge' => $challenge,
+            'code_challenge_method' => 'S256',
+        ]));
+
+        // Should redirect with error (redirect_uri not allowed)
+        $response->assertRedirect('/');
+    }
+
+    public function test_well_known_includes_registration_endpoint(): void
+    {
+        $response = $this->getJson('/.well-known/oauth-authorization-server');
+
+        $response->assertOk()
+            ->assertJsonStructure(['registration_endpoint']);
+    }
+
+    public function test_existing_url_based_client_id_still_works(): void
+    {
+        $this->actingAs($this->user);
+
+        $verifier = 'backward-compat-verifier-test';
+        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
+
+        // Use a non-registered localhost client_id (should work via fallback)
+        $response = $this->get('/oauth/authorize?' . http_build_query([
+            'client_id' => 'http://localhost:4000',
+            'redirect_uri' => 'http://localhost:4000/callback',
+            'scope' => 'mcp:read',
+            'code_challenge' => $challenge,
+            'code_challenge_method' => 'S256',
+        ]));
+
+        $response->assertOk()
+            ->assertSee('Authorize Application');
+    }
 }

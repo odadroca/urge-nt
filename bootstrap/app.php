@@ -19,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'dual.auth' => \App\Http\Middleware\DualAuthentication::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'oauth/token',
+            'oauth/register',
+        ]);
+
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);

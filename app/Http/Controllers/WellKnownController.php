@@ -25,6 +25,7 @@ class WellKnownController
             'scopes_supported'                  => config('urge.oauth.scopes', []),
             'response_types_supported'          => ['code'],
             'grant_types_supported'             => ['authorization_code'],
+            'registration_endpoint'              => url('/oauth/register'),
             'code_challenge_methods_supported'  => ['S256'],
         ]);
     }

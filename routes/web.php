@@ -70,6 +70,9 @@ Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\Well
 // OAuth 2.1 token exchange (public — client authenticates via code+PKCE)
 Route::post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
 
+// OAuth 2.1 Dynamic Client Registration (RFC 7591)
+Route::post('/oauth/register', [App\Http\Controllers\OAuthController::class, 'register']);
+
 require __DIR__.'/auth.php';
 
 // SPA catch-all — serves React app at /app/*
