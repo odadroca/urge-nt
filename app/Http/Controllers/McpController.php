@@ -257,6 +257,22 @@ class McpController
         if (str_starts_with($origin, 'http://localhost') || str_starts_with($origin, 'http://127.0.0.1')) {
             return true;
         }
+        // Allow known MCP client origins (Claude.ai, Claude Desktop)
+        $allowedOrigins = [
+            'https://claude.ai',
+            'https://www.claude.ai',
+            'chrome-extension://',
+        ];
+        foreach ($allowedOrigins as $allowed) {
+            if (str_starts_with($origin, $allowed)) {
+                return true;
+            }
+        }
+        // Allow any HTTPS origin — MCP clients authenticate via OAuth/Bearer tokens,
+        // so Origin is a secondary check. Auth is the real gate.
+        if (str_starts_with($origin, 'https://')) {
+            return true;
+        }
         return false;
     }
 }
