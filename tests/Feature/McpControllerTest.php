@@ -61,7 +61,7 @@ class McpControllerTest extends TestCase
         ], $this->headers);
 
         $response->assertStatus(200)
-            ->assertJsonPath('result.tools.0.name', 'get_prompt');
+            ->assertJsonPath('result.tools.0.name', 'create_prompt');
     }
 
     public function test_tools_call(): void

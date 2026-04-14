@@ -34,7 +34,7 @@ class McpToolHandler
         ];
 
         $writeTools = [
-            'save_version', 'store_result', 'update_result',
+            'create_prompt', 'save_version', 'store_result', 'update_result',
             'create_branch', 'share_prompt', 'run_template',
         ];
 
@@ -58,6 +58,20 @@ class McpToolHandler
     public function getToolDefinitions(): array
     {
         return [
+            [
+                'name'        => 'create_prompt',
+                'description' => 'Create a new prompt or fragment. Returns the created prompt with its slug.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'name'        => ['type' => 'string', 'description' => 'The prompt name'],
+                        'type'        => ['type' => 'string', 'enum' => ['prompt', 'fragment'], 'description' => 'Type (default: prompt)'],
+                        'description' => ['type' => 'string', 'description' => 'Optional description'],
+                        'content'     => ['type' => 'string', 'description' => 'Optional initial content (creates first version)'],
+                    ],
+                    'required' => ['name'],
+                ],
+            ],
             [
                 'name'        => 'get_prompt',
                 'description' => 'Get a prompt by slug with its active version content and metadata.',
@@ -306,6 +320,7 @@ class McpToolHandler
     public function callTool(string $name, array $arguments, ?User $user = null): array
     {
         return match ($name) {
+            'create_prompt' => $this->createPrompt($arguments, $user),
             'get_prompt'    => $this->getPrompt($arguments, $user),
             'list_prompts'  => $this->listPrompts($arguments, $user),
             'render_prompt' => $this->renderPrompt($arguments, $user),
@@ -537,6 +552,51 @@ class McpToolHandler
     }
 
     // --- Tool Methods ---
+
+    private function createPrompt(array $args, ?User $user = null): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required to create prompts.'];
+        }
+
+        $name = $args['name'] ?? '';
+        if (!$name) {
+            return ['error' => 'name is required.'];
+        }
+
+        $prompt = Prompt::create([
+            'name'        => $name,
+            'type'        => $args['type'] ?? 'prompt',
+            'description' => $args['description'] ?? null,
+            'created_by'  => $user->id,
+        ]);
+
+        $prompt->load('creator');
+
+        $result = [
+            'id'          => $prompt->id,
+            'name'        => $prompt->name,
+            'slug'        => $prompt->slug,
+            'type'        => $prompt->type,
+            'description' => $prompt->description,
+            'owner'       => $prompt->creator?->username ?? $prompt->creator?->name,
+        ];
+
+        // Optionally create first version with content
+        if (!empty($args['content'])) {
+            $version = $this->versioningService->createVersion($prompt, [
+                'content'        => $args['content'],
+                'commit_message' => 'Initial version',
+            ], $user);
+
+            $result['version'] = [
+                'version_number' => $version->version_number,
+                'content'        => $version->content,
+            ];
+        }
+
+        return $result;
+    }
 
     private function getPrompt(array $args, ?User $user = null): array
     {
