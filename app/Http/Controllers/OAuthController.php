@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OAuthClient;
 use App\Services\OAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class OAuthController
@@ -38,8 +40,15 @@ class OAuthController
             return redirect('/')->with('error', 'Invalid OAuth request: redirect_uri not allowed for this client.');
         }
 
+        $clientName = null;
+        $client = $this->oauthService->findClient($clientId);
+        if ($client) {
+            $clientName = $client->client_name;
+        }
+
         return view('oauth.authorize', [
             'client_id'             => $clientId,
+            'client_name'           => $clientName,
             'redirect_uri'          => $redirectUri,
             'scope'                 => $scope,
             'state'                 => $state,
@@ -122,5 +131,65 @@ class OAuthController
             'expires_in'   => config('urge.oauth.token_ttl', 3600),
             'scope'        => $token->scope,
         ]);
+    }
+
+    /**
+     * POST /oauth/register — Dynamic Client Registration (RFC 7591)
+     */
+    public function register(Request $request): JsonResponse
+    {
+        $data = $request->json()->all();
+
+        // redirect_uris is required
+        if (empty($data['redirect_uris']) || !is_array($data['redirect_uris'])) {
+            return response()->json([
+                'error' => 'invalid_client_metadata',
+                'error_description' => 'redirect_uris is required and must be a non-empty array.',
+            ], 400);
+        }
+
+        // Validate each redirect URI
+        foreach ($data['redirect_uris'] as $uri) {
+            $parsed = parse_url($uri);
+            $scheme = $parsed['scheme'] ?? '';
+            $host = $parsed['host'] ?? '';
+
+            if ($scheme === 'http') {
+                // HTTP only allowed for loopback
+                if (!in_array($host, ['localhost', '127.0.0.1', '[::1]'])) {
+                    return response()->json([
+                        'error' => 'invalid_client_metadata',
+                        'error_description' => "HTTP redirect URIs are only allowed for loopback addresses. Got: {$uri}",
+                    ], 400);
+                }
+            } elseif ($scheme !== 'https') {
+                return response()->json([
+                    'error' => 'invalid_client_metadata',
+                    'error_description' => "Redirect URIs must use https:// (or http:// for loopback). Got: {$uri}",
+                ], 400);
+            }
+        }
+
+        $clientId = Str::uuid()->toString();
+
+        $client = OAuthClient::create([
+            'client_id'                   => $clientId,
+            'client_name'                 => $data['client_name'] ?? null,
+            'redirect_uris'               => $data['redirect_uris'],
+            'grant_types'                 => $data['grant_types'] ?? ['authorization_code'],
+            'response_types'              => $data['response_types'] ?? ['code'],
+            'token_endpoint_auth_method'  => $data['token_endpoint_auth_method'] ?? 'none',
+            'scope'                       => $data['scope'] ?? null,
+        ]);
+
+        return response()->json([
+            'client_id'                   => $client->client_id,
+            'client_name'                 => $client->client_name,
+            'redirect_uris'               => $client->redirect_uris,
+            'client_id_issued_at'         => $client->created_at->timestamp,
+            'grant_types'                 => $client->grant_types,
+            'response_types'              => $client->response_types,
+            'token_endpoint_auth_method'  => $client->token_endpoint_auth_method,
+        ], 201);
     }
 }
