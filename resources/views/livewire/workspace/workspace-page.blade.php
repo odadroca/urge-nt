@@ -65,7 +65,7 @@
 
             <livewire:workspace.run-with-llm :prompt="$prompt" :current-version="$currentVersion" :key="'rl-'.$prompt->id" />
 
-            <livewire:workspace.run-with-template :prompt="$prompt" :current-version="$currentVersion" :key="'rt-'.$prompt->id" />
+            <livewire:workspace.run-with-pipeline :prompt="$prompt" :current-version="$currentVersion" :key="'rt-'.$prompt->id" />
         </div>
     </div>
 

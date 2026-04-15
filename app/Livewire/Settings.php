@@ -42,7 +42,7 @@ class Settings extends Component
         // All authenticated users can see Categories (read-only for viewers, editable for editors+)
         $tabs[] = 'categories';
 
-        $tabs[] = 'templates';
+        $tabs[] = 'pipelines';
 
         $tabs[] = 'evaluation';
 

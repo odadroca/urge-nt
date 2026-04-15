@@ -182,8 +182,8 @@ class McpToolHandlerTest extends TestCase
         $this->assertContains('list_teams', $names);
         $this->assertContains('list_branches', $names);
         $this->assertContains('create_branch', $names);
-        $this->assertContains('list_templates', $names);
-        $this->assertContains('run_template', $names);
+        $this->assertContains('list_pipelines', $names);
+        $this->assertContains('run_pipeline', $names);
     }
 
     public function test_get_server_info(): void

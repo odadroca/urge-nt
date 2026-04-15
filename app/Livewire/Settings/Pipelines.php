@@ -3,18 +3,18 @@
 namespace App\Livewire\Settings;
 
 use App\Models\LlmProvider;
-use App\Models\PipelineTemplate;
-use App\Models\PipelineTemplateChannel;
+use App\Models\Pipeline;
+use App\Models\PipelineChannel;
 use Livewire\Component;
 
-class PipelineTemplates extends Component
+class Pipelines extends Component
 {
-    // Template form
+    // Pipeline form
     public string $newName = '';
     public string $newDescription = '';
     public bool $showCreateForm = false;
 
-    // Expanded template
+    // Expanded pipeline
     public ?int $expandedId = null;
 
     // Channel form
@@ -32,21 +32,21 @@ class PipelineTemplates extends Component
     public string $editChannelTrigger = 'parallel';
     public int $editChannelSortOrder = 0;
 
-    public function createTemplate(): void
+    public function createPipeline(): void
     {
         $this->validate([
             'newName' => 'required|string|max:255',
             'newDescription' => 'nullable|string',
         ]);
 
-        PipelineTemplate::create([
+        Pipeline::create([
             'name' => $this->newName,
             'description' => $this->newDescription ?: null,
             'created_by' => auth()->id(),
         ]);
 
         $this->reset(['newName', 'newDescription', 'showCreateForm']);
-        $this->dispatch('notify', message: 'Template created.', type: 'success');
+        $this->dispatch('notify', message: 'Pipeline created.', type: 'success');
     }
 
     public function toggleExpand(int $id): void
@@ -58,17 +58,17 @@ class PipelineTemplates extends Component
 
     public function toggleActive(int $id): void
     {
-        $template = PipelineTemplate::findOrFail($id);
-        $template->update(['is_active' => !$template->is_active]);
+        $pipeline = Pipeline::findOrFail($id);
+        $pipeline->update(['is_active' => !$pipeline->is_active]);
     }
 
-    public function deleteTemplate(int $id): void
+    public function deletePipeline(int $id): void
     {
-        PipelineTemplate::findOrFail($id)->delete();
+        Pipeline::findOrFail($id)->delete();
         if ($this->expandedId === $id) {
             $this->expandedId = null;
         }
-        $this->dispatch('notify', message: 'Template deleted.', type: 'success');
+        $this->dispatch('notify', message: 'Pipeline deleted.', type: 'success');
     }
 
     public function addChannel(): void
@@ -81,8 +81,8 @@ class PipelineTemplates extends Component
             'channelSortOrder' => 'integer|min:0',
         ]);
 
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $this->expandedId,
+        PipelineChannel::create([
+            'pipeline_id' => $this->expandedId,
             'role_label' => $this->channelRoleLabel,
             'llm_provider_id' => $this->channelProviderId,
             'system_prompt' => $this->channelSystemPrompt ?: null,
@@ -96,7 +96,7 @@ class PipelineTemplates extends Component
 
     public function startEditChannel(int $channelId): void
     {
-        $channel = PipelineTemplateChannel::findOrFail($channelId);
+        $channel = PipelineChannel::findOrFail($channelId);
         $this->editingChannelId = $channelId;
         $this->editChannelRoleLabel = $channel->role_label;
         $this->editChannelProviderId = $channel->llm_provider_id;
@@ -115,7 +115,7 @@ class PipelineTemplates extends Component
             'editChannelSortOrder' => 'integer|min:0',
         ]);
 
-        $channel = PipelineTemplateChannel::findOrFail($this->editingChannelId);
+        $channel = PipelineChannel::findOrFail($this->editingChannelId);
         $channel->update([
             'role_label' => $this->editChannelRoleLabel,
             'llm_provider_id' => $this->editChannelProviderId,
@@ -129,7 +129,7 @@ class PipelineTemplates extends Component
 
     public function deleteChannel(int $channelId): void
     {
-        PipelineTemplateChannel::findOrFail($channelId)->delete();
+        PipelineChannel::findOrFail($channelId)->delete();
         $this->dispatch('notify', message: 'Channel removed.', type: 'success');
     }
 
@@ -144,16 +144,16 @@ class PipelineTemplates extends Component
 
     public function render()
     {
-        $templates = PipelineTemplate::withCount('channels')->orderBy('name')->get();
+        $pipelines = Pipeline::withCount('channels')->orderBy('name')->get();
 
-        $expandedTemplate = null;
+        $expandedPipeline = null;
         if ($this->expandedId) {
-            $expandedTemplate = PipelineTemplate::with(['channels.llmProvider'])->find($this->expandedId);
+            $expandedPipeline = Pipeline::with(['channels.llmProvider'])->find($this->expandedId);
         }
 
-        return view('livewire.settings.pipeline-templates', [
-            'templates' => $templates,
-            'expandedTemplate' => $expandedTemplate,
+        return view('livewire.settings.pipelines', [
+            'pipelines' => $pipelines,
+            'expandedPipeline' => $expandedPipeline,
             'providers' => LlmProvider::where('is_active', true)->orderBy('name')->get(),
         ]);
     }

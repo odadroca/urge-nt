@@ -193,8 +193,8 @@ OAuth tokens can be scoped to limit tool access:
 
 | Scope | Tools |
 |-------|-------|
-| `mcp:read` | `get_prompt`, `list_prompts`, `render_prompt`, `get_results`, `list_branches`, `list_teams`, `list_templates` |
-| `mcp:write` | All read tools + `create_prompt`, `save_version`, `store_result`, `update_result`, `create_branch`, `share_prompt`, `run_template` |
+| `mcp:read` | `get_prompt`, `list_prompts`, `render_prompt`, `get_results`, `list_branches`, `list_teams`, `list_pipelines` |
+| `mcp:write` | All read tools + `create_prompt`, `save_version`, `store_result`, `update_result`, `create_branch`, `share_prompt`, `run_pipeline` |
 | `mcp:admin` | All write tools + `delete_prompt`, `delete_result` |
 
 API keys (legacy `urge_...` tokens) bypass scope checks and have full access.
@@ -217,8 +217,8 @@ API keys (legacy `urge_...` tokens) bypass scope checks and have full access.
 | `list_teams` | List user's teams | read |
 | `list_branches` | List branches for a prompt | read |
 | `create_branch` | Create a new branch | write |
-| `list_templates` | List pipeline templates | read |
-| `run_template` | Execute a pipeline template | write |
+| `list_pipelines` | List pipelines | read |
+| `run_pipeline` | Run a pipeline against a prompt | write |
 
 ## Resources (6)
 

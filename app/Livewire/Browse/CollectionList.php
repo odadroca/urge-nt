@@ -166,7 +166,7 @@ class CollectionList extends Component
                 $q->orderBy('sort_order')->with(['item' => function ($morphTo) {
                     $morphTo->morphWith([
                         \App\Models\PromptVersion::class => ['prompt'],
-                        \App\Models\Result::class => ['prompt', 'promptVersion', 'pipelineTemplate'],
+                        \App\Models\Result::class => ['prompt', 'promptVersion', 'pipeline'],
                         \App\Models\Collection::class => ['items'],
                     ]);
                 }]);
@@ -180,7 +180,7 @@ class CollectionList extends Component
                         $rid = $item->item->pipeline_run_id;
                         if (!isset($runBuffer[$rid])) {
                             $runBuffer[$rid] = [
-                                'template' => $item->item->pipelineTemplate,
+                                'template' => $item->item->pipeline,
                                 'items' => collect(),
                                 'run_id' => $rid,
                             ];

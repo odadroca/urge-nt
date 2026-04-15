@@ -96,8 +96,8 @@ Both transports share the same tool dispatch layer — the handler resolves tool
 - `delete_prompt(slug, owner?)` — delete prompt (owner/admin only)
 - `share_prompt(slug, team_slug)` — share prompt with team
 - `list_teams()` — list user's teams
-- `list_templates()` — list available prompt templates
-- `run_template(slug, owner?, variables?)` — render and execute a template
+- `list_pipelines()` — list available pipelines
+- `run_pipeline(slug, owner?, variables?)` — run a pipeline against a prompt
 
 **Resources:**
 - `urge://prompts` — list of visible prompts (respects namespace scoping)
@@ -340,4 +340,4 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **Nested collections** — collections inside collections (DAG), `CollectionNestingService` for circular ref detection + depth validation, configurable depth (`max_collection_depth`, `unlimited_collection_depth`), recursive API/share rendering, "Nest" action in UI (spec: `docs/superpowers/specs/2026-03-27-nested-collections-design.md`)
 - **React SPA** — React 19 mounted at `/app/*` with Browse (card grid, tabs, filters), Canvas (graph visualization via @xyflow/react), and Workspace (3-panel editor) pages. Slim icon-rail sidebar, mobile bottom tab bar. Post-login redirect to `/app/browse`.
 - **OAuth 2.1** — PKCE (S256), confidential client support (`client_secret`), Dynamic Client Registration (RFC 7591), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub external identity provider, OIDC discovery (`/.well-known/openid-configuration`). Verified with Claude.ai/Desktop (public PKCE) and Mistral Le Chat (confidential client).
-- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 16 tools (added `create_prompt`, `list_templates`, `run_template`). Verified with Claude.ai, Claude Desktop, Mistral Le Chat, and stdio (Claude Code).
+- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 16 tools (added `create_prompt`, `list_pipelines`, `run_pipeline`). Verified with Claude.ai, Claude Desktop, Mistral Le Chat, and stdio (Claude Code).

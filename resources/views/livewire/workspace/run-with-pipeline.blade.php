@@ -2,30 +2,30 @@
     @if($showPanel && $currentVersionId)
     <div class="border-t border-gray-200 dark:border-gray-700 p-3 space-y-3">
         <div class="flex items-center justify-between">
-            <h4 class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Run Template</h4>
+            <h4 class="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Run Pipeline</h4>
             <button wire:click="$set('showPanel', false)" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">&times;</button>
         </div>
 
-        @if($templates->isEmpty())
-            <p class="text-xs text-gray-500 dark:text-gray-400">No active templates. Create them in Settings &rarr; Templates.</p>
+        @if($pipelines->isEmpty())
+            <p class="text-xs text-gray-500 dark:text-gray-400">No active pipelines. Create them in Settings &rarr; Pipelines.</p>
         @else
-            {{-- Template Selection --}}
+            {{-- Pipeline Selection --}}
             <div>
-                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Template</label>
-                <select wire:model.live="selectedTemplateId"
+                <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Pipeline</label>
+                <select wire:model.live="selectedPipelineId"
                         class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-xs focus:border-indigo-500 focus:ring-indigo-500">
-                    <option value="">Select a template...</option>
-                    @foreach($templates as $t)
+                    <option value="">Select a pipeline...</option>
+                    @foreach($pipelines as $t)
                         <option value="{{ $t->id }}">{{ $t->name }}</option>
                     @endforeach
                 </select>
             </div>
 
             {{-- Channel preview --}}
-            @if($selectedTemplate)
+            @if($selectedPipeline)
             <div class="space-y-1">
                 <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Channels</label>
-                @foreach($selectedTemplate->channels as $channel)
+                @foreach($selectedPipeline->channels as $channel)
                 <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                     <span class="w-1.5 h-1.5 rounded-full shrink-0
                         {{ $channel->trigger === 'synthesis' ? 'bg-purple-400' : 'bg-blue-400' }}"></span>
@@ -69,9 +69,9 @@
             {{-- Run Button --}}
             <button wire:click="run"
                     wire:loading.attr="disabled"
-                    @if(!$selectedTemplateId) disabled @endif
+                    @if(!$selectedPipelineId) disabled @endif
                     class="w-full px-3 py-2 text-xs font-medium bg-purple-600 text-white rounded-md hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                <span wire:loading.remove wire:target="run">Run Template</span>
+                <span wire:loading.remove wire:target="run">Run Pipeline</span>
                 <span wire:loading wire:target="run">Running pipeline...</span>
             </button>
         @endif

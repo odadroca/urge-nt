@@ -147,7 +147,7 @@ class ResultsPanel extends Component
     public function render()
     {
         $query = Result::where('prompt_id', $this->prompt->id)
-            ->with(['promptVersion', 'pipelineTemplate']);
+            ->with(['promptVersion', 'pipeline']);
 
         if (!$this->showAllVersions && $this->currentVersionId) {
             $query->where('prompt_version_id', $this->currentVersionId);
@@ -172,7 +172,7 @@ class ResultsPanel extends Component
                 $key = $result->pipeline_run_id;
                 if (!isset($pipelineBuffer[$key])) {
                     $pipelineBuffer[$key] = [
-                        'template' => $result->pipelineTemplate,
+                        'template' => $result->pipeline,
                         'results' => collect(),
                         'first_at' => $result->created_at,
                         'run_id' => $result->pipeline_run_id,

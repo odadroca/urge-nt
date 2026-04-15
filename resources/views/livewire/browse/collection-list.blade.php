@@ -324,8 +324,8 @@
                                 @elseif($item->item_type === 'result')
                                     {{-- Result meta bar --}}
                                     <div class="flex items-center gap-3 mb-1.5 text-[10px] text-gray-400 dark:text-gray-500">
-                                        @if($resolved->pipelineTemplate)
-                                            <span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold">{{ $resolved->pipelineTemplate->name }}</span>
+                                        @if($resolved->pipeline)
+                                            <span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold">{{ $resolved->pipeline->name }}</span>
                                         @endif
                                         @if($resolved->promptVersion)
                                             <span class="font-mono">v{{ $resolved->promptVersion->version_number }}</span>

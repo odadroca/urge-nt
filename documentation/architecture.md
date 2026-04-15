@@ -226,8 +226,8 @@ Both transports dispatch to the same `McpToolHandler` service, which maps tool c
 | `list_teams` | List user's teams |
 | `list_branches` | List branches for a prompt |
 | `create_branch` | Create a new branch |
-| `list_templates` | List available prompt templates |
-| `run_template` | Render and execute a template |
+| `list_pipelines` | List available pipelines |
+| `run_pipeline` | Run a pipeline against a prompt |
 
 **Resources:**
 | URI | Purpose |

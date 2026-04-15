@@ -76,7 +76,7 @@
                         title="Run with LLM providers">Run LLM</button>
                 <button x-data @click="$dispatch('toggle-template-panel')"
                         class="px-2 py-1 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 border border-purple-300 dark:border-purple-700 rounded-md hover:border-purple-400 dark:hover:border-purple-600 transition"
-                        title="Run with pipeline template">Run Template</button>
+                        title="Run with pipeline">Run Pipeline</button>
                 {{-- AI Suggest Improvements --}}
                 <div x-data="{ showPicker: false }" class="relative">
                     <button @click="showPicker = !showPicker" wire:loading.attr="disabled" wire:target="suggestImprovements"
@@ -179,10 +179,10 @@
                         Run LLM
                     </button>
 
-                    {{-- Run Template --}}
+                    {{-- Run Pipeline --}}
                     <button @click="$dispatch('toggle-template-panel'); overflowOpen = false"
                             class="w-full text-left px-3 py-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
-                        Run Template
+                        Run Pipeline
                     </button>
 
                     <div class="border-t border-gray-100 dark:border-gray-700 my-1"></div>
