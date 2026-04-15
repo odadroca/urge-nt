@@ -39,10 +39,12 @@ class McpToolHandler
             'create_prompt', 'save_version', 'store_result', 'update_result',
             'create_branch', 'share_prompt', 'run_pipeline', 'run_prompt',
             'evaluate_result', 'store_evaluation',
+            'create_pipeline', 'update_pipeline', 'add_channel', 'update_channel',
         ];
 
         $adminTools = [
             'delete_prompt', 'delete_result',
+            'delete_pipeline', 'remove_channel',
         ];
 
         if (in_array($toolName, $readTools)) {
@@ -354,6 +356,86 @@ class McpToolHandler
                     'required' => ['slug', 'template_slug'],
                 ],
             ],
+            [
+                'name'        => 'create_pipeline',
+                'description' => 'Create a new pipeline (run configuration with channels for multi-LLM dispatch).',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'name'        => ['type' => 'string', 'description' => 'Pipeline name (e.g. "SWOT Analysis", "Multi-LLM Comparison")'],
+                        'description' => ['type' => 'string', 'description' => 'What this pipeline does'],
+                    ],
+                    'required' => ['name'],
+                ],
+            ],
+            [
+                'name'        => 'update_pipeline',
+                'description' => 'Update a pipeline\'s name, description, or active status.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'slug'        => ['type' => 'string', 'description' => 'Pipeline slug'],
+                        'name'        => ['type' => 'string', 'description' => 'New name'],
+                        'description' => ['type' => 'string', 'description' => 'New description'],
+                        'is_active'   => ['type' => 'boolean', 'description' => 'Active status'],
+                    ],
+                    'required' => ['slug'],
+                ],
+            ],
+            [
+                'name'        => 'delete_pipeline',
+                'description' => 'Delete a pipeline permanently.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'slug' => ['type' => 'string', 'description' => 'Pipeline slug'],
+                    ],
+                    'required' => ['slug'],
+                ],
+            ],
+            [
+                'name'        => 'add_channel',
+                'description' => 'Add a channel (LLM slot) to a pipeline. Each channel defines a provider, system prompt, and trigger type (parallel or synthesis).',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'pipeline_slug'  => ['type' => 'string', 'description' => 'Pipeline slug'],
+                        'role_label'     => ['type' => 'string', 'description' => 'Channel label (e.g. "strengths", "weaknesses", "summary")'],
+                        'provider'       => ['type' => 'string', 'description' => 'LLM provider name. Use list_providers to see available.'],
+                        'system_prompt'  => ['type' => 'string', 'description' => 'System prompt for this channel'],
+                        'trigger'        => ['type' => 'string', 'enum' => ['parallel', 'synthesis'], 'description' => 'parallel = runs alongside others, synthesis = runs after all parallel channels complete'],
+                        'sort_order'     => ['type' => 'integer', 'description' => 'Order within the pipeline (default 0)'],
+                    ],
+                    'required' => ['pipeline_slug', 'role_label', 'trigger'],
+                ],
+            ],
+            [
+                'name'        => 'update_channel',
+                'description' => 'Update a channel\'s configuration within a pipeline.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'channel_id'     => ['type' => 'integer', 'description' => 'Channel ID'],
+                        'role_label'     => ['type' => 'string', 'description' => 'New label'],
+                        'provider'       => ['type' => 'string', 'description' => 'New LLM provider name'],
+                        'system_prompt'  => ['type' => 'string', 'description' => 'New system prompt'],
+                        'trigger'        => ['type' => 'string', 'enum' => ['parallel', 'synthesis'], 'description' => 'New trigger type'],
+                        'sort_order'     => ['type' => 'integer', 'description' => 'New sort order'],
+                    ],
+                    'required' => ['channel_id'],
+                ],
+            ],
+            [
+                'name'        => 'remove_channel',
+                'description' => 'Remove a channel from a pipeline.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'channel_id' => ['type' => 'integer', 'description' => 'Channel ID to remove'],
+                    ],
+                    'required' => ['channel_id'],
+                ],
+            ],
         ];
     }
 
@@ -424,9 +506,15 @@ class McpToolHandler
             'list_teams'     => $this->listTeams($arguments, $user),
             'list_branches'  => $this->listBranches($arguments, $user),
             'create_branch'  => $this->createBranch($arguments, $user),
-            'list_pipelines' => $this->listPipelines($arguments, $user),
-            'run_pipeline'   => $this->runPipeline($arguments, $user),
-            default          => ['error' => "Unknown tool: {$name}"],
+            'list_pipelines'   => $this->listPipelines($arguments, $user),
+            'run_pipeline'     => $this->runPipeline($arguments, $user),
+            'create_pipeline'  => $this->createPipelineTool($arguments, $user),
+            'update_pipeline'  => $this->updatePipelineTool($arguments, $user),
+            'delete_pipeline'  => $this->deletePipelineTool($arguments, $user),
+            'add_channel'      => $this->addChannelTool($arguments, $user),
+            'update_channel'   => $this->updateChannelTool($arguments, $user),
+            'remove_channel'   => $this->removeChannelTool($arguments, $user),
+            default            => ['error' => "Unknown tool: {$name}"],
         };
     }
 
@@ -1434,5 +1522,177 @@ class McpToolHandler
         );
 
         return ['result_ids' => $resultIds];
+    }
+
+    private function createPipelineTool(array $args, ?User $user): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $name = $args['name'] ?? '';
+        if (!$name) {
+            return ['error' => 'name is required.'];
+        }
+
+        $pipeline = Pipeline::create([
+            'name'        => $name,
+            'description' => $args['description'] ?? null,
+            'created_by'  => $user->id,
+        ]);
+
+        return [
+            'id'          => $pipeline->id,
+            'name'        => $pipeline->name,
+            'slug'        => $pipeline->slug,
+            'description' => $pipeline->description,
+            'is_active'   => $pipeline->is_active,
+        ];
+    }
+
+    private function updatePipelineTool(array $args, ?User $user): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $pipeline = Pipeline::where('slug', $args['slug'] ?? '')->first();
+        if (!$pipeline) {
+            return ['error' => 'Pipeline not found.'];
+        }
+
+        $updates = [];
+        if (isset($args['name'])) $updates['name'] = $args['name'];
+        if (isset($args['description'])) $updates['description'] = $args['description'];
+        if (isset($args['is_active'])) $updates['is_active'] = (bool) $args['is_active'];
+
+        if (!empty($updates)) {
+            $pipeline->update($updates);
+        }
+
+        return [
+            'id'          => $pipeline->id,
+            'name'        => $pipeline->name,
+            'slug'        => $pipeline->slug,
+            'description' => $pipeline->description,
+            'is_active'   => $pipeline->is_active,
+        ];
+    }
+
+    private function deletePipelineTool(array $args, ?User $user): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $pipeline = Pipeline::where('slug', $args['slug'] ?? '')->first();
+        if (!$pipeline) {
+            return ['error' => 'Pipeline not found.'];
+        }
+
+        $pipeline->delete();
+
+        return ['message' => "Pipeline '{$pipeline->name}' deleted."];
+    }
+
+    private function addChannelTool(array $args, ?User $user): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $pipeline = Pipeline::where('slug', $args['pipeline_slug'] ?? '')->first();
+        if (!$pipeline) {
+            return ['error' => 'Pipeline not found.'];
+        }
+
+        $providerId = null;
+        if (!empty($args['provider'])) {
+            $provider = LlmProvider::where('name', 'like', $args['provider'])
+                ->where('is_active', true)
+                ->first();
+            if (!$provider) {
+                return ['error' => "Provider '{$args['provider']}' not found or inactive."];
+            }
+            $providerId = $provider->id;
+        }
+
+        $channel = PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => $args['role_label'] ?? '',
+            'llm_provider_id' => $providerId,
+            'system_prompt'   => $args['system_prompt'] ?? null,
+            'trigger'         => $args['trigger'] ?? 'parallel',
+            'sort_order'      => $args['sort_order'] ?? 0,
+        ]);
+
+        return [
+            'id'             => $channel->id,
+            'pipeline_slug'  => $pipeline->slug,
+            'role_label'     => $channel->role_label,
+            'provider'       => $provider->name ?? null,
+            'trigger'        => $channel->trigger,
+            'sort_order'     => $channel->sort_order,
+        ];
+    }
+
+    private function updateChannelTool(array $args, ?User $user): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $channel = PipelineChannel::find($args['channel_id'] ?? 0);
+        if (!$channel) {
+            return ['error' => 'Channel not found.'];
+        }
+
+        $updates = [];
+        if (isset($args['role_label'])) $updates['role_label'] = $args['role_label'];
+        if (isset($args['system_prompt'])) $updates['system_prompt'] = $args['system_prompt'];
+        if (isset($args['trigger'])) $updates['trigger'] = $args['trigger'];
+        if (isset($args['sort_order'])) $updates['sort_order'] = $args['sort_order'];
+
+        if (!empty($args['provider'])) {
+            $provider = LlmProvider::where('name', 'like', $args['provider'])
+                ->where('is_active', true)
+                ->first();
+            if (!$provider) {
+                return ['error' => "Provider '{$args['provider']}' not found or inactive."];
+            }
+            $updates['llm_provider_id'] = $provider->id;
+        }
+
+        if (!empty($updates)) {
+            $channel->update($updates);
+        }
+
+        $channel->load('llmProvider');
+
+        return [
+            'id'            => $channel->id,
+            'role_label'    => $channel->role_label,
+            'provider'      => $channel->llmProvider?->name,
+            'trigger'       => $channel->trigger,
+            'sort_order'    => $channel->sort_order,
+            'system_prompt' => $channel->system_prompt,
+        ];
+    }
+
+    private function removeChannelTool(array $args, ?User $user): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $channel = PipelineChannel::find($args['channel_id'] ?? 0);
+        if (!$channel) {
+            return ['error' => 'Channel not found.'];
+        }
+
+        $label = $channel->role_label;
+        $channel->delete();
+
+        return ['message' => "Channel '{$label}' removed."];
     }
 }
