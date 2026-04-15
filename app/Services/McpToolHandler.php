@@ -218,20 +218,22 @@ class McpToolHandler
             ],
             [
                 'name'        => 'store_result',
-                'description' => 'Store an LLM response result for a prompt version.',
+                'description' => 'Store an LLM response for a prompt version. Use this after running a prompt yourself: get_prompt or render_prompt → execute natively → store_result. Also used after running pipeline channels yourself via get_pipeline.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
-                        'slug'          => ['type' => 'string', 'description' => 'The prompt slug'],
-                        'owner'         => ['type' => 'string', 'description' => 'Owner username. If omitted, searches your prompts first, then all visible.'],
-                        'version'       => ['type' => 'integer', 'description' => 'The version number'],
-                        'response_text' => ['type' => 'string', 'description' => 'The LLM response text'],
-                        'provider'      => ['type' => 'string', 'description' => 'Provider name (e.g. OpenAI)'],
-                        'model'         => ['type' => 'string', 'description' => 'Model name (e.g. gpt-4)'],
-                        'notes'         => ['type' => 'string', 'description' => 'Optional notes'],
-                        'branch'        => ['type' => 'string', 'description' => 'Branch name to scope version lookup'],
+                        'slug'             => ['type' => 'string', 'description' => 'The prompt slug'],
+                        'owner'            => ['type' => 'string', 'description' => 'Owner username. If omitted, searches your prompts first, then all visible.'],
+                        'version'          => ['type' => 'integer', 'description' => 'Version number (defaults to active version if omitted)'],
+                        'response_text'    => ['type' => 'string', 'description' => 'The LLM response text'],
+                        'provider'         => ['type' => 'string', 'description' => 'Provider/model name (e.g. "Claude Opus 4.6", "Le Chat")'],
+                        'model'            => ['type' => 'string', 'description' => 'Model identifier'],
+                        'rendered_content' => ['type' => 'string', 'description' => 'The rendered prompt that was sent to the LLM (with variables filled)'],
+                        'variables_used'   => ['type' => 'object', 'description' => 'Variables used when rendering (key-value pairs)'],
+                        'notes'            => ['type' => 'string', 'description' => 'Optional notes (e.g. pipeline channel role_label)'],
+                        'branch'           => ['type' => 'string', 'description' => 'Branch name to scope version lookup'],
                     ],
-                    'required' => ['slug', 'version', 'response_text'],
+                    'required' => ['slug', 'response_text'],
                 ],
             ],
             [
@@ -1227,9 +1229,20 @@ class McpToolHandler
             return ['error' => 'Prompt not found.'];
         }
 
-        $version = $prompt->versions()->where('version_number', $args['version'])->first();
+        // Version: use specified, or resolve from branch, or default to active
+        $version = null;
+        if (isset($args['version'])) {
+            $version = $prompt->versions()->where('version_number', $args['version'])->first();
+        } elseif (isset($args['branch'])) {
+            $branch = $prompt->branches()->where('name', $args['branch'])->first();
+            if ($branch && $branch->head_version_id) {
+                $version = PromptVersion::find($branch->head_version_id);
+            }
+        }
+        $version = $version ?? $prompt->activeVersion;
+
         if (!$version) {
-            return ['error' => 'Version not found.'];
+            return ['error' => 'No version found. Save a version first.'];
         }
 
         $result = Result::create([
@@ -1239,11 +1252,18 @@ class McpToolHandler
             'response_text'     => $args['response_text'],
             'provider_name'     => $args['provider'] ?? null,
             'model_name'        => $args['model'] ?? null,
+            'rendered_content'  => $args['rendered_content'] ?? null,
+            'variables_used'    => !empty($args['variables_used']) ? $args['variables_used'] : null,
             'notes'             => $args['notes'] ?? null,
             'created_by'        => $user->id,
         ]);
 
-        return ['id' => $result->id, 'created' => true];
+        return [
+            'id'             => $result->id,
+            'prompt_slug'    => $prompt->slug,
+            'version_number' => $version->version_number,
+            'created'        => true,
+        ];
     }
 
     private function deletePrompt(array $args, ?User $user): array
