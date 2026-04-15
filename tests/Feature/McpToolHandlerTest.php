@@ -174,7 +174,7 @@ class McpToolHandlerTest extends TestCase
     {
         $tools = $this->handler->getToolDefinitions();
 
-        $this->assertCount(18, $tools);
+        $this->assertCount(20, $tools);
         $names = array_column($tools, 'name');
         $this->assertContains('get_prompt', $names);
         $this->assertContains('render_prompt', $names);

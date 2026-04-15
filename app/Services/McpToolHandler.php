@@ -32,12 +32,13 @@ class McpToolHandler
         $readTools = [
             'get_prompt', 'list_prompts', 'render_prompt',
             'get_results', 'list_branches', 'list_teams', 'list_templates',
-            'list_providers',
+            'list_providers', 'get_evaluations',
         ];
 
         $writeTools = [
             'create_prompt', 'save_version', 'store_result', 'update_result',
             'create_branch', 'share_prompt', 'run_template', 'run_prompt',
+            'evaluate_result',
         ];
 
         $adminTools = [
@@ -96,6 +97,30 @@ class McpToolHandler
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => new \stdClass(),
+                ],
+            ],
+            [
+                'name'        => 'evaluate_result',
+                'description' => 'Evaluate an LLM result against its original prompt using configurable quality dimensions. Returns scores per dimension plus a composite score.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'result_id' => ['type' => 'integer', 'description' => 'The result ID to evaluate'],
+                        'provider'  => ['type' => 'string', 'description' => 'Optional: override the default evaluator LLM provider name'],
+                    ],
+                    'required' => ['result_id'],
+                ],
+            ],
+            [
+                'name'        => 'get_evaluations',
+                'description' => 'Get evaluation scores for a result. Returns dimension scores, composite score, and reasoning.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'result_id' => ['type' => 'integer', 'description' => 'The result ID'],
+                        'version'   => ['type' => 'integer', 'description' => 'Evaluation version number (defaults to latest)'],
+                    ],
+                    'required' => ['result_id'],
                 ],
             ],
             [
@@ -349,6 +374,8 @@ class McpToolHandler
             'create_prompt'  => $this->createPrompt($arguments, $user),
             'run_prompt'     => $this->runPrompt($arguments, $user),
             'list_providers' => $this->listProviders($arguments, $user),
+            'evaluate_result' => $this->evaluateResult($arguments, $user),
+            'get_evaluations' => $this->getEvaluationsForResult($arguments, $user),
             'get_prompt'     => $this->getPrompt($arguments, $user),
             'list_prompts'  => $this->listPrompts($arguments, $user),
             'render_prompt' => $this->renderPrompt($arguments, $user),
@@ -727,6 +754,52 @@ class McpToolHandler
             ->toArray();
 
         return ['providers' => $providers];
+    }
+
+    private function evaluateResult(array $args, ?User $user = null): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $resultId = $args['result_id'] ?? null;
+        if (!$resultId) {
+            return ['error' => 'result_id is required.'];
+        }
+
+        $result = Result::find($resultId);
+        if (!$result) {
+            return ['error' => "Result {$resultId} not found."];
+        }
+
+        $providerOverride = null;
+        if (!empty($args['provider'])) {
+            $providerOverride = \App\Models\LlmProvider::where('name', 'like', $args['provider'])
+                ->where('is_active', true)
+                ->first();
+            if (!$providerOverride) {
+                return ['error' => "Provider '{$args['provider']}' not found or inactive."];
+            }
+        }
+
+        $evaluationService = app(\App\Services\EvaluationService::class);
+        return $evaluationService->evaluate($result, $user, $providerOverride);
+    }
+
+    private function getEvaluationsForResult(array $args, ?User $user = null): array
+    {
+        $resultId = $args['result_id'] ?? null;
+        if (!$resultId) {
+            return ['error' => 'result_id is required.'];
+        }
+
+        $result = Result::find($resultId);
+        if (!$result) {
+            return ['error' => "Result {$resultId} not found."];
+        }
+
+        $evaluationService = app(\App\Services\EvaluationService::class);
+        return $evaluationService->getEvaluations($resultId, $args['version'] ?? null);
     }
 
     private function getPrompt(array $args, ?User $user = null): array
