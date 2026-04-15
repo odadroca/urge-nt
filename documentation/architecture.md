@@ -99,15 +99,31 @@ External consumers:
 
 Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix).
 
-OAuth 2.1 with PKCE (S256 only). Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access). GitHub as external provider.
+OAuth 2.1 with PKCE (S256 required for public clients, optional for confidential). Confidential client support with `client_secret` (for Mistral Le Chat). Dynamic Client Registration (RFC 7591) for Claude Desktop / Claude.ai. Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access). GitHub as external identity provider.
 
+**Public client flow (Claude.ai, Claude Desktop):**
 ```
 Client ──401──> /.well-known/oauth-protected-resource
              ──> /.well-known/oauth-authorization-server
-             ──> GET/POST /oauth/authorize (PKCE challenge)
-             ──> POST /oauth/token (exchange code for token)
+             ──> POST /oauth/register (Dynamic Client Registration)
+             ──> GET/POST /oauth/authorize (PKCE S256 challenge)
+             ──> POST /oauth/token (exchange code + code_verifier for token)
              ──> API/MCP with Bearer token
 ```
+
+**Confidential client flow (Mistral Le Chat):**
+```
+Pre-register: php artisan oauth:create-client "Le Chat" --redirect="..." --confidential
+Client ──> /.well-known/openid-configuration (OIDC Discovery)
+       ──> GET/POST /oauth/authorize
+       ──> POST /oauth/token (exchange code + client_secret for token)
+       ──> API/MCP with Bearer token
+```
+
+**Discovery endpoints:**
+- `GET /.well-known/oauth-protected-resource` — RFC 9728
+- `GET /.well-known/oauth-authorization-server` — RFC 8414
+- `GET /.well-known/openid-configuration` — OIDC Discovery (required by Mistral Le Chat)
 
 ### REST API (`/api/v1/`)
 
@@ -193,13 +209,14 @@ Two transports, one shared handler layer:
 
 Both transports dispatch to the same `McpToolHandler` service, which maps tool calls to TemplateEngine, VersioningService, and Eloquent queries.
 
-**Tools (15):**
+**Tools (16):**
 | Tool | Purpose |
 |---|---|
 | `get_prompt` | Fetch prompt by slug (+ optional owner for namespace), optionally specific version |
 | `list_prompts` | Browse/search the registry (scope: mine/shared/team/all) |
 | `render_prompt` | Resolve includes + fill variables → rendered text |
 | `save_version` | Create new version of a prompt |
+| `create_prompt` | Create a new prompt with initial version |
 | `store_result` | Archive a result (response from any LLM) |
 | `get_results` | Retrieve past results for a prompt |
 | `update_result` | Update result metadata (rating, starred, notes) |
@@ -313,6 +330,7 @@ app/Services/
 |---------|-------------|
 | `php artisan urge:mcp-server` | Start stdio MCP server for local clients |
 | `php artisan urge:import-v1 {path}` | Migrate data from URGE v1 SQLite database (idempotent, transaction-wrapped) |
+| `php artisan oauth:create-client {name}` | Create pre-registered OAuth client (`--redirect=URL`, `--confidential`) |
 
 ## Phase Roadmap
 
@@ -330,4 +348,4 @@ app/Services/
 | Post-7 | Nested collections | Collections inside collections (DAG), circular ref detection, configurable depth, public share rendering |
 | Post-7 | React SPA | React 19 primary UI (Browse, Canvas, Workspace), sidebar nav, mobile bottom tab bar |
 | Post-7 | OAuth 2.1 | PKCE (S256), scoped tokens, GitHub provider, discovery endpoints |
-| Post-7 | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 15 tools |
+| Post-7 | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 16 tools. Verified: Claude.ai, Claude Desktop, Mistral Le Chat, stdio |

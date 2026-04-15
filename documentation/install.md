@@ -66,7 +66,7 @@ php artisan test
 
 ### GitHub OAuth Setup
 
-To enable GitHub as an OAuth provider:
+To enable GitHub as an external identity provider:
 
 1. Create a GitHub OAuth App at https://github.com/settings/developers
 2. Set the callback URL to `https://your-urge-instance.com/oauth/github/callback`
@@ -75,6 +75,39 @@ To enable GitHub as an OAuth provider:
    GITHUB_CLIENT_ID=your_client_id
    GITHUB_CLIENT_SECRET=your_client_secret
    ```
+
+### OAuth Client Management
+
+Create pre-registered OAuth clients for third-party MCP consumers:
+
+```bash
+# Public client (PKCE only — for clients that support Dynamic Client Registration)
+php artisan oauth:create-client "My Client" --redirect="https://example.com/callback"
+
+# Confidential client (client_secret — for Mistral Le Chat and similar)
+php artisan oauth:create-client "Le Chat" \
+  --redirect="https://callback.mistral.ai/v1/integrations_auth/oauth2_callback" \
+  --confidential
+```
+
+The command outputs the `client_id` and (for confidential clients) the `client_secret`. Store these securely — the secret is only shown once.
+
+### Mistral Le Chat Setup
+
+To connect Mistral Le Chat to URGE as an MCP integration:
+
+1. Create a confidential OAuth client:
+   ```bash
+   php artisan oauth:create-client "Le Chat" \
+     --redirect="https://callback.mistral.ai/v1/integrations_auth/oauth2_callback" \
+     --confidential
+   ```
+2. Note the `client_id` and `client_secret` from the output
+3. In Le Chat, add URGE as an MCP integration:
+   - MCP server URL: `https://your-urge-instance.com/api/v1/mcp`
+   - Client ID and Client Secret from step 2
+4. Le Chat discovers OAuth endpoints via `/.well-known/openid-configuration`
+5. On first use, you'll be redirected to URGE to authorize access
 
 ## Production Deployment (Shared Hosting)
 

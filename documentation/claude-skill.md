@@ -10,19 +10,25 @@ https://urge-next.acordado.org/api/v1
 
 ## Authentication
 
-All API requests (except health check) require authentication. Two options:
+All API requests (except health check) require authentication. Three options:
 
 **API key** (simplest):
 ```
 Authorization: Bearer urge_YOUR_API_KEY
 ```
 
-**OAuth 2.1 token** (for third-party clients):
+**OAuth 2.1 token — public client** (Claude.ai, Claude Desktop):
 ```
 Authorization: Bearer <oauth_access_token>
 ```
 
-OAuth discovery flow: send a request → receive 401 → follow `/.well-known/oauth-protected-resource` → `/.well-known/oauth-authorization-server` → authorize with PKCE → exchange code for token. Scopes: `mcp:read`, `mcp:write`, `mcp:admin`.
+OAuth discovery flow: send a request → receive 401 → follow `/.well-known/oauth-protected-resource` → `/.well-known/oauth-authorization-server` → register via `POST /oauth/register` (Dynamic Client Registration, RFC 7591) → authorize with PKCE (S256) → exchange code + `code_verifier` for token.
+
+**OAuth 2.1 token — confidential client** (Mistral Le Chat):
+
+Pre-register a client on the server: `php artisan oauth:create-client "Le Chat" --redirect="..." --confidential`. The client discovers endpoints via `/.well-known/openid-configuration` (OIDC Discovery) → authorize → exchange code + `client_secret` for token.
+
+Scopes: `mcp:read`, `mcp:write`, `mcp:admin`.
 
 ## Namespaces
 
@@ -126,20 +132,23 @@ curl -X POST \
 | DELETE | `/teams/{slug}` | Delete team |
 | POST | `/teams/{slug}/members` | Add member |
 | DELETE | `/teams/{slug}/members/{user}` | Remove member |
-| POST | `/mcp` | MCP JSON-RPC endpoint |
+| POST | `/mcp` | MCP Streamable HTTP endpoint (protocol 2025-06-18) |
 
 Legacy URLs (`/prompts/{slug}`) redirect to the namespaced version automatically.
 
 ## MCP Integration
 
-URGE also supports the Model Context Protocol (MCP). Connect Claude Desktop or Claude Code to URGE as an MCP server.
+URGE exposes an MCP server (protocol version 2025-06-18) via Streamable HTTP transport (`POST /api/v1/mcp`) and stdio. Session state is managed via the `Mcp-Session-Id` header.
 
-### Available MCP Tools (15)
+Verified MCP clients: Claude.ai, Claude Desktop (OAuth via Dynamic Client Registration), Mistral Le Chat (OAuth via confidential client), Claude Code (stdio, no auth).
+
+### Available MCP Tools (16)
 
 - **get_prompt** — Fetch a prompt by slug (+ optional `owner` for namespace resolution)
 - **list_prompts** — List/search prompts (scope: mine/shared/team:{slug}/all)
 - **render_prompt** — Render a template with variables
 - **save_version** — Create a new version
+- **create_prompt** — Create a new prompt with initial version
 - **store_result** — Save an LLM response
 - **get_results** — Get results for a prompt
 - **update_result** — Update result metadata (rating, starred, notes)
@@ -163,28 +172,37 @@ URGE also supports the Model Context Protocol (MCP). Connect Claude Desktop or C
 
 Legacy resource URIs (`urge://prompts/{slug}`) still work as fallbacks.
 
-### Claude Desktop Configuration (Streamable HTTP)
+### Claude.ai / Claude Desktop (OAuth — automatic)
 
-Add to `claude_desktop_config.json`:
+Just provide the MCP server URL. Auth is handled automatically via OAuth Dynamic Client Registration (RFC 7591) with PKCE:
 
 ```json
 {
   "mcpServers": {
     "urge": {
-      "url": "https://urge-next.acordado.org/api/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer urge_YOUR_API_KEY"
-      }
+      "url": "https://urge-next.acordado.org/api/v1/mcp"
     }
   }
 }
 ```
 
-The server uses Streamable HTTP transport (protocol 2025-06-18). Session state is managed via the `Mcp-Session-Id` header. You can also use an OAuth token in place of the API key.
+On first connection, Claude will redirect you to URGE to authorize access. No API key or manual client registration needed.
 
-### Claude Code Configuration (stdio)
+### Mistral Le Chat (OAuth — confidential client)
 
-For local development, use the stdio transport:
+Le Chat requires a pre-registered confidential client. On your URGE server:
+
+```bash
+php artisan oauth:create-client "Le Chat" \
+  --redirect="https://callback.mistral.ai/v1/integrations_auth/oauth2_callback" \
+  --confidential
+```
+
+Then in Le Chat, add URGE as an MCP integration with the generated `client_id` and `client_secret`. Le Chat discovers endpoints via `/.well-known/openid-configuration`.
+
+### Claude Code (stdio — local)
+
+For local development, use the stdio transport (no auth needed):
 
 ```json
 {

@@ -16,7 +16,7 @@ URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fil
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
-php artisan test         # 357 tests
+php artisan test         # 365 tests
 php artisan serve        # http://127.0.0.1:8000
 npm run dev              # Vite HMR
 npm run build            # Production
@@ -81,10 +81,11 @@ Collection → CollectionItem[] (polymorphic: prompt_version|result|collection) 
 
 Both transports share the same tool dispatch layer — the handler resolves tool calls to service layer methods identically.
 
-**Tools (15):**
+**Tools (16):**
 - `get_prompt(slug, owner?, version?, variables?)` — fetch, optionally render with variables
 - `list_prompts(type?, category?, tag?, search?, scope?)` — browse registry (scope: mine|shared|team:{slug}|all)
 - `save_version(slug, owner?, content, commit_message?, branch?)` — create new version (on branch)
+- `create_prompt(name, content, type?, category?, tags?, description?)` — create a new prompt with initial version
 - `store_result(slug, owner?, version, response_text, provider?, model?, branch?)` — archive a result
 - `get_results(slug, owner?, version?, starred?, branch?)` — retrieve past results
 - `render_prompt(slug, owner?, version?, variables{}, branch?)` — resolve includes + fill variables, return rendered text
@@ -223,9 +224,11 @@ Livewire (wire:navigate):
 
 OAuth:
 GET/POST /oauth/authorize, POST /oauth/token
+POST /oauth/register (Dynamic Client Registration, RFC 7591)
 GET /oauth/github, GET /oauth/github/callback
-GET /.well-known/oauth-protected-resource
-GET /.well-known/oauth-authorization-server
+GET /.well-known/oauth-protected-resource (RFC 9728)
+GET /.well-known/oauth-authorization-server (RFC 8414)
+GET /.well-known/openid-configuration (OIDC Discovery)
 
 Internal API (no auth, same-origin only):
 POST /internal/variables    — extract variables from content
@@ -238,8 +241,8 @@ See API Endpoints above
 ### Auth & Roles
 
 Web: Breeze (Blade stack). Roles: admin, editor, viewer. First user auto-admin. `RequireRole` middleware as `role`.
-API: Triple-auth cascade — Sanctum sessions (SPA) → OAuth 2.1 tokens (PKCE, S256) → API keys (`urge_` prefix). Rate limited per key.
-OAuth: Scopes `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens only; API keys have full access). GitHub as external provider. Discovery via `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`.
+API: Triple-auth cascade — Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix). Rate limited per key.
+OAuth 2.1: PKCE with S256 (required for public clients, optional for confidential). Confidential client support with `client_secret` (for Mistral Le Chat). Dynamic Client Registration (RFC 7591) for Claude Desktop / Claude.ai. Scopes `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens only; API keys have full access). GitHub as external identity provider. Discovery via `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, and `/.well-known/openid-configuration`.
 Namespaces: Prompts are private by default. Shared via teams. Visibility scope: `Prompt::visibleTo($user)`. Owner can delete/rename/share. Team members can edit content. Admins override all.
 
 ### Template Syntax
@@ -261,6 +264,7 @@ Namespaces: Prompts are private by default. Shared via teams. Visibility scope: 
 `config/urge.php` — `max_include_depth`, `curl_ssl_verify`, `api_rate_limit`, `api_rate_window`, `key_prefix`, `key_bytes`, `max_collection_depth` (default 5), `unlimited_collection_depth` (default false)
 
 OAuth config (env): `OAUTH_TOKEN_TTL` (token lifetime), `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (for GitHub OAuth provider)
+OAuth clients: Created via `php artisan oauth:create-client {name}` with `--redirect` and `--confidential` flags. Pre-registered clients use `client_id` + `client_secret` (confidential) or Dynamic Client Registration (public).
 
 ### LLM Driver Architecture
 
@@ -294,6 +298,7 @@ $this->dispatch('notify', message: 'Done', type: 'success'); // or 'error'
 
 - `php artisan urge:mcp-server` — stdio MCP server
 - `php artisan urge:import-v1 {path}` — import v1 SQLite database (idempotent, transaction-wrapped)
+- `php artisan oauth:create-client {name}` — create pre-registered OAuth client (`--redirect=URL`, `--confidential`)
 
 ### Live Preview (Phase 6)
 
@@ -312,7 +317,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**Phases 1-7 complete + UX sprints done + post-phase improvements + version branching + nested collections + React SPA UI + OAuth 2.1 + Streamable HTTP MCP.** 357 tests passing.
+**Phases 1-7 complete + UX sprints done + post-phase improvements + version branching + nested collections + React SPA UI + OAuth 2.1 (PKCE + confidential clients) + Streamable HTTP MCP.** 365 tests passing. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -334,5 +339,5 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **Version branching** — non-linear version history with `PromptBranch` model, branch CRUD (create/delete/set-default), dual version numbers (global + per-branch), MCP tools (`list_branches`, `create_branch`), API endpoints, branch switcher UI
 - **Nested collections** — collections inside collections (DAG), `CollectionNestingService` for circular ref detection + depth validation, configurable depth (`max_collection_depth`, `unlimited_collection_depth`), recursive API/share rendering, "Nest" action in UI (spec: `docs/superpowers/specs/2026-03-27-nested-collections-design.md`)
 - **React SPA** — React 19 mounted at `/app/*` with Browse (card grid, tabs, filters), Canvas (graph visualization via @xyflow/react), and Workspace (3-panel editor) pages. Slim icon-rail sidebar, mobile bottom tab bar. Post-login redirect to `/app/browse`.
-- **OAuth 2.1** — PKCE (S256), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub external provider, discovery endpoints (`.well-known/`)
-- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 15 tools (added `list_templates`, `run_template`)
+- **OAuth 2.1** — PKCE (S256), confidential client support (`client_secret`), Dynamic Client Registration (RFC 7591), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub external identity provider, OIDC discovery (`/.well-known/openid-configuration`). Verified with Claude.ai/Desktop (public PKCE) and Mistral Le Chat (confidential client).
+- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 16 tools (added `create_prompt`, `list_templates`, `run_template`). Verified with Claude.ai, Claude Desktop, Mistral Le Chat, and stdio (Claude Code).

@@ -20,8 +20,8 @@ Two access patterns, one backend:
 - **Live preview** — rendered preview with include resolution and variable fill from defaults
 - **Visual composer** — drag-and-drop blocks (text, variable chips, include chips) via SortableJS
 - **REST API** — full CRUD with Bearer token auth, rate limiting, OpenAPI 3.1 spec
-- **OAuth 2.1** — PKCE (S256), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub as external provider
-- **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 15 tools and 6 resources
+- **OAuth 2.1** — PKCE (S256), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub as external provider, confidential client support with client_secret
+- **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 16 tools and 6 resources
 - **6 LLM drivers** — OpenAI, Anthropic, Mistral, Gemini, Ollama, OpenRouter
 - **Import/export** — Markdown with YAML frontmatter for prompts and results
 - **Collections** — curated groupings of prompt versions, results, and nested collections (DAG) with ordering and public share links
@@ -42,7 +42,7 @@ Two access patterns, one backend:
 | Styling | Tailwind CSS 3.1 |
 | Database | SQLite (default, configurable) |
 | Build | Vite 7 |
-| Testing | PHPUnit 11 (357 tests) |
+| Testing | PHPUnit 11 (365 tests) |
 
 ## Quick Start
 
@@ -120,24 +120,32 @@ Full spec available at [`public/openapi.json`](public/openapi.json), importable 
 
 URGE exposes an MCP server (protocol version 2025-06-18) with two transports. Both share the same tool dispatch layer.
 
-**Streamable HTTP transport** (for hosted/remote URGE — Claude Desktop connecting over the network):
+**Verified MCP clients:** Claude.ai, Claude Desktop (OAuth via Dynamic Client Registration), Mistral Le Chat (OAuth via pre-registered confidential client), Claude Code (stdio, no auth).
+
+**Claude.ai / Claude Desktop** (OAuth — just provide the URL, auth is automatic via Dynamic Client Registration):
 
 ```json
 {
   "mcpServers": {
     "urge": {
-      "url": "https://your-urge-instance.com/api/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer urge_YOUR_API_KEY"
-      }
+      "url": "https://your-urge-instance.com/api/v1/mcp"
     }
   }
 }
 ```
 
-Session state is managed via the `Mcp-Session-Id` header (set by the server on first response).
+**Mistral Le Chat** (OAuth via pre-registered confidential client):
 
-**stdio transport** (for local dev — Claude Code or Claude Desktop on the same machine):
+First create the client on your URGE instance:
+```bash
+php artisan oauth:create-client "Le Chat" \
+  --redirect="https://callback.mistral.ai/v1/integrations_auth/oauth2_callback" \
+  --confidential
+```
+
+Then in Le Chat, add URGE as an MCP integration with the generated `client_id` and `client_secret`. Le Chat discovers endpoints via `/.well-known/openid-configuration`.
+
+**stdio transport** (for local dev — Claude Code on the same machine):
 
 ```json
 {
@@ -151,7 +159,9 @@ Session state is managed via the `Mcp-Session-Id` header (set by the server on f
 }
 ```
 
-**Tools (15):** `get_prompt`, `list_prompts`, `render_prompt`, `save_version`, `store_result`, `get_results`, `update_result`, `delete_result`, `delete_prompt`, `share_prompt`, `list_teams`, `list_branches`, `create_branch`, `list_templates`, `run_template`
+Session state is managed via the `Mcp-Session-Id` header (set by the server on first response).
+
+**Tools (16):** `get_prompt`, `list_prompts`, `render_prompt`, `save_version`, `store_result`, `get_results`, `update_result`, `delete_result`, `delete_prompt`, `share_prompt`, `list_teams`, `list_branches`, `create_branch`, `create_prompt`, `list_templates`, `run_template`
 
 **Resources:** `urge://prompts`, `urge://prompts/{username}/{slug}`, `urge://prompts/{username}/{slug}/v/{n}`, `urge://prompts/{username}/{slug}/branches`, `urge://prompts/{username}/{slug}/branches/{branch}`, `urge://teams`
 
@@ -159,16 +169,35 @@ See [`documentation/claude-skill.md`](documentation/claude-skill.md) for full AP
 
 ## Authentication
 
-Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix). OAuth 2.1 with PKCE (S256 only). Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access).
+Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix).
 
-**OAuth endpoints:** `GET/POST /oauth/authorize`, `POST /oauth/token`, `GET /oauth/github`, `GET /oauth/github/callback`
+**OAuth 2.1:**
+- PKCE with S256 (required for public clients, optional for confidential)
+- Confidential client support with `client_secret` (for Mistral Le Chat and similar)
+- Dynamic Client Registration (RFC 7591) for Claude Desktop / Claude.ai
+- GitHub as external identity provider
+- Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access)
 
-**Discovery:** `GET /.well-known/oauth-protected-resource`, `GET /.well-known/oauth-authorization-server`
+**OAuth endpoints:**
+| Endpoint | Description |
+|----------|-------------|
+| `GET/POST /oauth/authorize` | Consent page |
+| `POST /oauth/token` | Code exchange (accepts `code_verifier` or `client_secret`) |
+| `POST /oauth/register` | Dynamic Client Registration (RFC 7591) |
+| `GET /oauth/github` | GitHub OAuth redirect |
+| `GET /oauth/github/callback` | GitHub OAuth callback |
+
+**Discovery endpoints:**
+| Endpoint | Description |
+|----------|-------------|
+| `GET /.well-known/oauth-protected-resource` | RFC 9728 — protected resource metadata |
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 — authorization server metadata |
+| `GET /.well-known/openid-configuration` | OIDC Discovery (required by Mistral Le Chat) |
 
 ## Testing
 
 ```bash
-php artisan test    # 357 tests
+php artisan test    # 365 tests
 ```
 
 ## Artisan Commands
@@ -177,6 +206,7 @@ php artisan test    # 357 tests
 |---------|-------------|
 | `php artisan urge:mcp-server` | Start stdio MCP server |
 | `php artisan urge:import-v1 {path}` | Migrate data from URGE v1 SQLite database |
+| `php artisan oauth:create-client {name}` | Create pre-registered OAuth client (supports `--redirect`, `--confidential`) |
 
 ## Documentation
 
