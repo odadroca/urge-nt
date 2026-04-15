@@ -15,8 +15,8 @@ class OAuthService
         string $clientId,
         string $redirectUri,
         string $scope,
-        string $codeChallenge,
-        string $codeChallengeMethod,
+        ?string $codeChallenge = null,
+        ?string $codeChallengeMethod = null,
         ?string $resource = null,
     ): string {
         $code = Str::random(64);
@@ -27,8 +27,8 @@ class OAuthService
             'user_id'               => $user->id,
             'redirect_uri'          => $redirectUri,
             'scope'                 => $scope,
-            'code_challenge'        => $codeChallenge,
-            'code_challenge_method' => $codeChallengeMethod,
+            'code_challenge'        => $codeChallenge ?? '',
+            'code_challenge_method' => $codeChallengeMethod ?? 'S256',
             'resource'              => $resource,
             'expires_at'            => now()->addSeconds(config('urge.oauth.code_ttl', 600)),
         ]);
@@ -41,6 +41,7 @@ class OAuthService
         string $codeVerifier,
         string $clientId,
         string $redirectUri,
+        string $clientSecret = '',
     ): ?OAuthAccessToken {
         $authCode = OAuthAuthorizationCode::where('code', hash('sha256', $code))
             ->where('client_id', $clientId)
@@ -51,7 +52,19 @@ class OAuthService
             return null;
         }
 
-        if (!$this->validatePkce($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method)) {
+        // Authenticate client: PKCE (public) or client_secret (confidential)
+        $client = $this->findClient($clientId);
+        if ($client && $client->client_secret) {
+            // Confidential client — validate secret
+            if (!hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
+                return null;
+            }
+        } elseif ($codeVerifier) {
+            // Public client — validate PKCE
+            if (!$this->validatePkce($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method)) {
+                return null;
+            }
+        } else {
             return null;
         }
 

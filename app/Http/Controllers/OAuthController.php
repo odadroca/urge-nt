@@ -33,11 +33,19 @@ class OAuthController
             'method'       => $codeChallengeMethod,
         ]);
 
-        if (!$clientId || !$redirectUri || !$codeChallenge) {
+        if (!$clientId || !$redirectUri) {
             return redirect('/')->with('error', 'Invalid OAuth request: missing required parameters.');
         }
 
-        if ($codeChallengeMethod !== 'S256') {
+        // PKCE is required for public clients, optional for confidential clients
+        $client = $this->oauthService->findClient($clientId);
+        $isConfidential = $client && $client->client_secret;
+
+        if (!$isConfidential && !$codeChallenge) {
+            return redirect('/')->with('error', 'Invalid OAuth request: code_challenge is required for public clients.');
+        }
+
+        if ($codeChallenge && $codeChallengeMethod !== 'S256') {
             return redirect('/')->with('error', 'Invalid OAuth request: code_challenge_method must be S256.');
         }
 
@@ -74,8 +82,8 @@ class OAuthController
             'client_id'             => 'required|string',
             'redirect_uri'          => 'required|string|url',
             'scope'                 => 'required|string',
-            'code_challenge'        => 'required|string',
-            'code_challenge_method' => 'required|in:S256',
+            'code_challenge'        => 'nullable|string',
+            'code_challenge_method' => 'nullable|in:S256',
         ]);
 
         $redirectUri = $request->input('redirect_uri');
@@ -125,16 +133,25 @@ class OAuthController
         $code = $request->input('code', '');
         $codeVerifier = $request->input('code_verifier', '');
         $clientId = $request->input('client_id', '');
+        $clientSecret = $request->input('client_secret', '');
         $redirectUri = $request->input('redirect_uri', '');
 
-        if (!$code || !$codeVerifier || !$clientId || !$redirectUri) {
+        if (!$code || !$clientId || !$redirectUri) {
             return response()->json([
                 'error'             => 'invalid_request',
-                'error_description' => 'Missing required parameters: code, code_verifier, client_id, redirect_uri.',
+                'error_description' => 'Missing required parameters: code, client_id, redirect_uri.',
             ], 400);
         }
 
-        $token = $this->oauthService->exchangeCode($code, $codeVerifier, $clientId, $redirectUri);
+        // Confidential clients authenticate with client_secret, public clients with PKCE
+        if (!$codeVerifier && !$clientSecret) {
+            return response()->json([
+                'error'             => 'invalid_request',
+                'error_description' => 'Either code_verifier (PKCE) or client_secret is required.',
+            ], 400);
+        }
+
+        $token = $this->oauthService->exchangeCode($code, $codeVerifier, $clientId, $redirectUri, $clientSecret);
 
         if (!$token) {
             return response()->json([
@@ -189,18 +206,26 @@ class OAuthController
         }
 
         $clientId = Str::uuid()->toString();
+        $authMethod = $data['token_endpoint_auth_method'] ?? 'none';
+        $rawSecret = null;
+
+        // Generate client_secret for confidential clients
+        if ($authMethod === 'client_secret_post' || $authMethod === 'client_secret_basic') {
+            $rawSecret = Str::random(48);
+        }
 
         $client = OAuthClient::create([
             'client_id'                   => $clientId,
+            'client_secret'               => $rawSecret ? hash('sha256', $rawSecret) : null,
             'client_name'                 => $data['client_name'] ?? null,
             'redirect_uris'               => $data['redirect_uris'],
             'grant_types'                 => $data['grant_types'] ?? ['authorization_code'],
             'response_types'              => $data['response_types'] ?? ['code'],
-            'token_endpoint_auth_method'  => $data['token_endpoint_auth_method'] ?? 'none',
+            'token_endpoint_auth_method'  => $authMethod,
             'scope'                       => $data['scope'] ?? null,
         ]);
 
-        return response()->json([
+        $response = [
             'client_id'                   => $client->client_id,
             'client_name'                 => $client->client_name,
             'redirect_uris'               => $client->redirect_uris,
@@ -209,7 +234,13 @@ class OAuthController
             'grant_types'                 => $client->grant_types,
             'response_types'              => $client->response_types,
             'token_endpoint_auth_method'  => $client->token_endpoint_auth_method,
-        ], 201);
+        ];
+
+        if ($rawSecret) {
+            $response['client_secret'] = $rawSecret;
+        }
+
+        return response()->json($response, 201);
     }
 
     private function buildRedirectUrl(string $baseUri, array $params): string
