@@ -34,6 +34,14 @@ function PromptNode({ data, selected }) {
                     {includeCount > 0 && <span>🔗 {includeCount}</span>}
                     <span>📊 {data.results_count || 0}</span>
                     {varCount > 0 && <span>⚙ {varCount}</span>}
+                    {data.avg_evaluation_score != null && (
+                        <span className={
+                            data.avg_evaluation_score >= 4 ? 'text-green-400' :
+                            data.avg_evaluation_score >= 3 ? 'text-amber-400' : 'text-red-400'
+                        }>
+                            ⭐ {Number(data.avg_evaluation_score).toFixed(1)}
+                        </span>
+                    )}
                 </div>
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-indigo-500 !w-2.5 !h-2.5" />

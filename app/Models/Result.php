@@ -65,4 +65,11 @@ class Result extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    protected $appends = ['evaluation_score'];
+
+    public function getEvaluationScoreAttribute(): ?float
+    {
+        return \App\Models\ResultEvaluation::compositeScore($this->id);
+    }
 }

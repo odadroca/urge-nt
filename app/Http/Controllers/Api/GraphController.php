@@ -102,6 +102,10 @@ class GraphController extends ApiController
                 ] : null,
                 'versions_count' => $prompt->versions_count,
                 'results_count' => $prompt->results_count,
+                'avg_evaluation_score' => \App\Models\ResultEvaluation::whereIn(
+                    'result_id', $prompt->results()->pluck('results.id')
+                )->whereRaw('evaluation_version = (SELECT MAX(re2.evaluation_version) FROM result_evaluations re2 WHERE re2.result_id = result_evaluations.result_id)')
+                ->avg('score'),
                 'position' => $position ? [
                     'x' => $position->x,
                     'y' => $position->y,
