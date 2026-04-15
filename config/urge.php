@@ -29,4 +29,16 @@ return [
         'client_id'     => env('GITHUB_CLIENT_ID'),
         'client_secret' => env('GITHUB_CLIENT_SECRET'),
     ],
+
+    // Evaluation
+    'evaluation' => [
+        'default_dimensions' => [
+            ['name' => 'relevance', 'description' => 'Does the response address what the prompt asked for?', 'weight' => 1.0, 'enabled' => true, 'builtin' => true],
+            ['name' => 'completeness', 'description' => 'Are all parts of the prompt addressed? Nothing missing?', 'weight' => 1.0, 'enabled' => true, 'builtin' => true],
+            ['name' => 'accuracy', 'description' => 'Is the information correct and well-reasoned?', 'weight' => 1.0, 'enabled' => true, 'builtin' => true],
+            ['name' => 'clarity', 'description' => 'Is the response well-structured and easy to follow?', 'weight' => 1.0, 'enabled' => true, 'builtin' => true],
+            ['name' => 'conciseness', 'description' => 'Right amount of detail — not too verbose, not too sparse?', 'weight' => 1.0, 'enabled' => true, 'builtin' => true],
+            ['name' => 'human', 'description' => 'Human star-rating of the result.', 'weight' => 1.0, 'enabled' => true, 'builtin' => true],
+        ],
+    ],
 ];
