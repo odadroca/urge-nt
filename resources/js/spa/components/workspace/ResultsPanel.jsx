@@ -10,10 +10,10 @@ export default function ResultsPanel({ prompt, username, slug, currentVersionId,
     const [showManualForm, setShowManualForm] = useState(false);
 
     const { data: resultsData, isLoading } = useQuery({
-        queryKey: ['workspace', username, slug, 'results', { sortBy, showAllVersions, currentVersionId }],
+        queryKey: ['workspace', username, slug, 'results', { sortBy, showAllVersions, currentVersionNumber }],
         queryFn: () => listResults(username, slug, {
             sort: sortBy,
-            ...(showAllVersions ? {} : { version: currentVersionId }),
+            ...(showAllVersions ? {} : (currentVersionNumber ? { version: currentVersionNumber } : {})),
         }),
     });
 
