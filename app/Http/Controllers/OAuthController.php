@@ -24,6 +24,15 @@ class OAuthController
         $codeChallengeMethod = $request->query('code_challenge_method', '');
         $resource = $request->query('resource');
 
+        \Illuminate\Support\Facades\Log::info('OAuth authorize request', [
+            'client_id'    => $clientId,
+            'redirect_uri' => $redirectUri,
+            'state'        => $state,
+            'scope'        => $scope,
+            'has_challenge' => !empty($codeChallenge),
+            'method'       => $codeChallengeMethod,
+        ]);
+
         if (!$clientId || !$redirectUri || !$codeChallenge) {
             return redirect('/')->with('error', 'Invalid OAuth request: missing required parameters.');
         }
@@ -69,27 +78,36 @@ class OAuthController
             'code_challenge_method' => 'required|in:S256',
         ]);
 
+        $redirectUri = $request->input('redirect_uri');
+        $state = $request->input('state', '');
+
         if ($request->input('decision') === 'deny') {
-            return redirect($request->input('redirect_uri') . '?' . http_build_query([
+            return redirect($this->buildRedirectUrl($redirectUri, [
                 'error'             => 'access_denied',
                 'error_description' => 'User denied the request.',
-                'state'             => $request->input('state', ''),
+                'state'             => $state,
             ]));
         }
 
         $code = $this->oauthService->generateAuthorizationCode(
             user: $request->user(),
             clientId: $request->input('client_id'),
-            redirectUri: $request->input('redirect_uri'),
+            redirectUri: $redirectUri,
             scope: $request->input('scope'),
             codeChallenge: $request->input('code_challenge'),
             codeChallengeMethod: $request->input('code_challenge_method'),
             resource: $request->input('resource'),
         );
 
-        return redirect($request->input('redirect_uri') . '?' . http_build_query([
+        \Illuminate\Support\Facades\Log::info('OAuth authorize redirect', [
+            'redirect_uri' => $redirectUri,
+            'state_in'     => $state,
+            'has_code'     => !empty($code),
+        ]);
+
+        return redirect($this->buildRedirectUrl($redirectUri, [
             'code'  => $code,
-            'state' => $request->input('state', ''),
+            'state' => $state,
         ]));
     }
 
@@ -192,5 +210,12 @@ class OAuthController
             'response_types'              => $client->response_types,
             'token_endpoint_auth_method'  => $client->token_endpoint_auth_method,
         ], 201);
+    }
+
+    private function buildRedirectUrl(string $baseUri, array $params): string
+    {
+        $separator = str_contains($baseUri, '?') ? '&' : '?';
+
+        return $baseUri . $separator . http_build_query($params);
     }
 }
