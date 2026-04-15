@@ -63,7 +63,7 @@
         &#9733;
     </button>
     @endfor
-    @if(!$result->pipeline_template_id)
+    @if(!$result->pipeline_id)
     <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">{{ $result->created_at->diffForHumans() }}</span>
     @endif
 </div>

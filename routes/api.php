@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
-use App\Http\Controllers\Api\PipelineTemplateController;
+use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\GraphController;
@@ -91,16 +91,16 @@ Route::prefix('v1')->group(function () {
         Route::post('collections/{collection:slug}/items', [CollectionController::class, 'addItem']);
         Route::delete('collections/{collection:slug}/items/{item}', [CollectionController::class, 'removeItem']);
 
-        // Pipeline Templates
-        Route::get('pipeline-templates', [PipelineTemplateController::class, 'index']);
-        Route::post('pipeline-templates', [PipelineTemplateController::class, 'store']);
-        Route::get('pipeline-templates/{pipelineTemplate:slug}', [PipelineTemplateController::class, 'show']);
-        Route::patch('pipeline-templates/{pipelineTemplate:slug}', [PipelineTemplateController::class, 'update']);
-        Route::delete('pipeline-templates/{pipelineTemplate:slug}', [PipelineTemplateController::class, 'destroy']);
-        Route::post('pipeline-templates/{pipelineTemplate:slug}/channels', [PipelineTemplateController::class, 'addChannel']);
-        Route::patch('pipeline-templates/{pipelineTemplate:slug}/channels/{channel}', [PipelineTemplateController::class, 'updateChannel']);
-        Route::delete('pipeline-templates/{pipelineTemplate:slug}/channels/{channel}', [PipelineTemplateController::class, 'removeChannel']);
-        Route::post('prompts/{username}/{promptSlug}/run-template', [PipelineTemplateController::class, 'runTemplate']);
+        // Pipelines
+        Route::get('pipelines', [PipelineController::class, 'index']);
+        Route::post('pipelines', [PipelineController::class, 'store']);
+        Route::get('pipelines/{pipeline:slug}', [PipelineController::class, 'show']);
+        Route::patch('pipelines/{pipeline:slug}', [PipelineController::class, 'update']);
+        Route::delete('pipelines/{pipeline:slug}', [PipelineController::class, 'destroy']);
+        Route::post('pipelines/{pipeline:slug}/channels', [PipelineController::class, 'addChannel']);
+        Route::patch('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'updateChannel']);
+        Route::delete('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'removeChannel']);
+        Route::post('prompts/{username}/{promptSlug}/run-pipeline', [PipelineController::class, 'runPipeline']);
 
         // Categories
         Route::get('categories', [CategoryController::class, 'index']);

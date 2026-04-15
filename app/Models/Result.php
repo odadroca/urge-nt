@@ -11,7 +11,7 @@ class Result extends Model
         'prompt_version_id',
         'source',
         'role_label',
-        'pipeline_template_id',
+        'pipeline_id',
         'pipeline_run_id',
         'provider_name',
         'model_name',
@@ -38,7 +38,7 @@ class Result extends Model
         'input_tokens' => 'integer',
         'output_tokens' => 'integer',
         'duration_ms' => 'integer',
-        'pipeline_template_id' => 'integer',
+        'pipeline_id' => 'integer',
     ];
 
     public function prompt()
@@ -56,9 +56,9 @@ class Result extends Model
         return $this->belongsTo(LlmProvider::class);
     }
 
-    public function pipelineTemplate()
+    public function pipeline()
     {
-        return $this->belongsTo(PipelineTemplate::class);
+        return $this->belongsTo(Pipeline::class);
     }
 
     public function creator()

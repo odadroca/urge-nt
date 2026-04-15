@@ -3,12 +3,12 @@
 namespace App\Services;
 
 use App\Models\LlmProvider;
-use App\Models\PipelineTemplate;
+use App\Models\Pipeline;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use Illuminate\Support\Str;
 
-class PipelineTemplateService
+class PipelineService
 {
     public function __construct(
         private TemplateEngine $templateEngine,
@@ -16,17 +16,17 @@ class PipelineTemplateService
     ) {}
 
     /**
-     * Run a pipeline template against a prompt version.
+     * Run a pipeline against a prompt version.
      *
      * @return array Array of created Result ids
      */
     public function run(
-        PipelineTemplate $template,
+        Pipeline $pipeline,
         PromptVersion $version,
         array $variableValues,
         int $userId,
     ): array {
-        $template->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
+        $pipeline->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
 
         // Render the prompt content
         $renderResult = $this->templateEngine->render(
@@ -41,7 +41,7 @@ class PipelineTemplateService
         $parallelResults = [];
 
         // Dispatch parallel channels
-        foreach ($template->parallelChannels as $channel) {
+        foreach ($pipeline->parallelChannels as $channel) {
             $provider = $channel->llmProvider;
             if (!$provider || !$provider->is_active) {
                 continue;
@@ -55,7 +55,7 @@ class PipelineTemplateService
                 'prompt_version_id' => $version->id,
                 'source' => 'api',
                 'role_label' => $channel->role_label,
-                'pipeline_template_id' => $template->id,
+                'pipeline_id' => $pipeline->id,
                 'pipeline_run_id' => $runId,
                 'provider_name' => $provider->name,
                 'model_name' => $llmResult->modelUsed,
@@ -82,7 +82,7 @@ class PipelineTemplateService
         }
 
         // Dispatch synthesis channel if present
-        $synthesisChannel = $template->synthesisChannel;
+        $synthesisChannel = $pipeline->synthesisChannel;
         if ($synthesisChannel && $synthesisChannel->llmProvider && $synthesisChannel->llmProvider->is_active && !empty($parallelResults)) {
             $synthesisInput = $this->buildSynthesisInput($parallelResults);
             $systemPrompt = $synthesisChannel->system_prompt ?? '';
@@ -98,7 +98,7 @@ class PipelineTemplateService
                 'prompt_version_id' => $version->id,
                 'source' => 'api',
                 'role_label' => $synthesisChannel->role_label,
-                'pipeline_template_id' => $template->id,
+                'pipeline_id' => $pipeline->id,
                 'pipeline_run_id' => $runId,
                 'provider_name' => $synthesisChannel->llmProvider->name,
                 'model_name' => $llmResult->modelUsed,

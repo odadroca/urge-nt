@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\LlmProvider;
-use App\Models\PipelineTemplate;
+use App\Models\Pipeline;
 use App\Models\Prompt;
 use App\Models\PromptBranch;
 use App\Models\PromptVersion;
@@ -16,7 +16,7 @@ class McpToolHandler
     public function __construct(
         private TemplateEngine $templateEngine,
         private VersioningService $versioningService,
-        private PipelineTemplateService $pipelineService,
+        private PipelineService $pipelineService,
     ) {}
 
     public function getServerInfo(): array
@@ -31,13 +31,13 @@ class McpToolHandler
     {
         $readTools = [
             'get_prompt', 'list_prompts', 'render_prompt',
-            'get_results', 'list_branches', 'list_teams', 'list_templates',
+            'get_results', 'list_branches', 'list_teams', 'list_pipelines',
             'list_providers', 'get_evaluations',
         ];
 
         $writeTools = [
             'create_prompt', 'save_version', 'store_result', 'update_result',
-            'create_branch', 'share_prompt', 'run_template', 'run_prompt',
+            'create_branch', 'share_prompt', 'run_pipeline', 'run_prompt',
             'evaluate_result',
         ];
 
@@ -299,22 +299,22 @@ class McpToolHandler
                 ],
             ],
             [
-                'name'        => 'list_templates',
-                'description' => 'List active pipeline templates with their channel counts.',
+                'name'        => 'list_pipelines',
+                'description' => 'List active pipelines with their channel counts.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => new \stdClass(),
                 ],
             ],
             [
-                'name'        => 'run_template',
-                'description' => 'Run a pipeline template against a prompt version. Dispatches parallel LLM calls per channel and optional synthesis.',
+                'name'        => 'run_pipeline',
+                'description' => 'Run a pipeline against a prompt version. Dispatches parallel LLM calls per channel and optional synthesis.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
                         'slug'          => ['type' => 'string', 'description' => 'The prompt slug'],
                         'owner'         => ['type' => 'string', 'description' => 'Owner username. If omitted, searches your prompts first, then all visible.'],
-                        'template_slug' => ['type' => 'string', 'description' => 'Pipeline template slug'],
+                        'template_slug' => ['type' => 'string', 'description' => 'Pipeline slug'],
                         'version'       => ['type' => 'integer', 'description' => 'Optional version number (defaults to active version)'],
                         'variables'     => ['type' => 'object', 'description' => 'Key-value pairs for template variables'],
                     ],
@@ -389,8 +389,8 @@ class McpToolHandler
             'list_teams'     => $this->listTeams($arguments, $user),
             'list_branches'  => $this->listBranches($arguments, $user),
             'create_branch'  => $this->createBranch($arguments, $user),
-            'list_templates' => $this->listTemplates($arguments, $user),
-            'run_template'   => $this->runTemplate($arguments, $user),
+            'list_pipelines' => $this->listPipelines($arguments, $user),
+            'run_pipeline'   => $this->runPipeline($arguments, $user),
             default          => ['error' => "Unknown tool: {$name}"],
         };
     }
@@ -1216,9 +1216,9 @@ class McpToolHandler
         ];
     }
 
-    private function listTemplates(array $args, ?User $user): array
+    private function listPipelines(array $args, ?User $user): array
     {
-        return PipelineTemplate::where('is_active', true)
+        return Pipeline::where('is_active', true)
             ->withCount('channels')
             ->orderBy('name')
             ->get()
@@ -1231,10 +1231,10 @@ class McpToolHandler
             ->toArray();
     }
 
-    private function runTemplate(array $args, ?User $user): array
+    private function runPipeline(array $args, ?User $user): array
     {
         if (!$user) {
-            return ['error' => 'User context required for running templates.'];
+            return ['error' => 'User context required for running pipelines.'];
         }
 
         $prompt = $this->resolvePrompt($args['slug'] ?? '', $args['owner'] ?? null, $user);
@@ -1242,12 +1242,12 @@ class McpToolHandler
             return ['error' => 'Prompt not found.'];
         }
 
-        $template = PipelineTemplate::where('slug', $args['template_slug'] ?? '')
+        $pipeline = Pipeline::where('slug', $args['template_slug'] ?? '')
             ->where('is_active', true)
             ->first();
 
-        if (!$template) {
-            return ['error' => 'Template not found or inactive.'];
+        if (!$pipeline) {
+            return ['error' => 'Pipeline not found or inactive.'];
         }
 
         if (!empty($args['version'])) {
@@ -1261,7 +1261,7 @@ class McpToolHandler
         }
 
         $resultIds = $this->pipelineService->run(
-            $template,
+            $pipeline,
             $version,
             $args['variables'] ?? [],
             $user->id,

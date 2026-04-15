@@ -22,10 +22,10 @@
                 Categories
             </button>
             @endif
-            @if(in_array('templates', $this->visibleTabs))
-            <button wire:click="$set('activeTab', 'templates')"
-                    class="px-3 py-2 text-sm font-medium border-b-2 transition {{ $activeTab === 'templates' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300' }}">
-                Templates
+            @if(in_array('pipelines', $this->visibleTabs))
+            <button wire:click="$set('activeTab', 'pipelines')"
+                    class="px-3 py-2 text-sm font-medium border-b-2 transition {{ $activeTab === 'pipelines' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300' }}">
+                Pipelines
             </button>
             @endif
             @if(in_array('evaluation', $this->visibleTabs))
@@ -50,8 +50,8 @@
         <livewire:settings.llm-providers />
     @elseif($activeTab === 'categories' && in_array('categories', $this->visibleTabs))
         <livewire:settings.categories />
-    @elseif($activeTab === 'templates' && in_array('templates', $this->visibleTabs))
-        <livewire:settings.pipeline-templates />
+    @elseif($activeTab === 'pipelines' && in_array('pipelines', $this->visibleTabs))
+        <livewire:settings.pipelines />
     @elseif($activeTab === 'evaluation' && in_array('evaluation', $this->visibleTabs))
         <livewire:settings.evaluation />
     @elseif($activeTab === 'users' && in_array('users', $this->visibleTabs))

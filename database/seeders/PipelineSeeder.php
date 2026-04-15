@@ -2,22 +2,22 @@
 
 namespace Database\Seeders;
 
-use App\Models\PipelineTemplate;
-use App\Models\PipelineTemplateChannel;
+use App\Models\Pipeline;
+use App\Models\PipelineChannel;
 use Illuminate\Database\Seeder;
 
-class PipelineTemplateSeeder extends Seeder
+class PipelineSeeder extends Seeder
 {
     public function run(): void
     {
-        if (PipelineTemplate::exists()) {
+        if (Pipeline::exists()) {
             return;
         }
 
         $userId = \App\Models\User::first()?->id ?? 1;
 
         // SWOT Analysis
-        $swot = PipelineTemplate::create([
+        $swot = Pipeline::create([
             'name' => 'SWOT Analysis',
             'description' => 'Dispatches 4 parallel role channels (strengths, weaknesses, opportunities, threats) then synthesises a summary.',
             'created_by' => $userId,
@@ -32,14 +32,14 @@ class PipelineTemplateSeeder extends Seeder
         ];
 
         foreach ($swotChannels as $ch) {
-            PipelineTemplateChannel::create(array_merge($ch, [
-                'pipeline_template_id' => $swot->id,
+            PipelineChannel::create(array_merge($ch, [
+                'pipeline_id' => $swot->id,
                 'llm_provider_id' => null,
             ]));
         }
 
         // Go-to-Market Review
-        $gtm = PipelineTemplate::create([
+        $gtm = Pipeline::create([
             'name' => 'Go-to-Market Review',
             'description' => 'Dispatches 3 parallel channels (target market, channels, differentiation) then synthesises a go-to-market overview.',
             'created_by' => $userId,
@@ -53,8 +53,8 @@ class PipelineTemplateSeeder extends Seeder
         ];
 
         foreach ($gtmChannels as $ch) {
-            PipelineTemplateChannel::create(array_merge($ch, [
-                'pipeline_template_id' => $gtm->id,
+            PipelineChannel::create(array_merge($ch, [
+                'pipeline_id' => $gtm->id,
                 'llm_provider_id' => null,
             ]));
         }

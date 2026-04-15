@@ -3,12 +3,12 @@
     <div class="mb-4">
         @if($showCreateForm)
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-            <input wire:model="newName" type="text" placeholder="Template name"
+            <input wire:model="newName" type="text" placeholder="Pipeline name"
                    class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
             <textarea wire:model="newDescription" placeholder="Description (optional)" rows="2"
                       class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
             <div class="flex items-center gap-2">
-                <button wire:click="createTemplate"
+                <button wire:click="createPipeline"
                         class="px-3 py-1.5 text-sm bg-indigo-600 dark:bg-indigo-500 text-white rounded-md hover:bg-indigo-700 dark:hover:bg-indigo-600 font-medium">
                     Create
                 </button>
@@ -21,44 +21,44 @@
         @else
         <button wire:click="$set('showCreateForm', true)"
                 class="px-3 py-1.5 text-sm bg-indigo-600 dark:bg-indigo-500 text-white rounded-md hover:bg-indigo-700 dark:hover:bg-indigo-600 font-medium">
-            + New Template
+            + New Pipeline
         </button>
         @endif
     </div>
 
-    {{-- Templates list --}}
+    {{-- Pipelines list --}}
     <div class="space-y-3">
-        @forelse($templates as $template)
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden {{ $expandedId === $template->id ? 'ring-2 ring-indigo-300 dark:ring-indigo-600' : '' }}">
+        @forelse($pipelines as $pipeline)
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden {{ $expandedId === $pipeline->id ? 'ring-2 ring-indigo-300 dark:ring-indigo-600' : '' }}">
             <div class="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition"
-                 wire:click="toggleExpand({{ $template->id }})">
+                 wire:click="toggleExpand({{ $pipeline->id }})">
                 <div class="flex items-center gap-3 min-w-0">
-                    <span class="w-2 h-2 rounded-full shrink-0 {{ $template->is_active ? 'bg-green-400' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
+                    <span class="w-2 h-2 rounded-full shrink-0 {{ $pipeline->is_active ? 'bg-green-400' : 'bg-gray-300 dark:bg-gray-600' }}"></span>
                     <div class="min-w-0">
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $template->name }}</h4>
-                        @if($template->description)
-                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ $template->description }}</p>
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $pipeline->name }}</h4>
+                        @if($pipeline->description)
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ $pipeline->description }}</p>
                         @endif
                     </div>
                 </div>
                 <div class="flex items-center gap-3 shrink-0">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ $template->channels_count }} channels</span>
-                    <button wire:click.stop="toggleActive({{ $template->id }})"
-                            class="text-xs {{ $template->is_active ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500' }} hover:underline">
-                        {{ $template->is_active ? 'Active' : 'Inactive' }}
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ $pipeline->channels_count }} channels</span>
+                    <button wire:click.stop="toggleActive({{ $pipeline->id }})"
+                            class="text-xs {{ $pipeline->is_active ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500' }} hover:underline">
+                        {{ $pipeline->is_active ? 'Active' : 'Inactive' }}
                     </button>
-                    <button wire:click.stop="deleteTemplate({{ $template->id }})" wire:confirm="Delete this template and all its channels?"
+                    <button wire:click.stop="deletePipeline({{ $pipeline->id }})" wire:confirm="Delete this pipeline and all its channels?"
                             class="text-xs text-red-400 hover:text-red-600 dark:hover:text-red-300">Delete</button>
                 </div>
             </div>
 
             {{-- Expanded: channels --}}
-            @if($expandedId === $template->id && $expandedTemplate)
+            @if($expandedId === $pipeline->id && $expandedPipeline)
             <div class="border-t border-gray-200 dark:border-gray-700 p-4 space-y-4">
                 {{-- Existing channels --}}
-                @if($expandedTemplate->channels->isNotEmpty())
+                @if($expandedPipeline->channels->isNotEmpty())
                 <div class="space-y-2">
-                    @foreach($expandedTemplate->channels as $channel)
+                    @foreach($expandedPipeline->channels as $channel)
                     <div class="bg-gray-50 dark:bg-gray-900 rounded-md border border-gray-200 dark:border-gray-700 p-3">
                         @if($editingChannelId === $channel->id)
                         {{-- Edit form --}}
@@ -158,7 +158,7 @@
         </div>
         @empty
         <div class="text-center py-8">
-            <p class="text-sm text-gray-400 dark:text-gray-500 italic">No templates yet. Create one to define reusable LLM execution pipelines.</p>
+            <p class="text-sm text-gray-400 dark:text-gray-500 italic">No pipelines yet. Create one to define reusable LLM execution pipelines.</p>
         </div>
         @endforelse
     </div>

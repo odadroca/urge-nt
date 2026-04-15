@@ -3,20 +3,20 @@
 namespace Tests\Feature;
 
 use App\Models\LlmProvider;
-use App\Models\PipelineTemplate;
-use App\Models\PipelineTemplateChannel;
+use App\Models\Pipeline;
+use App\Models\PipelineChannel;
 use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
 use App\Services\LlmDispatchService;
 use App\Services\LlmProviders\LlmResult;
-use App\Services\PipelineTemplateService;
+use App\Services\PipelineService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
 
-class PipelineTemplateServiceTest extends TestCase
+class PipelineServiceTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -59,17 +59,17 @@ class PipelineTemplateServiceTest extends TestCase
 
     public function test_parallel_channels_create_results(): void
     {
-        $template = PipelineTemplate::create(['name' => 'Test', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'Test', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Analyst',
             'llm_provider_id' => $this->provider->id,
             'system_prompt' => 'You are an analyst.',
             'trigger' => 'parallel',
             'sort_order' => 0,
         ]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Critic',
             'llm_provider_id' => $this->provider->id,
             'system_prompt' => 'You are a critic.',
@@ -85,33 +85,33 @@ class PipelineTemplateServiceTest extends TestCase
                 LlmResult::success('Critic response', 'gpt-4', 150, 15, 25),
             );
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, ['name' => 'World'], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, ['name' => 'World'], $this->user->id);
 
         $this->assertCount(2, $resultIds);
 
         $results = Result::whereIn('id', $resultIds)->get();
         $this->assertEquals('Analyst', $results[0]->role_label);
         $this->assertEquals('Critic', $results[1]->role_label);
-        $this->assertEquals($template->id, $results[0]->pipeline_template_id);
+        $this->assertEquals($pipeline->id, $results[0]->pipeline_id);
     }
 
     public function test_synthesis_channel_receives_parallel_output(): void
     {
-        $template = PipelineTemplate::create(['name' => 'Synth Test', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'Synth Test', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Analyst',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
             'sort_order' => 0,
         ]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Synthesizer',
             'llm_provider_id' => $this->provider->id,
             'system_prompt' => 'Combine the results.',
@@ -135,12 +135,12 @@ class PipelineTemplateServiceTest extends TestCase
                 return LlmResult::success('Synthesized response', 'gpt-4', 200, 30, 40);
             });
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, [], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
 
         $this->assertCount(2, $resultIds);
 
@@ -151,9 +151,9 @@ class PipelineTemplateServiceTest extends TestCase
 
     public function test_skip_channels_with_no_provider(): void
     {
-        $template = PipelineTemplate::create(['name' => 'Skip Test', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'Skip Test', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'No Provider',
             'llm_provider_id' => null,
             'trigger' => 'parallel',
@@ -163,12 +163,12 @@ class PipelineTemplateServiceTest extends TestCase
         $mockDispatch = Mockery::mock(LlmDispatchService::class);
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, [], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
 
         $this->assertEmpty($resultIds);
     }
@@ -183,9 +183,9 @@ class PipelineTemplateServiceTest extends TestCase
             'is_active' => false,
         ]);
 
-        $template = PipelineTemplate::create(['name' => 'Inactive Test', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'Inactive Test', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Inactive Channel',
             'llm_provider_id' => $inactiveProvider->id,
             'trigger' => 'parallel',
@@ -195,21 +195,21 @@ class PipelineTemplateServiceTest extends TestCase
         $mockDispatch = Mockery::mock(LlmDispatchService::class);
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, [], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
 
         $this->assertEmpty($resultIds);
     }
 
     public function test_synthesis_skipped_when_no_parallel_results(): void
     {
-        $template = PipelineTemplate::create(['name' => 'No Parallel', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'No Parallel', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Lonely Synthesizer',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'synthesis',
@@ -219,35 +219,35 @@ class PipelineTemplateServiceTest extends TestCase
         $mockDispatch = Mockery::mock(LlmDispatchService::class);
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, [], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
 
         $this->assertEmpty($resultIds);
     }
 
     public function test_failed_parallel_result_excluded_from_synthesis_input(): void
     {
-        $template = PipelineTemplate::create(['name' => 'Fail Test', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'Fail Test', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Succeeder',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
             'sort_order' => 0,
         ]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Failer',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
             'sort_order' => 1,
         ]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Synthesizer',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'synthesis',
@@ -273,12 +273,12 @@ class PipelineTemplateServiceTest extends TestCase
                 return LlmResult::success('Synthesis result', 'gpt-4', 200, 30, 40);
             });
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, [], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
 
         // 2 parallel + 1 synthesis = 3 results
         $this->assertCount(3, $resultIds);
@@ -286,9 +286,9 @@ class PipelineTemplateServiceTest extends TestCase
 
     public function test_variables_are_rendered_in_content(): void
     {
-        $template = PipelineTemplate::create(['name' => 'Var Test', 'created_by' => $this->user->id]);
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        $pipeline = Pipeline::create(['name' => 'Var Test', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
             'role_label' => 'Worker',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
@@ -303,12 +303,12 @@ class PipelineTemplateServiceTest extends TestCase
                 return LlmResult::success('Done', 'gpt-4', 100);
             });
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(\App\Services\TemplateEngine::class),
             $mockDispatch,
         );
 
-        $resultIds = $service->run($template, $this->version, ['name' => 'World'], $this->user->id);
+        $resultIds = $service->run($pipeline, $this->version, ['name' => 'World'], $this->user->id);
 
         $this->assertCount(1, $resultIds);
         $result = Result::find($resultIds[0]);

@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class PipelineTemplateChannel extends Model
+class PipelineChannel extends Model
 {
+    protected $table = 'pipeline_channels';
+
     protected $fillable = [
-        'pipeline_template_id',
+        'pipeline_id',
         'role_label',
         'llm_provider_id',
         'system_prompt',
@@ -19,9 +21,9 @@ class PipelineTemplateChannel extends Model
         'sort_order' => 'integer',
     ];
 
-    public function template()
+    public function pipeline()
     {
-        return $this->belongsTo(PipelineTemplate::class, 'pipeline_template_id');
+        return $this->belongsTo(Pipeline::class, 'pipeline_id');
     }
 
     public function llmProvider()

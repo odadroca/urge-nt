@@ -5,15 +5,15 @@ namespace Tests\Feature;
 use App\Models\Collection;
 use App\Models\CollectionItem;
 use App\Models\LlmProvider;
-use App\Models\PipelineTemplate;
-use App\Models\PipelineTemplateChannel;
+use App\Models\Pipeline;
+use App\Models\PipelineChannel;
 use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
 use App\Services\LlmDispatchService;
 use App\Services\LlmProviders\LlmResult;
-use App\Services\PipelineTemplateService;
+use App\Services\PipelineService;
 use App\Services\TemplateEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -63,21 +63,21 @@ class PipelineRunIdTest extends TestCase
 
     public function test_pipeline_run_id_assigned_on_run(): void
     {
-        $template = PipelineTemplate::create([
+        $template = Pipeline::create([
             'name' => 'Test Template',
             'created_by' => $this->user->id,
         ]);
 
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $template->id,
             'role_label' => 'Analyst',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
             'sort_order' => 0,
         ]);
 
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $template->id,
             'role_label' => 'Critic',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
@@ -89,7 +89,7 @@ class PipelineRunIdTest extends TestCase
             ->twice()
             ->andReturn(LlmResult::success('Response text', 'gpt-4', 10, 20));
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(TemplateEngine::class),
             $mock,
         );
@@ -110,13 +110,13 @@ class PipelineRunIdTest extends TestCase
 
     public function test_different_runs_get_different_ids(): void
     {
-        $template = PipelineTemplate::create([
+        $template = Pipeline::create([
             'name' => 'Test Template',
             'created_by' => $this->user->id,
         ]);
 
-        PipelineTemplateChannel::create([
-            'pipeline_template_id' => $template->id,
+        PipelineChannel::create([
+            'pipeline_id' => $template->id,
             'role_label' => 'Analyst',
             'llm_provider_id' => $this->provider->id,
             'trigger' => 'parallel',
@@ -128,7 +128,7 @@ class PipelineRunIdTest extends TestCase
             ->times(2)
             ->andReturn(LlmResult::success('Response', 'gpt-4', 10, 20));
 
-        $service = new PipelineTemplateService(
+        $service = new PipelineService(
             app(TemplateEngine::class),
             $mock,
         );
@@ -158,7 +158,7 @@ class PipelineRunIdTest extends TestCase
             'prompt_version_id' => $this->version->id,
             'source' => 'api',
             'pipeline_run_id' => $runId,
-            'pipeline_template_id' => null,
+            'pipeline_id' => null,
             'provider_name' => 'TestProvider',
             'response_text' => 'Result A',
             'status' => 'success',
@@ -170,7 +170,7 @@ class PipelineRunIdTest extends TestCase
             'prompt_version_id' => $this->version->id,
             'source' => 'api',
             'pipeline_run_id' => $runId,
-            'pipeline_template_id' => null,
+            'pipeline_id' => null,
             'provider_name' => 'TestProvider',
             'response_text' => 'Result B',
             'status' => 'success',
@@ -187,7 +187,7 @@ class PipelineRunIdTest extends TestCase
     {
         $this->actingAs($this->user);
 
-        $template = PipelineTemplate::create([
+        $template = Pipeline::create([
             'name' => 'Template',
             'created_by' => $this->user->id,
         ]);
@@ -200,7 +200,7 @@ class PipelineRunIdTest extends TestCase
             'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $this->version->id,
             'source' => 'api',
-            'pipeline_template_id' => $template->id,
+            'pipeline_id' => $template->id,
             'pipeline_run_id' => $runIdA,
             'provider_name' => 'TestProvider',
             'response_text' => 'Run A result',
@@ -212,7 +212,7 @@ class PipelineRunIdTest extends TestCase
             'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $this->version->id,
             'source' => 'api',
-            'pipeline_template_id' => $template->id,
+            'pipeline_id' => $template->id,
             'pipeline_run_id' => $runIdB,
             'provider_name' => 'TestProvider',
             'response_text' => 'Run B result',
