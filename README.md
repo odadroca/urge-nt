@@ -165,7 +165,7 @@ Session state is managed via the `Mcp-Session-Id` header (set by the server on f
 
 **Resources:** `urge://prompts`, `urge://prompts/{username}/{slug}`, `urge://prompts/{username}/{slug}/v/{n}`, `urge://prompts/{username}/{slug}/branches`, `urge://prompts/{username}/{slug}/branches/{branch}`, `urge://teams`
 
-See [`documentation/claude-skill.md`](documentation/claude-skill.md) for full API usage examples.
+See [`documentation/mcp-clients.md`](documentation/mcp-clients.md) for complete setup guides (Claude, Le Chat, stdio) and [`documentation/claude-skill.md`](documentation/claude-skill.md) for API usage examples.
 
 ## Authentication
 
@@ -212,6 +212,7 @@ php artisan test    # 365 tests
 
 - [`documentation/architecture.md`](documentation/architecture.md) — Data model, integration architecture, component hierarchy
 - [`documentation/install.md`](documentation/install.md) — Installation and deployment guide
+- [`documentation/mcp-clients.md`](documentation/mcp-clients.md) — MCP client setup guide (Claude, Mistral Le Chat, stdio)
 - [`documentation/claude-skill.md`](documentation/claude-skill.md) — API reference for LLM integration
 - [`public/openapi.json`](public/openapi.json) — OpenAPI 3.1 specification
 - [`docs/superpowers/specs/2026-03-25-user-namespaces-design.md`](docs/superpowers/specs/2026-03-25-user-namespaces-design.md) — Namespaces & teams design spec
