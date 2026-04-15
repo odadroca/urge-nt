@@ -32,13 +32,13 @@ class McpToolHandler
         $readTools = [
             'get_prompt', 'list_prompts', 'render_prompt',
             'get_results', 'list_branches', 'list_teams', 'list_pipelines',
-            'list_providers', 'get_evaluations',
+            'list_providers', 'get_evaluations', 'get_evaluation_prompt',
         ];
 
         $writeTools = [
             'create_prompt', 'save_version', 'store_result', 'update_result',
             'create_branch', 'share_prompt', 'run_pipeline', 'run_prompt',
-            'evaluate_result',
+            'evaluate_result', 'store_evaluation',
         ];
 
         $adminTools = [
@@ -109,6 +109,39 @@ class McpToolHandler
                         'provider'  => ['type' => 'string', 'description' => 'Optional: override the default evaluator LLM provider name'],
                     ],
                     'required' => ['result_id'],
+                ],
+            ],
+            [
+                'name'        => 'store_evaluation',
+                'description' => 'Store evaluation scores for a result. Use this when YOU (the LLM) have evaluated a result yourself instead of dispatching to an API. Provide dimension scores with reasoning.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'result_id' => ['type' => 'integer', 'description' => 'The result ID being evaluated'],
+                        'scores'    => [
+                            'type'  => 'array',
+                            'description' => 'Array of dimension scores',
+                            'items' => [
+                                'type'       => 'object',
+                                'properties' => [
+                                    'dimension' => ['type' => 'string', 'description' => 'Dimension name (e.g. relevance, completeness, accuracy, clarity, conciseness)'],
+                                    'score'     => ['type' => 'integer', 'description' => 'Score 1-5'],
+                                    'reasoning' => ['type' => 'string', 'description' => 'Brief explanation for the score'],
+                                ],
+                                'required' => ['dimension', 'score'],
+                            ],
+                        ],
+                        'evaluator_name' => ['type' => 'string', 'description' => 'Your name/model (e.g. "Claude Opus 4.6", "Le Chat"). Defaults to "mcp-client".'],
+                    ],
+                    'required' => ['result_id', 'scores'],
+                ],
+            ],
+            [
+                'name'        => 'get_evaluation_prompt',
+                'description' => 'Get the evaluation prompt template, active dimensions, and weights. Use this to understand how to evaluate a result before calling store_evaluation.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => new \stdClass(),
                 ],
             ],
             [
@@ -374,8 +407,10 @@ class McpToolHandler
             'create_prompt'  => $this->createPrompt($arguments, $user),
             'run_prompt'     => $this->runPrompt($arguments, $user),
             'list_providers' => $this->listProviders($arguments, $user),
-            'evaluate_result' => $this->evaluateResult($arguments, $user),
-            'get_evaluations' => $this->getEvaluationsForResult($arguments, $user),
+            'evaluate_result'      => $this->evaluateResult($arguments, $user),
+            'store_evaluation'     => $this->storeEvaluation($arguments, $user),
+            'get_evaluation_prompt' => $this->getEvaluationPrompt($arguments, $user),
+            'get_evaluations'      => $this->getEvaluationsForResult($arguments, $user),
             'get_prompt'     => $this->getPrompt($arguments, $user),
             'list_prompts'  => $this->listPrompts($arguments, $user),
             'render_prompt' => $this->renderPrompt($arguments, $user),
@@ -800,6 +835,137 @@ class McpToolHandler
 
         $evaluationService = app(\App\Services\EvaluationService::class);
         return $evaluationService->getEvaluations($resultId, $args['version'] ?? null);
+    }
+
+    private function storeEvaluation(array $args, ?User $user = null): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required.'];
+        }
+
+        $resultId = $args['result_id'] ?? null;
+        if (!$resultId) {
+            return ['error' => 'result_id is required.'];
+        }
+
+        $result = Result::find($resultId);
+        if (!$result) {
+            return ['error' => "Result {$resultId} not found."];
+        }
+
+        $scores = $args['scores'] ?? [];
+        if (empty($scores)) {
+            return ['error' => 'scores array is required and must not be empty.'];
+        }
+
+        $evaluatorName = $args['evaluator_name'] ?? 'mcp-client';
+
+        // Get active dimensions and their weights
+        $evaluationService = app(\App\Services\EvaluationService::class);
+        $activeDimensions = $evaluationService->getActiveDimensions();
+        $dimensionMap = [];
+        foreach ($activeDimensions as $d) {
+            $dimensionMap[$d['name']] = $d;
+        }
+
+        // Determine next evaluation version
+        $latestVersion = \App\Models\ResultEvaluation::where('result_id', $resultId)
+            ->max('evaluation_version') ?? 0;
+        $evalVersion = $latestVersion + 1;
+
+        $storedScores = [];
+        foreach ($scores as $score) {
+            $dimName = $score['dimension'] ?? '';
+            $dimScore = max(1, min(5, (int) ($score['score'] ?? 0)));
+            $reasoning = $score['reasoning'] ?? null;
+
+            if (!$dimName || !$dimScore) {
+                continue;
+            }
+
+            $weight = isset($dimensionMap[$dimName]) ? $dimensionMap[$dimName]['weight'] : 1.0;
+
+            \App\Models\ResultEvaluation::create([
+                'result_id'           => $resultId,
+                'evaluation_version'  => $evalVersion,
+                'evaluator_provider'  => $evaluatorName,
+                'evaluator_model'     => $evaluatorName,
+                'dimension'           => $dimName,
+                'score'               => $dimScore,
+                'reasoning'           => $reasoning,
+                'weight'              => $weight,
+                'created_by'          => $user->id,
+            ]);
+
+            $storedScores[] = [
+                'dimension' => $dimName,
+                'score'     => $dimScore,
+                'weight'    => (float) $weight,
+                'reasoning' => $reasoning,
+            ];
+        }
+
+        if (empty($storedScores)) {
+            return ['error' => 'No valid scores provided.'];
+        }
+
+        // Include human rating if exists
+        if ($result->rating) {
+            $humanDim = $dimensionMap['human'] ?? null;
+            if ($humanDim && ($humanDim['enabled'] ?? true)) {
+                \App\Models\ResultEvaluation::updateOrCreate(
+                    ['result_id' => $resultId, 'evaluation_version' => $evalVersion, 'dimension' => 'human'],
+                    [
+                        'evaluator_provider' => 'human',
+                        'evaluator_model'    => 'human',
+                        'score'              => $result->rating,
+                        'weight'             => $humanDim['weight'] ?? 1.0,
+                        'created_by'         => $user->id,
+                    ],
+                );
+                $storedScores[] = [
+                    'dimension' => 'human',
+                    'score'     => $result->rating,
+                    'weight'    => $humanDim['weight'] ?? 1.0,
+                    'reasoning' => null,
+                ];
+            }
+        }
+
+        $composite = \App\Models\ResultEvaluation::compositeScore($resultId, $evalVersion);
+
+        return [
+            'evaluation_version' => $evalVersion,
+            'composite_score'    => $composite,
+            'scores'             => $storedScores,
+            'evaluator'          => $evaluatorName,
+        ];
+    }
+
+    private function getEvaluationPrompt(array $args, ?User $user = null): array
+    {
+        $evaluationService = app(\App\Services\EvaluationService::class);
+        $dimensions = $evaluationService->getActiveDimensions();
+
+        // Get the evaluation prompt content
+        $promptSlug = \App\Models\EvaluationSetting::get('prompt_slug', 'system-evaluation-template');
+        $prompt = \App\Models\Prompt::where('slug', $promptSlug)->first();
+        $promptContent = $prompt?->activeVersion?->content ?? null;
+
+        // Filter out human dimension (LLM can't score that)
+        $llmDimensions = array_values(array_filter($dimensions, fn ($d) => $d['name'] !== 'human'));
+
+        return [
+            'prompt_slug'    => $promptSlug,
+            'prompt_content' => $promptContent,
+            'dimensions'     => array_map(fn ($d) => [
+                'name'        => $d['name'],
+                'description' => $d['description'],
+                'weight'      => $d['weight'],
+            ], $llmDimensions),
+            'scale'          => '1 = poor, 2 = below average, 3 = adequate, 4 = good, 5 = excellent',
+            'instructions'   => 'Evaluate the result, then call store_evaluation with your scores.',
+        ];
     }
 
     private function getPrompt(array $args, ?User $user = null): array
