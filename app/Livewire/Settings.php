@@ -44,6 +44,8 @@ class Settings extends Component
 
         $tabs[] = 'templates';
 
+        $tabs[] = 'evaluation';
+
         if ($user->isAdmin()) {
             $tabs[] = 'users';
         }
