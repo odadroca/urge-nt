@@ -31,7 +31,7 @@ class McpToolHandler
     {
         $readTools = [
             'get_prompt', 'list_prompts', 'render_prompt',
-            'get_results', 'list_branches', 'list_teams', 'list_pipelines',
+            'get_results', 'list_branches', 'list_teams', 'list_pipelines', 'get_pipeline',
             'list_providers', 'get_evaluations', 'get_evaluation_prompt',
         ];
 
@@ -342,6 +342,17 @@ class McpToolHandler
                 ],
             ],
             [
+                'name'        => 'get_pipeline',
+                'description' => 'Get a pipeline with all its channels, system prompts, and trigger order. Use this to run a pipeline yourself: read each channel, execute it natively, then store_result for each.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'slug' => ['type' => 'string', 'description' => 'Pipeline slug'],
+                    ],
+                    'required' => ['slug'],
+                ],
+            ],
+            [
                 'name'        => 'run_pipeline',
                 'description' => 'Run a pipeline against a prompt version. Dispatches parallel LLM calls per channel and optional synthesis.',
                 'inputSchema' => [
@@ -507,6 +518,7 @@ class McpToolHandler
             'list_branches'  => $this->listBranches($arguments, $user),
             'create_branch'  => $this->createBranch($arguments, $user),
             'list_pipelines'   => $this->listPipelines($arguments, $user),
+            'get_pipeline'     => $this->getPipeline($arguments, $user),
             'run_pipeline'     => $this->runPipeline($arguments, $user),
             'create_pipeline'  => $this->createPipelineTool($arguments, $user),
             'update_pipeline'  => $this->updatePipelineTool($arguments, $user),
@@ -1483,6 +1495,47 @@ class McpToolHandler
                 'channels_count' => $t->channels_count,
             ])
             ->toArray();
+    }
+
+    private function getPipeline(array $args, ?User $user): array
+    {
+        $pipeline = Pipeline::where('slug', $args['slug'] ?? '')->first();
+        if (!$pipeline) {
+            return ['error' => 'Pipeline not found.'];
+        }
+
+        $pipeline->load(['channels.llmProvider']);
+
+        $parallel = [];
+        $synthesis = null;
+
+        foreach ($pipeline->channels as $channel) {
+            $channelData = [
+                'id'            => $channel->id,
+                'role_label'    => $channel->role_label,
+                'system_prompt' => $channel->system_prompt,
+                'trigger'       => $channel->trigger,
+                'sort_order'    => $channel->sort_order,
+                'provider'      => $channel->llmProvider?->name,
+                'model'         => $channel->llmProvider?->model,
+            ];
+
+            if ($channel->trigger === 'synthesis') {
+                $synthesis = $channelData;
+            } else {
+                $parallel[] = $channelData;
+            }
+        }
+
+        return [
+            'slug'        => $pipeline->slug,
+            'name'        => $pipeline->name,
+            'description' => $pipeline->description,
+            'is_active'   => $pipeline->is_active,
+            'parallel_channels' => $parallel,
+            'synthesis_channel' => $synthesis,
+            'instructions' => 'To run this pipeline yourself: 1) For each parallel channel, use its system_prompt as context and run the prompt content. 2) Call store_result for each channel output. 3) If synthesis exists, combine all parallel results and run synthesis. 4) Call store_result for synthesis output.',
+        ];
     }
 
     private function runPipeline(array $args, ?User $user): array
