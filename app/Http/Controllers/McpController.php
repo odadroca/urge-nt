@@ -166,7 +166,7 @@ class McpController
             'initialize' => [
                 'protocolVersion' => '2025-06-18',
                 'capabilities'    => [
-                    'tools'     => ['listChanged' => false],
+                    'tools'     => ['listChanged' => true],
                     'resources' => ['subscribe' => false, 'listChanged' => false],
                 ],
                 'serverInfo' => $this->handler->getServerInfo(),
