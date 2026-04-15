@@ -66,6 +66,7 @@ Route::get('/oauth/github/callback', [App\Http\Controllers\OAuthGitHubController
 // OAuth 2.1 well-known discovery (no auth required)
 Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
 Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
+Route::get('/.well-known/openid-configuration', [App\Http\Controllers\WellKnownController::class, 'openIdConfiguration']);
 
 // OAuth 2.1 token exchange (public — client authenticates via code+PKCE)
 Route::post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
