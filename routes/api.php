@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\PromptController;
 use App\Http\Controllers\Api\RenderController;
+use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\ResultController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\VersionController;
@@ -58,6 +59,12 @@ Route::prefix('v1')->group(function () {
         Route::get('results/{result}', [ResultController::class, 'show']);
         Route::patch('results/{result}', [ResultController::class, 'update']);
         Route::delete('results/{result}', [ResultController::class, 'destroy']);
+
+        // Evaluations
+        Route::post('results/{result}/evaluate', [EvaluationController::class, 'evaluate']);
+        Route::get('results/{result}/evaluations', [EvaluationController::class, 'index']);
+        Route::get('results/{result}/evaluations/latest', [EvaluationController::class, 'latest']);
+        Route::get('results/{result}/evaluations/{version}', [EvaluationController::class, 'show']);
 
         // Legacy redirect (single slug without slash)
         Route::get('prompts/{slug}', [PromptController::class, 'legacyRedirect'])->where('slug', '[^/]+');
