@@ -193,6 +193,19 @@ function ResultCard({ result, onToggleStar, onRate, onDelete }) {
                 ))}
             </div>
 
+            {/* Evaluation badge */}
+            {result.evaluation_score != null && (
+                <div className="mb-2">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        result.evaluation_score >= 4 ? 'bg-green-900/30 text-green-400' :
+                        result.evaluation_score >= 3 ? 'bg-amber-900/30 text-amber-400' :
+                        'bg-red-900/30 text-red-400'
+                    }`}>
+                        Eval: {Number(result.evaluation_score).toFixed(1)}
+                    </span>
+                </div>
+            )}
+
             {/* Meta */}
             <div className="flex items-center gap-3 text-[10px] text-gray-500">
                 {result.input_tokens != null && <span>{result.input_tokens} in</span>}
