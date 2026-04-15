@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\LlmProvider;
 use App\Models\PipelineTemplate;
 use App\Models\Prompt;
 use App\Models\PromptBranch;
@@ -31,11 +32,12 @@ class McpToolHandler
         $readTools = [
             'get_prompt', 'list_prompts', 'render_prompt',
             'get_results', 'list_branches', 'list_teams', 'list_templates',
+            'list_providers',
         ];
 
         $writeTools = [
             'create_prompt', 'save_version', 'store_result', 'update_result',
-            'create_branch', 'share_prompt', 'run_template',
+            'create_branch', 'share_prompt', 'run_template', 'run_prompt',
         ];
 
         $adminTools = [
@@ -70,6 +72,30 @@ class McpToolHandler
                         'content'     => ['type' => 'string', 'description' => 'Optional initial content (creates first version)'],
                     ],
                     'required' => ['name'],
+                ],
+            ],
+            [
+                'name'        => 'run_prompt',
+                'description' => 'Run a prompt through a registered LLM provider. Renders the template with variables, dispatches to the provider, stores the result, and returns the LLM response.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'slug'      => ['type' => 'string', 'description' => 'The prompt slug'],
+                        'owner'     => ['type' => 'string', 'description' => 'Owner username. If omitted, searches your prompts first, then all visible.'],
+                        'provider'  => ['type' => 'string', 'description' => 'LLM provider name (e.g. "OpenAI", "Mistral"). Use list_providers to see available providers.'],
+                        'version'   => ['type' => 'integer', 'description' => 'Version number (defaults to active version)'],
+                        'variables' => ['type' => 'object', 'description' => 'Key-value pairs for template variables'],
+                        'branch'    => ['type' => 'string', 'description' => 'Branch name (defaults to default branch)'],
+                    ],
+                    'required' => ['slug', 'provider'],
+                ],
+            ],
+            [
+                'name'        => 'list_providers',
+                'description' => 'List active LLM providers configured in URGE. Use these names with run_prompt.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => new \stdClass(),
                 ],
             ],
             [
@@ -320,8 +346,10 @@ class McpToolHandler
     public function callTool(string $name, array $arguments, ?User $user = null): array
     {
         return match ($name) {
-            'create_prompt' => $this->createPrompt($arguments, $user),
-            'get_prompt'    => $this->getPrompt($arguments, $user),
+            'create_prompt'  => $this->createPrompt($arguments, $user),
+            'run_prompt'     => $this->runPrompt($arguments, $user),
+            'list_providers' => $this->listProviders($arguments, $user),
+            'get_prompt'     => $this->getPrompt($arguments, $user),
             'list_prompts'  => $this->listPrompts($arguments, $user),
             'render_prompt' => $this->renderPrompt($arguments, $user),
             'save_version'  => $this->saveVersion($arguments, $user),
@@ -596,6 +624,109 @@ class McpToolHandler
         }
 
         return $result;
+    }
+
+    private function runPrompt(array $args, ?User $user = null): array
+    {
+        if (!$user) {
+            return ['error' => 'Authentication required to run prompts.'];
+        }
+
+        $prompt = $this->resolvePrompt($args['slug'] ?? '', $args['owner'] ?? null, $user);
+        if (!$prompt) {
+            return ['error' => 'Prompt not found.'];
+        }
+
+        // Resolve version
+        $version = null;
+        if (isset($args['version'])) {
+            $version = $prompt->versions()->where('version_number', $args['version'])->first();
+        } elseif (isset($args['branch'])) {
+            $branch = $prompt->branches()->where('name', $args['branch'])->first();
+            if ($branch && $branch->head_version_id) {
+                $version = PromptVersion::find($branch->head_version_id);
+            }
+        }
+        $version = $version ?? $prompt->activeVersion;
+
+        if (!$version) {
+            return ['error' => 'No version found. Save a version first.'];
+        }
+
+        // Find provider
+        $providerName = $args['provider'] ?? '';
+        $provider = LlmProvider::where('name', 'like', $providerName)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$provider) {
+            $available = LlmProvider::where('is_active', true)->pluck('name')->implode(', ');
+            return ['error' => "Provider '{$providerName}' not found or inactive. Available: {$available}"];
+        }
+
+        // Render template with variables
+        $variables = $args['variables'] ?? [];
+        $renderResult = $this->templateEngine->render(
+            $version->content,
+            $variables,
+            $version->variable_metadata,
+            $user,
+        );
+        $renderedContent = $renderResult['rendered'];
+
+        // Dispatch to LLM
+        $dispatchService = app(LlmDispatchService::class);
+        $llmResult = $dispatchService->dispatch($provider, $renderedContent);
+
+        // Store result
+        $result = Result::create([
+            'prompt_id'          => $prompt->id,
+            'prompt_version_id'  => $version->id,
+            'source'             => 'mcp',
+            'provider_name'      => $provider->name,
+            'model_name'         => $llmResult->modelUsed,
+            'llm_provider_id'    => $provider->id,
+            'rendered_content'   => $renderedContent,
+            'variables_used'     => !empty($variables) ? $variables : null,
+            'response_text'      => $llmResult->success ? $llmResult->text : null,
+            'input_tokens'       => $llmResult->inputTokens,
+            'output_tokens'      => $llmResult->outputTokens,
+            'duration_ms'        => $llmResult->durationMs,
+            'status'             => $llmResult->success ? 'success' : 'error',
+            'error_message'      => $llmResult->error,
+            'created_by'         => $user->id,
+        ]);
+
+        if (!$llmResult->success) {
+            return ['error' => "LLM call failed: {$llmResult->error}"];
+        }
+
+        return [
+            'response_text'  => $llmResult->text,
+            'provider'       => $provider->name,
+            'model'          => $llmResult->modelUsed,
+            'input_tokens'   => $llmResult->inputTokens,
+            'output_tokens'  => $llmResult->outputTokens,
+            'duration_ms'    => $llmResult->durationMs,
+            'result_id'      => $result->id,
+            'prompt_slug'    => $prompt->slug,
+            'version_number' => $version->version_number,
+        ];
+    }
+
+    private function listProviders(array $args, ?User $user = null): array
+    {
+        $providers = LlmProvider::where('is_active', true)
+            ->get(['id', 'name', 'driver', 'model'])
+            ->map(fn ($p) => [
+                'name'   => $p->name,
+                'driver' => $p->driver,
+                'model'  => $p->model,
+            ])
+            ->values()
+            ->toArray();
+
+        return ['providers' => $providers];
     }
 
     private function getPrompt(array $args, ?User $user = null): array
