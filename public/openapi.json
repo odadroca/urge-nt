@@ -2,12 +2,12 @@
     "openapi": "3.1.0",
     "info": {
         "title": "URGE v2 API",
-        "description": "Prompt registry and version control API. Manage prompts, versions, render templates, store LLM results, and collaborate via teams.",
-        "version": "3.0.0"
+        "description": "Prompt registry and version control API. Manage prompts, versions, render templates, store LLM results, run evaluation pipelines, and score results with LLM-based quality evaluations.",
+        "version": "4.0.0"
     },
     "servers": [
         {
-            "url": "https://urge-next.acordado.org/api/v1"
+            "url": "https://urge.acordado.org/api/v1"
         }
     ],
     "security": [
@@ -402,63 +402,6 @@
                     }
                 }
             },
-            "ShareLink": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "label": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "url": {
-                        "type": "string",
-                        "format": "uri"
-                    },
-                    "expires_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                    },
-                    "expired": {
-                        "type": "boolean"
-                    },
-                    "access_count": {
-                        "type": "integer"
-                    },
-                    "last_accessed_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                    },
-                    "created_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                }
-            },
-            "TeamMember": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "email": {
-                        "type": "string"
-                    },
-                    "role": {
-                        "type": "string",
-                        "enum": [
-                            "owner",
-                            "member"
-                        ]
-                    }
-                }
-            },
             "DeletedResponse": {
                 "type": "object",
                 "properties": {
@@ -683,14 +626,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -720,14 +667,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "requestBody": {
@@ -790,14 +741,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -824,14 +779,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "per_page",
@@ -882,14 +841,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "requestBody": {
@@ -945,14 +908,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "version",
@@ -995,14 +962,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -1023,14 +994,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "requestBody": {
@@ -1077,14 +1052,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "branch",
@@ -1113,14 +1092,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "branch",
@@ -1154,14 +1137,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "branch",
@@ -1189,14 +1176,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "requestBody": {
@@ -1248,14 +1239,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "version",
@@ -1320,14 +1315,18 @@
                         "in": "path",
                         "required": true,
                         "description": "User slug (owner of the prompt)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     {
                         "name": "promptSlug",
                         "in": "path",
                         "required": true,
                         "description": "Prompt slug (unique per user)",
-                        "schema": { "type": "string" }
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "requestBody": {
@@ -1722,195 +1721,6 @@
                         "description": "Collection not found"
                     }
                 }
-            },
-            "patch": {
-                "operationId": "updateCollection",
-                "summary": "Update a collection",
-                "parameters": [
-                    {
-                        "name": "slug",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "Collection slug"
-                    }
-                ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "title": {
-                                        "type": "string"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Updated collection",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/Collection"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "operationId": "deleteCollection",
-                "summary": "Delete a collection",
-                "parameters": [
-                    {
-                        "name": "slug",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "Collection slug"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Collection deleted",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/DeletedResponse"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/collections/{slug}/items": {
-            "post": {
-                "operationId": "addToCollection",
-                "summary": "Add an item to a collection",
-                "parameters": [
-                    {
-                        "name": "slug",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "Collection slug"
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "required": [
-                                    "item_type",
-                                    "item_id"
-                                ],
-                                "properties": {
-                                    "item_type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "prompt_version",
-                                            "result"
-                                        ],
-                                        "description": "Type of item to add"
-                                    },
-                                    "item_id": {
-                                        "type": "integer",
-                                        "description": "ID of the prompt version or result"
-                                    },
-                                    "notes": {
-                                        "type": "string",
-                                        "description": "Optional notes for this item"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Item added to collection",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/CollectionItem"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Referenced item not found"
-                    },
-                    "409": {
-                        "description": "Item already exists in collection"
-                    }
-                }
-            }
-        },
-        "/collections/{slug}/items/{item}": {
-            "delete": {
-                "operationId": "removeFromCollection",
-                "summary": "Remove an item from a collection",
-                "parameters": [
-                    {
-                        "name": "slug",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        },
-                        "description": "Collection slug"
-                    },
-                    {
-                        "name": "item",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        },
-                        "description": "Collection item ID"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Item removed from collection",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/DeletedResponse"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Item does not belong to this collection"
-                    }
-                }
             }
         },
         "/categories": {
@@ -1937,10 +1747,202 @@
                         }
                     }
                 }
+            }
+        },
+        "/results/{id}/evaluate": {
+            "post": {
+                "operationId": "evaluateResult",
+                "summary": "Evaluate a result against its prompt using LLM quality dimensions",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "provider": {
+                                        "type": "string",
+                                        "description": "Optional provider override"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Evaluation created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "evaluation_version": {
+                                                    "type": "integer"
+                                                },
+                                                "composite_score": {
+                                                    "type": "number"
+                                                },
+                                                "scores": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "dimension": {
+                                                                "type": "string"
+                                                            },
+                                                            "score": {
+                                                                "type": "integer"
+                                                            },
+                                                            "weight": {
+                                                                "type": "number"
+                                                            },
+                                                            "reasoning": {
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "evaluator_provider": {
+                                                    "type": "string"
+                                                },
+                                                "evaluator_model": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/results/{id}/evaluations/latest": {
+            "get": {
+                "operationId": "getLatestEvaluation",
+                "summary": "Get latest evaluation scores for a result",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Latest evaluation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "evaluation_version": {
+                                                    "type": "integer"
+                                                },
+                                                "composite_score": {
+                                                    "type": "number"
+                                                },
+                                                "scores": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "dimension": {
+                                                                "type": "string"
+                                                            },
+                                                            "score": {
+                                                                "type": "integer"
+                                                            },
+                                                            "weight": {
+                                                                "type": "number"
+                                                            },
+                                                            "reasoning": {
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "evaluator_provider": {
+                                                    "type": "string"
+                                                },
+                                                "evaluator_model": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pipelines": {
+            "get": {
+                "operationId": "listPipelines",
+                "summary": "List active pipelines with channel counts",
+                "responses": {
+                    "200": {
+                        "description": "List of pipelines",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "slug": {
+                                                        "type": "string"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "channels_count": {
+                                                        "type": "integer"
+                                                    },
+                                                    "is_active": {
+                                                        "type": "boolean"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             },
             "post": {
-                "operationId": "createCategory",
-                "summary": "Create a category",
+                "operationId": "createPipeline",
+                "summary": "Create a pipeline",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -1952,13 +1954,10 @@
                                 ],
                                 "properties": {
                                     "name": {
-                                        "type": "string",
-                                        "maxLength": 255
+                                        "type": "string"
                                     },
-                                    "color": {
-                                        "type": "string",
-                                        "maxLength": 30,
-                                        "description": "Display color (e.g. 'blue', '#3B82F6')"
+                                    "description": {
+                                        "type": "string"
                                     }
                                 }
                             }
@@ -1967,14 +1966,114 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Created category",
+                        "description": "Created pipeline",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/components/schemas/Category"
+                                            "type": "object",
+                                            "properties": {
+                                                "slug": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "is_active": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pipelines/{slug}": {
+            "get": {
+                "operationId": "getPipeline",
+                "summary": "Get pipeline with channels",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Pipeline slug"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Pipeline with channels",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "slug": {
+                                                    "type": "string"
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "description": {
+                                                    "type": "string"
+                                                },
+                                                "is_active": {
+                                                    "type": "boolean"
+                                                },
+                                                "channels": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "role_label": {
+                                                                "type": "string"
+                                                            },
+                                                            "system_prompt": {
+                                                                "type": "string"
+                                                            },
+                                                            "trigger": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "parallel",
+                                                                    "sequential"
+                                                                ]
+                                                            },
+                                                            "sort_order": {
+                                                                "type": "integer"
+                                                            },
+                                                            "llm_provider": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "name": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "model": {
+                                                                        "type": "string"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
