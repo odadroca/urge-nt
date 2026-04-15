@@ -63,16 +63,16 @@ Route::middleware(['auth'])->group(function () {
 // GitHub OAuth callback (no auth — user is not logged in yet)
 Route::get('/oauth/github/callback', [App\Http\Controllers\OAuthGitHubController::class, 'callback']);
 
-// OAuth 2.1 well-known discovery (no auth required)
-Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
-Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
-Route::get('/.well-known/openid-configuration', [App\Http\Controllers\WellKnownController::class, 'openIdConfiguration']);
-
-// OAuth 2.1 token exchange (public — client authenticates via code+PKCE)
-Route::post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
-
-// OAuth 2.1 Dynamic Client Registration (RFC 7591)
-Route::post('/oauth/register', [App\Http\Controllers\OAuthController::class, 'register']);
+// OAuth 2.1 endpoints (public, CORS-enabled for browser-based MCP clients)
+Route::middleware(App\Http\Middleware\OAuthCors::class)->group(function () {
+    Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
+    Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
+    Route::get('/.well-known/openid-configuration', [App\Http\Controllers\WellKnownController::class, 'openIdConfiguration']);
+    Route::post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
+    Route::post('/oauth/register', [App\Http\Controllers\OAuthController::class, 'register']);
+    Route::options('/oauth/token', fn () => response('', 204));
+    Route::options('/oauth/register', fn () => response('', 204));
+});
 
 require __DIR__.'/auth.php';
 

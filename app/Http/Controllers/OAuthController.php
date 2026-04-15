@@ -187,6 +187,7 @@ class OAuthController
             'client_name'                 => $client->client_name,
             'redirect_uris'               => $client->redirect_uris,
             'client_id_issued_at'         => $client->created_at->timestamp,
+            'client_secret_expires_at'    => 0,
             'grant_types'                 => $client->grant_types,
             'response_types'              => $client->response_types,
             'token_endpoint_auth_method'  => $client->token_endpoint_auth_method,
