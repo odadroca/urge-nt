@@ -20,7 +20,7 @@ export default function CreatePromptForm({ onClose }) {
             const result = await createPrompt({ name: name.trim(), type });
             const prompt = result.data;
             queryClient.invalidateQueries({ queryKey: ['browse'] });
-            navigate(`/workspace/${prompt.creator?.username || prompt.created_by}/${prompt.slug}`);
+            navigate(`/workspace/${prompt.creator?.slug || prompt.creator?.username || prompt.created_by}/${prompt.slug}`);
         } catch (err) {
             setError(err.response?.data?.message || 'Create failed');
             setSaving(false);

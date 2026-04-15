@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 export default function PromptCard({ prompt }) {
-    const owner = prompt.creator?.username || prompt.creator?.name;
+    const owner = prompt.creator?.slug || prompt.creator?.username || prompt.creator?.name;
 
     return (
         <Link
