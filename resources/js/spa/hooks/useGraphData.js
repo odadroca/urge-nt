@@ -12,9 +12,15 @@ function autoPosition(index) {
     return { x: col * GRID_SPACING_X + 50, y: row * GRID_SPACING_Y + 50 };
 }
 
-export default function useGraphData() {
-    const nodesQuery = useQuery({ queryKey: ['graph', 'nodes'], queryFn: getNodes });
-    const edgesQuery = useQuery({ queryKey: ['graph', 'edges'], queryFn: getEdges });
+export default function useGraphData(activeLayers = ['prompts', 'fragments', 'collections'], expandedPrompts = new Set()) {
+    const nodesQuery = useQuery({
+        queryKey: ['graph', 'nodes', activeLayers.sort().join(',')],
+        queryFn: () => getNodes(activeLayers),
+    });
+    const edgesQuery = useQuery({
+        queryKey: ['graph', 'edges', activeLayers.sort().join(',')],
+        queryFn: () => getEdges(activeLayers),
+    });
 
     const { nodes, edges, meta } = useMemo(() => {
         if (!nodesQuery.data || !edgesQuery.data) {
@@ -23,7 +29,12 @@ export default function useGraphData() {
 
         const apiPrompts = nodesQuery.data.data?.prompts ?? [];
         const apiCollections = nodesQuery.data.data?.collections ?? [];
+        const apiResults = nodesQuery.data.data?.results ?? [];
+        const apiEvaluations = nodesQuery.data.data?.evaluations ?? [];
+
         const compositionEdges = edgesQuery.data.data?.composition ?? [];
+        const resultEdges = edgesQuery.data.data?.result ?? [];
+        const evaluationEdges = edgesQuery.data.data?.evaluation ?? [];
         const meta = nodesQuery.data.meta;
 
         // Count incoming edges per fragment slug
@@ -32,30 +43,97 @@ export default function useGraphData() {
             incomingCount[e.target_slug] = (incomingCount[e.target_slug] || 0) + 1;
         });
 
-        // Build slug→nodeId map
+        // Build slug→nodeId map and prompt id→position map
         const slugToNodeId = {};
+        const promptPositions = {};
         let posIndex = 0;
 
-        const flowNodes = apiPrompts.map((p) => {
+        // Count results per prompt for the badge
+        const resultsPerPrompt = {};
+        apiResults.forEach(r => {
+            resultsPerPrompt[r.prompt_id] = (resultsPerPrompt[r.prompt_id] || 0) + 1;
+        });
+
+        const promptNodes = apiPrompts.map((p) => {
             const nodeType = p.type === 'fragment' ? 'fragment' : 'prompt';
             const nodeId = `${nodeType}-${p.id}`;
             slugToNodeId[p.slug] = nodeId;
             const position = p.position || autoPosition(posIndex++);
+            promptPositions[p.id] = position;
             return {
                 id: nodeId,
                 type: nodeType,
                 position,
-                data: { ...p, incomingEdgeCount: incomingCount[p.slug] || 0 },
+                data: {
+                    ...p,
+                    incomingEdgeCount: incomingCount[p.slug] || 0,
+                    results_count: resultsPerPrompt[p.id] || p.results_count || 0,
+                    isExpanded: expandedPrompts.has(p.id),
+                },
             };
         });
 
-        const collectionNodes = apiCollections.map((c) => {
-            const nodeId = `collection-${c.id}`;
-            slugToNodeId[c.slug] = nodeId;
-            const position = c.position || autoPosition(posIndex++);
-            return { id: nodeId, type: 'collection', position, data: c };
-        });
+        const collectionNodes = activeLayers.includes('collections')
+            ? apiCollections.map((c) => {
+                const nodeId = `collection-${c.id}`;
+                slugToNodeId[c.slug] = nodeId;
+                const position = c.position || autoPosition(posIndex++);
+                return { id: nodeId, type: 'collection', position, data: c };
+            })
+            : [];
 
+        // Result nodes — only for expanded prompts
+        const resultNodes = [];
+        if (activeLayers.includes('results')) {
+            // Group results by prompt_id
+            const resultsByPrompt = {};
+            apiResults.forEach(r => {
+                if (!resultsByPrompt[r.prompt_id]) resultsByPrompt[r.prompt_id] = [];
+                resultsByPrompt[r.prompt_id].push(r);
+            });
+
+            Object.entries(resultsByPrompt).forEach(([promptId, results]) => {
+                const pid = parseInt(promptId);
+                if (!expandedPrompts.has(pid)) return;
+
+                const parentPos = promptPositions[pid] || { x: 0, y: 0 };
+
+                results.forEach((r, i) => {
+                    const x = r.position?.x ?? (parentPos.x + (i - (results.length - 1) / 2) * 140);
+                    const y = r.position?.y ?? (parentPos.y + 120);
+                    resultNodes.push({
+                        id: `result-${r.id}`,
+                        type: 'result',
+                        position: { x, y },
+                        data: r,
+                    });
+                });
+            });
+        }
+
+        // Evaluation nodes — only when both results and evaluations layers active
+        const evaluationNodes = [];
+        if (activeLayers.includes('results') && activeLayers.includes('evaluations')) {
+            const resultNodeIds = new Set(resultNodes.map(n => parseInt(n.id.split('-')[1])));
+
+            apiEvaluations.forEach(ev => {
+                if (!resultNodeIds.has(ev.result_id)) return;
+
+                const parentResult = resultNodes.find(n => n.id === `result-${ev.result_id}`);
+                const parentPos = parentResult?.position || { x: 0, y: 0 };
+                const x = ev.position?.x ?? parentPos.x;
+                const y = ev.position?.y ?? (parentPos.y + 90);
+
+                evaluationNodes.push({
+                    id: `evaluation-${ev.result_id}-v${ev.evaluation_version}`,
+                    type: 'evaluation',
+                    position: { x, y },
+                    data: ev,
+                });
+            });
+        }
+
+        // Composition edges (existing)
         const flowEdges = compositionEdges
             .filter((e) => slugToNodeId[e.source_slug] && slugToNodeId[e.target_slug])
             .map((e) => ({
@@ -70,8 +148,37 @@ export default function useGraphData() {
                 },
             }));
 
-        return { nodes: [...flowNodes, ...collectionNodes], edges: flowEdges, meta };
-    }, [nodesQuery.data, edgesQuery.data]);
+        // Result edges (prompt → result)
+        const resultFlowEdges = resultNodes.map(rn => {
+            const resultId = parseInt(rn.id.split('-')[1]);
+            const result = apiResults.find(r => r.id === resultId);
+            if (!result) return null;
+            const promptNodeId = slugToNodeId[apiPrompts.find(p => p.id === result.prompt_id)?.slug];
+            if (!promptNodeId) return null;
+            return {
+                id: `edge-result-${result.prompt_id}-${resultId}`,
+                source: promptNodeId,
+                target: rn.id,
+                type: 'smoothstep',
+                style: { stroke: '#22c55e', strokeWidth: 1.5 },
+            };
+        }).filter(Boolean);
+
+        // Evaluation edges (result → evaluation)
+        const evalFlowEdges = evaluationNodes.map(en => ({
+            id: `edge-eval-${en.data.result_id}-v${en.data.evaluation_version}`,
+            source: `result-${en.data.result_id}`,
+            target: en.id,
+            type: 'smoothstep',
+            style: { stroke: '#f97316', strokeWidth: 1.5, strokeDasharray: '5 3' },
+        }));
+
+        return {
+            nodes: [...promptNodes, ...collectionNodes, ...resultNodes, ...evaluationNodes],
+            edges: [...flowEdges, ...resultFlowEdges, ...evalFlowEdges],
+            meta,
+        };
+    }, [nodesQuery.data, edgesQuery.data, activeLayers, expandedPrompts]);
 
     return {
         nodes, edges, meta,

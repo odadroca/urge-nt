@@ -7,9 +7,11 @@ import { savePositions, appendInclude } from '../../api/graph.js';
 import PromptNode from './nodes/PromptNode.jsx';
 import FragmentNode from './nodes/FragmentNode.jsx';
 import CollectionNode from './nodes/CollectionNode.jsx';
+import ResultNode from './nodes/ResultNode.jsx';
+import EvaluationNode from './nodes/EvaluationNode.jsx';
 import CompositionEdge from './edges/CompositionEdge.jsx';
 
-const nodeTypes = { prompt: PromptNode, fragment: FragmentNode, collection: CollectionNode };
+const nodeTypes = { prompt: PromptNode, fragment: FragmentNode, collection: CollectionNode, result: ResultNode, evaluation: EvaluationNode };
 const edgeTypes = { composition: CompositionEdge };
 
 export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect }) {
@@ -61,6 +63,8 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
                     nodeColor={(n) => {
                         if (n.type === 'prompt') return '#6366f1';
                         if (n.type === 'fragment') return '#3b82f6';
+                        if (n.type === 'result') return '#22c55e';
+                        if (n.type === 'evaluation') return '#f97316';
                         return '#7c3aed';
                     }}
                     className="!bg-gray-800"

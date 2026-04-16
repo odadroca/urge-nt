@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import useGraphData from '../hooks/useGraphData.js';
 import useElkLayout from '../hooks/useElkLayout.js';
@@ -7,15 +7,53 @@ import FlowCanvas from '../components/canvas/FlowCanvas.jsx';
 import Sidebar from '../components/canvas/Sidebar.jsx';
 import PropertiesPanel from '../components/canvas/PropertiesPanel.jsx';
 import Toolbar from '../components/canvas/Toolbar.jsx';
+import LayerToggles from '../components/canvas/LayerToggles.jsx';
 import { savePositions } from '../api/graph.js';
 
 export default function CanvasPage() {
-    const { nodes, edges, meta, isLoading, error, refetch } = useGraphData();
+    const [activeLayers, setActiveLayers] = useState(['prompts', 'fragments']);
+    const [expandedPrompts, setExpandedPrompts] = useState(new Set());
+    const { nodes, edges, meta, isLoading, error, refetch } = useGraphData(activeLayers, expandedPrompts);
     const { getLayoutedNodes, isLayouting } = useElkLayout();
     const [sidebarVisible, setSidebarVisible] = useState(true);
     const [layoutMode, setLayoutMode] = useState('free');
     const [selectedNode, setSelectedNode] = useState(null);
     const { copyToClipboard } = useMermaidExport(nodes, edges);
+
+    const handleToggleLayer = useCallback((layer) => {
+        setActiveLayers(prev =>
+            prev.includes(layer)
+                ? prev.filter(l => l !== layer)
+                : [...prev, layer]
+        );
+    }, []);
+
+    const handleTogglePromptResults = useCallback((promptId) => {
+        setExpandedPrompts(prev => {
+            const next = new Set(prev);
+            if (next.has(promptId)) {
+                next.delete(promptId);
+            } else {
+                next.add(promptId);
+            }
+            return next;
+        });
+    }, []);
+
+    const nodesWithCallbacks = useMemo(() => {
+        return nodes.map(node => {
+            if (node.type === 'prompt') {
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        onToggleResults: handleTogglePromptResults,
+                    },
+                };
+            }
+            return node;
+        });
+    }, [nodes, handleTogglePromptResults]);
 
     const handleMermaidExport = useCallback(async () => {
         await copyToClipboard();
@@ -92,8 +130,11 @@ export default function CanvasPage() {
                     layoutMode={layoutMode}
                     onLayoutChange={handleLayoutChange}
                 />
-                <FlowCanvas initialNodes={nodes} initialEdges={edges} onNodeSelect={setSelectedNode} />
+                <FlowCanvas initialNodes={nodesWithCallbacks} initialEdges={edges} onNodeSelect={setSelectedNode} />
                 <PropertiesPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
+                <div className="absolute top-2 right-2 z-40">
+                    <LayerToggles activeLayers={activeLayers} onToggle={handleToggleLayer} />
+                </div>
                 <Toolbar
                     layoutMode={layoutMode}
                     onLayoutChange={handleLayoutChange}

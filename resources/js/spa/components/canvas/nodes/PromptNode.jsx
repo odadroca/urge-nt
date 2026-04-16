@@ -43,6 +43,17 @@ function PromptNode({ data, selected }) {
                         </span>
                     )}
                 </div>
+                {data.results_count > 0 && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            data.onToggleResults?.(data.id);
+                        }}
+                        className="text-[9px] text-green-400 hover:text-green-300 mt-1.5 block"
+                    >
+                        {data.results_count} results {data.isExpanded ? '\u25BE' : '\u25B8'}
+                    </button>
+                )}
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-indigo-500 !w-2.5 !h-2.5" />
         </div>
