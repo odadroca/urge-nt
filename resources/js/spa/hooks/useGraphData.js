@@ -54,24 +54,35 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
             resultsPerPrompt[r.prompt_id] = (resultsPerPrompt[r.prompt_id] || 0) + 1;
         });
 
-        const promptNodes = apiPrompts.map((p) => {
+        // Always build slug map for all prompts (needed for edge resolution)
+        apiPrompts.forEach((p) => {
             const nodeType = p.type === 'fragment' ? 'fragment' : 'prompt';
-            const nodeId = `${nodeType}-${p.id}`;
-            slugToNodeId[p.slug] = nodeId;
-            const position = p.position || autoPosition(posIndex++);
-            promptPositions[p.id] = position;
-            return {
-                id: nodeId,
-                type: nodeType,
-                position,
-                data: {
-                    ...p,
-                    incomingEdgeCount: incomingCount[p.slug] || 0,
-                    results_count: resultsPerPrompt[p.id] || p.results_count || 0,
-                    isExpanded: expandedPrompts.has(p.id),
-                },
-            };
+            slugToNodeId[p.slug] = `${nodeType}-${p.id}`;
         });
+
+        const promptNodes = apiPrompts
+            .filter((p) => {
+                // Filter fragments by layer toggle
+                if (p.type === 'fragment' && !activeLayers.includes('fragments')) return false;
+                return true;
+            })
+            .map((p) => {
+                const nodeType = p.type === 'fragment' ? 'fragment' : 'prompt';
+                const nodeId = `${nodeType}-${p.id}`;
+                const position = p.position || autoPosition(posIndex++);
+                promptPositions[p.id] = position;
+                return {
+                    id: nodeId,
+                    type: nodeType,
+                    position,
+                    data: {
+                        ...p,
+                        incomingEdgeCount: incomingCount[p.slug] || 0,
+                        results_count: resultsPerPrompt[p.id] || p.results_count || 0,
+                        isExpanded: expandedPrompts.has(p.id),
+                    },
+                };
+            });
 
         const collectionNodes = activeLayers.includes('collections')
             ? apiCollections.map((c) => {
@@ -186,11 +197,12 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
             style: { stroke: '#f97316', strokeWidth: 1.5, strokeDasharray: '5 3' },
         }));
 
-        return {
-            nodes: [...promptNodes, ...collectionNodes, ...resultNodes, ...evaluationNodes],
-            edges: [...flowEdges, ...resultFlowEdges, ...evalFlowEdges],
-            meta,
-        };
+        const allNodes = [...promptNodes, ...collectionNodes, ...resultNodes, ...evaluationNodes];
+        const visibleNodeIds = new Set(allNodes.map(n => n.id));
+        const allEdges = [...flowEdges, ...resultFlowEdges, ...evalFlowEdges]
+            .filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+
+        return { nodes: allNodes, edges: allEdges, meta };
     }, [nodesQuery.data, edgesQuery.data, activeLayers, expandedPrompts]);
 
     return {
