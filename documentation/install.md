@@ -22,10 +22,13 @@ php artisan key:generate
 touch database/database.sqlite
 php artisan migrate
 
-# 4. Build frontend assets (Livewire + React SPA)
+# 4. (Optional) Seed evaluation prompt, pipeline, and settings
+php artisan urge:seed-evaluation
+
+# 5. Build frontend assets (Livewire + React SPA)
 npm run build
 
-# 5. Start development server
+# 6. Start development server
 php artisan serve
 # Visit http://127.0.0.1:8000
 ```
@@ -37,7 +40,8 @@ php artisan serve
 3. The Workspace opens: write content in the editor, click **Save Version**
 4. Paste LLM responses via **+ Paste Result** in the results panel
 5. Star and rate results for quick access from Browse
-6. Your prompts are private by default — create teams under **Teams** to share with others
+6. Configure evaluation under **Settings > Evaluation** — enable auto-evaluate, choose a provider, adjust dimension weights
+7. Your prompts are private by default — create teams under **Teams** to share with others
 
 ## Development
 
@@ -117,6 +121,7 @@ To connect Mistral Le Chat to URGE as an MCP integration:
 4. Run `npm run build` locally and upload `public/build/`
 5. Set `APP_ENV=production`, `APP_DEBUG=false` in `.env`
 6. Run `php artisan migrate --force`
-7. Run `php artisan config:cache && php artisan route:cache && php artisan view:cache`
+7. Run `php artisan urge:seed-evaluation` (creates default evaluation prompt, pipeline, and settings)
+8. Run `php artisan config:cache && php artisan route:cache && php artisan view:cache`
 
 No Node.js required on the server — `npm run build` produces static assets for both the React SPA and Livewire pages.

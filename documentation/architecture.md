@@ -43,6 +43,9 @@ ApiKey ──<> Prompt (pivot: api_key_prompt)
 | collection_share_links | collection_id, token, label, expires_at, access_count, created_by | Public share links for collections |
 | api_keys | key_hash (SHA-256), key_preview, is_active, expires_at | Bearer auth |
 | api_key_prompt | api_key_id, prompt_id | Scope keys to prompts |
+| pipelines | name, slug, description, owner, channels (JSON) | Multi-channel prompt execution pipelines |
+| result_evaluations | result_id, version, scores (JSON), composite_score, evaluator_provider, evaluator_model, evaluation_prompt_version_id, evaluated_by | Versioned LLM-powered result scoring |
+| evaluation_settings | user_id, enabled, auto_evaluate, provider_id, dimensions (JSON) | Per-user evaluation configuration |
 | teams | name, slug (unique), created_by | Flat groups for sharing (Phase 7) |
 | team_user | team_id, user_id, role (owner/member) | Team membership pivot (Phase 7) |
 | prompt_team | prompt_id, team_id | Prompt-team sharing pivot (Phase 7) |
@@ -161,6 +164,12 @@ Results:
   PATCH  /results/{id}                         — update rating/starred/notes
   DELETE /results/{id}                         — delete result
 
+Evaluations:
+  POST   /results/{id}/evaluate               — evaluate result with LLM scoring
+  GET    /results/{id}/evaluations             — list evaluations for a result
+  GET    /results/{id}/evaluations/latest      — get latest evaluation
+  GET    /results/{id}/evaluations/{version}   — get specific evaluation version
+
 Sharing:
   POST   /prompts/{username}/{slug}/share      — share with team
   DELETE /prompts/{username}/{slug}/share/{team} — unshare from team
@@ -209,25 +218,38 @@ Two transports, one shared handler layer:
 
 Both transports dispatch to the same `McpToolHandler` service, which maps tool calls to TemplateEngine, VersioningService, and Eloquent queries.
 
-**Tools (16):**
+**Tools (29):**
 | Tool | Purpose |
 |---|---|
+| `create_prompt` | Create a new prompt with initial version |
 | `get_prompt` | Fetch prompt by slug (+ optional owner for namespace), optionally specific version |
 | `list_prompts` | Browse/search the registry (scope: mine/shared/team/all) |
 | `render_prompt` | Resolve includes + fill variables → rendered text |
 | `save_version` | Create new version of a prompt |
-| `create_prompt` | Create a new prompt with initial version |
-| `store_result` | Archive a result (response from any LLM) |
+| `delete_prompt` | Delete prompt (owner/admin only) |
+| `store_result` | Archive a result (version defaults to active, accepts rendered_content/variables_used) |
 | `get_results` | Retrieve past results for a prompt |
 | `update_result` | Update result metadata (rating, starred, notes) |
 | `delete_result` | Delete a result |
-| `delete_prompt` | Delete prompt (owner/admin only) |
-| `share_prompt` | Share prompt with a team |
-| `list_teams` | List user's teams |
+| `evaluate_result` | Server-side LLM-powered evaluation (uses configured provider) |
+| `store_evaluation` | Client-side evaluation storage (free, no API cost) |
+| `get_evaluation_prompt` | Get evaluation prompt template for client-side execution |
+| `get_evaluations` | Get all evaluations for a result |
+| `list_pipelines` | List available pipelines |
+| `get_pipeline` | Get pipeline details with channels |
+| `run_pipeline` | Run a pipeline (server-side execution) |
+| `create_pipeline` | Create a new pipeline |
+| `update_pipeline` | Update pipeline metadata |
+| `delete_pipeline` | Delete a pipeline |
+| `add_channel` | Add a channel to a pipeline |
+| `update_channel` | Update a channel in a pipeline |
+| `remove_channel` | Remove a channel from a pipeline |
+| `list_providers` | List configured LLM providers |
+| `run_prompt` | Run a prompt against a provider |
 | `list_branches` | List branches for a prompt |
 | `create_branch` | Create a new branch |
-| `list_pipelines` | List available pipelines |
-| `run_pipeline` | Run a pipeline against a prompt |
+| `list_teams` | List user's teams |
+| `share_prompt` | Share prompt with a team |
 
 **Resources:**
 | URI | Purpose |
@@ -312,6 +334,7 @@ app/Services/
 ├── LlmDispatchService.php        # Resolve driver, dispatch prompt
 ├── AiAssistantService.php        # Meta-prompts: diff summarization, improvement suggestions
 ├── CollectionNestingService.php   # Circular ref detection, depth validation for nested collections
+├── EvaluationService.php          # LLM-powered result scoring, 6 dimensions, versioned evaluations, composite scores
 ├── ShareLinkService.php           # Create/revoke/find share links for collections
 └── LlmProviders/
     ├── Contracts/LlmDriverInterface.php   # complete(), completeWithSystem()
@@ -331,6 +354,7 @@ app/Services/
 | `php artisan urge:mcp-server` | Start stdio MCP server for local clients |
 | `php artisan urge:import-v1 {path}` | Migrate data from URGE v1 SQLite database (idempotent, transaction-wrapped) |
 | `php artisan oauth:create-client {name}` | Create pre-registered OAuth client (`--redirect=URL`, `--confidential`) |
+| `php artisan urge:seed-evaluation` | Create default evaluation prompt, pipeline, and settings |
 
 ## Phase Roadmap
 
@@ -348,4 +372,7 @@ app/Services/
 | Post-7 | Nested collections | Collections inside collections (DAG), circular ref detection, configurable depth, public share rendering |
 | Post-7 | React SPA | React 19 primary UI (Browse, Canvas, Workspace), sidebar nav, mobile bottom tab bar |
 | Post-7 | OAuth 2.1 | PKCE (S256), scoped tokens, GitHub provider, discovery endpoints |
-| Post-7 | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 16 tools. Verified: Claude.ai, Claude Desktop, Mistral Le Chat, stdio |
+| Post-7 | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 29 tools. Verified: Claude.ai, Claude Desktop, Mistral Le Chat, stdio |
+| Post-7 | Result evaluation | LLM-powered scoring with 6 dimensions, versioned evaluations, composite scores, auto-evaluate, evaluation settings UI, Canvas/Workspace integration |
+| Post-7 | Pipeline management | Pipeline CRUD via MCP (create/update/delete pipelines, add/update/remove channels), PipelineTemplate renamed to Pipeline |
+| Post-7 | Client-side execution | LLMs fetch prompts/pipelines, run natively (free), store results back. store_result version optional, accepts rendered_content/variables_used |

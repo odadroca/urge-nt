@@ -193,13 +193,15 @@ OAuth tokens can be scoped to limit tool access:
 
 | Scope | Tools |
 |-------|-------|
-| `mcp:read` | `get_prompt`, `list_prompts`, `render_prompt`, `get_results`, `list_branches`, `list_teams`, `list_pipelines` |
-| `mcp:write` | All read tools + `create_prompt`, `save_version`, `store_result`, `update_result`, `create_branch`, `share_prompt`, `run_pipeline` |
-| `mcp:admin` | All write tools + `delete_prompt`, `delete_result` |
+| `mcp:read` | `get_prompt`, `list_prompts`, `render_prompt`, `get_results`, `list_branches`, `list_teams`, `list_pipelines`, `get_pipeline`, `list_providers`, `get_evaluations`, `get_evaluation_prompt` |
+| `mcp:write` | All read tools + `create_prompt`, `save_version`, `store_result`, `update_result`, `create_branch`, `share_prompt`, `run_pipeline`, `run_prompt`, `evaluate_result`, `store_evaluation`, `create_pipeline`, `update_pipeline`, `add_channel`, `update_channel` |
+| `mcp:admin` | All write tools + `delete_prompt`, `delete_result`, `delete_pipeline`, `remove_channel` |
 
 API keys (legacy `urge_...` tokens) bypass scope checks and have full access.
 
-## Available Tools (16)
+## Available Tools (29)
+
+### Prompt Tools
 
 | Tool | Description | Scope |
 |------|-------------|-------|
@@ -208,17 +210,100 @@ API keys (legacy `urge_...` tokens) bypass scope checks and have full access.
 | `list_prompts` | List/search prompts (scope: mine/shared/all) | read |
 | `render_prompt` | Render template with variable substitution | read |
 | `save_version` | Create a new version of a prompt | write |
-| `store_result` | Save an LLM response as a result | write |
+| `delete_prompt` | Soft-delete a prompt (owner/admin) | admin |
+
+### Result Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `store_result` | Save an LLM response (version defaults to active, accepts rendered_content/variables_used) | write |
 | `get_results` | Get results for a prompt | read |
 | `update_result` | Update rating, starred, notes | write |
 | `delete_result` | Delete a result permanently | admin |
-| `delete_prompt` | Soft-delete a prompt (owner/admin) | admin |
-| `share_prompt` | Share a prompt with a team | write |
-| `list_teams` | List user's teams | read |
+
+### Evaluation Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `evaluate_result` | Server-side LLM-powered evaluation (uses configured provider) | write |
+| `store_evaluation` | Client-side evaluation storage (free, no API cost) | write |
+| `get_evaluation_prompt` | Get evaluation prompt template for client-side execution | read |
+| `get_evaluations` | Get all evaluations for a result | read |
+
+### Pipeline Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `list_pipelines` | List available pipelines | read |
+| `get_pipeline` | Get pipeline details with channels | read |
+| `run_pipeline` | Run a pipeline (server-side execution) | write |
+| `create_pipeline` | Create a new pipeline | write |
+| `update_pipeline` | Update pipeline metadata | write |
+| `delete_pipeline` | Delete a pipeline | admin |
+
+### Channel Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `add_channel` | Add a channel to a pipeline | write |
+| `update_channel` | Update a channel in a pipeline | write |
+| `remove_channel` | Remove a channel from a pipeline | admin |
+
+### Provider Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `list_providers` | List configured LLM providers | read |
+| `run_prompt` | Run a prompt against a provider | write |
+
+### Branch Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
 | `list_branches` | List branches for a prompt | read |
 | `create_branch` | Create a new branch | write |
-| `list_pipelines` | List pipelines | read |
-| `run_pipeline` | Run a pipeline against a prompt | write |
+
+### Team Tools
+
+| Tool | Description | Scope |
+|------|-------------|-------|
+| `list_teams` | List user's teams | read |
+| `share_prompt` | Share a prompt with a team | write |
+
+## Client-Side Execution
+
+LLMs can fetch prompts and pipelines from URGE, run them natively (free, no API cost), and store results back. This avoids consuming URGE's configured LLM provider credits.
+
+### Single Prompt Flow
+
+```
+1. get_prompt(slug, owner) → prompt content + variables
+2. LLM executes the prompt natively
+3. store_result(slug, owner, response_text, rendered_content?, variables_used?)
+```
+
+The `store_result` tool's `version` parameter is optional and defaults to the active version. You can also pass `rendered_content` and `variables_used` to document the exact input used.
+
+### Pipeline Execution Flow
+
+```
+1. get_pipeline(slug, owner) → pipeline with channels (each has provider config + system prompt)
+2. For each channel:
+   a. get_prompt(slug, owner) → prompt content
+   b. LLM runs the prompt with the channel's system prompt
+   c. store_result(slug, owner, response_text, provider, model)
+3. (Optional) evaluate_result(result_id) or store_evaluation(result_id, scores)
+```
+
+### Client-Side Evaluation Flow
+
+```
+1. get_evaluation_prompt(result_id?) → evaluation prompt template
+2. LLM evaluates the result using the prompt
+3. store_evaluation(result_id, scores, composite_score?, evaluator_provider?, evaluator_model?)
+```
+
+This is free (no API cost to URGE) since the LLM performs the evaluation natively. For server-side evaluation (uses URGE's configured provider), use `evaluate_result(result_id)` instead.
 
 ## Resources (6)
 

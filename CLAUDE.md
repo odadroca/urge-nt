@@ -16,7 +16,7 @@ URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fil
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
-php artisan test         # 365 tests
+php artisan test         # 376 tests
 php artisan serve        # http://127.0.0.1:8000
 npm run dev              # Vite HMR
 npm run build            # Production
@@ -48,14 +48,17 @@ Prompt (type: prompt|fragment) → PromptVersion[] (immutable) → Result[] (sou
 Collection → CollectionItem[] (polymorphic: prompt_version|result|collection) — nested collections form a DAG
 ```
 
-### Core Models (12 domain tables)
+### Core Models (14 domain tables)
 
 - **Prompt** — name, slug (auto-generated, unique per user), type (prompt|fragment), category_id, tags (JSON), visibility (private|shared, default private), pinned_version_id (nullable; NULL = latest is active). Soft deletes.
 - **PromptBranch** — prompt_id, name (slugified, unique per prompt), head_version_id, forked_from_version_id, is_default (exactly one per prompt), created_by. Enables non-linear version history.
 - **PromptVersion** — immutable (LogicException on update). Auto-numbered per prompt (global version_number) and per branch (branch_version_number). Extracts variables/includes on create. Has commit_message, variable_metadata (JSON), branch_id.
 - **Result** — unified response archive. source (api|manual|import|mcp), provider_name (free text), model_name (free text), llm_provider_id (FK, nullable), response_text, rating (1-5), starred (boolean), notes, token counts, duration_ms, import_filename.
+- **ResultEvaluation** — result_id, version (auto-incremented per result), scores (JSON with per-dimension scores), composite_score, evaluator_provider, evaluator_model, evaluation_prompt_version_id, evaluated_by.
+- **EvaluationSetting** — user_id, enabled, auto_evaluate, provider_id, dimensions (JSON with dimension names, enabled flags, weights).
 - **Category** — name, slug (auto-generated), color
 - **LlmProvider** — name, driver, api_key (encrypted), model, endpoint, settings (JSON)
+- **Pipeline** — name, slug, description, owner, channels (JSON). Multi-channel prompt execution pipelines.
 - **Collection** — title, slug (auto-generated, unique), description, created_by. Soft deletes.
 - **CollectionItem** — collection_id, item_type+item_id (polymorphic via enforceMorphMap: prompt_version|result|collection), sort_order, notes. Unique constraint on [collection_id, item_type, item_id]. When item_type=collection, enables nested collections (DAG — same child in multiple parents).
 - **Team** — name, slug (auto-generated, unique), created_by. Flat groups for sharing prompts.
@@ -81,23 +84,52 @@ Collection → CollectionItem[] (polymorphic: prompt_version|result|collection) 
 
 Both transports share the same tool dispatch layer — the handler resolves tool calls to service layer methods identically.
 
-**Tools (16):**
+**Tools (29):**
+
+Prompt:
+- `create_prompt(name, content, type?, category?, tags?, description?)` — create a new prompt with initial version
 - `get_prompt(slug, owner?, version?, variables?)` — fetch, optionally render with variables
 - `list_prompts(type?, category?, tag?, search?, scope?)` — browse registry (scope: mine|shared|team:{slug}|all)
-- `save_version(slug, owner?, content, commit_message?, branch?)` — create new version (on branch)
-- `create_prompt(name, content, type?, category?, tags?, description?)` — create a new prompt with initial version
-- `store_result(slug, owner?, version, response_text, provider?, model?, branch?)` — archive a result
-- `get_results(slug, owner?, version?, starred?, branch?)` — retrieve past results
 - `render_prompt(slug, owner?, version?, variables{}, branch?)` — resolve includes + fill variables, return rendered text
-- `list_branches(slug, owner?)` — list branches for a prompt
-- `create_branch(slug, owner?, name, from_version?)` — create a branch
+- `save_version(slug, owner?, content, commit_message?, branch?)` — create new version (on branch)
+- `delete_prompt(slug, owner?)` — delete prompt (owner/admin only)
+
+Results:
+- `store_result(slug, owner?, version?, response_text, provider?, model?, branch?, rendered_content?, variables_used?)` — archive a result (version defaults to active)
+- `get_results(slug, owner?, version?, starred?, branch?)` — retrieve past results
 - `update_result(result_id, rating?, starred?, notes?)` — update result metadata
 - `delete_result(result_id)` — delete a result
-- `delete_prompt(slug, owner?)` — delete prompt (owner/admin only)
-- `share_prompt(slug, team_slug)` — share prompt with team
-- `list_teams()` — list user's teams
+
+Evaluation:
+- `evaluate_result(result_id)` — server-side LLM-powered evaluation (uses configured provider)
+- `store_evaluation(result_id, scores, composite_score?, evaluator_provider?, evaluator_model?)` — client-side evaluation storage (free, no API cost)
+- `get_evaluation_prompt(result_id?)` — get the evaluation prompt template (for client-side execution)
+- `get_evaluations(result_id)` — get all evaluations for a result
+
+Pipeline:
 - `list_pipelines()` — list available pipelines
-- `run_pipeline(slug, owner?, variables?)` — run a pipeline against a prompt
+- `get_pipeline(slug, owner?)` — get pipeline details with channels
+- `run_pipeline(slug, owner?, variables?)` — run a pipeline (server-side execution)
+- `create_pipeline(name, description?, channels?)` — create a new pipeline
+- `update_pipeline(slug, owner?, name?, description?)` — update pipeline metadata
+- `delete_pipeline(slug, owner?)` — delete a pipeline
+
+Channels:
+- `add_channel(pipeline_slug, owner?, name, provider_slug, system_prompt?, settings?)` — add channel to pipeline
+- `update_channel(pipeline_slug, owner?, channel_id, name?, provider_slug?, system_prompt?, settings?)` — update a channel
+- `remove_channel(pipeline_slug, owner?, channel_id)` — remove channel from pipeline
+
+Providers:
+- `list_providers()` — list configured LLM providers
+- `run_prompt(prompt, provider_slug?, system_prompt?)` — run a prompt against a provider
+
+Branches:
+- `list_branches(slug, owner?)` — list branches for a prompt
+- `create_branch(slug, owner?, name, from_version?)` — create a branch
+
+Teams:
+- `list_teams()` — list user's teams
+- `share_prompt(slug, team_slug)` — share prompt with team
 
 **Resources:**
 - `urge://prompts` — list of visible prompts (respects namespace scoping)
@@ -133,6 +165,10 @@ GET    /results/starred                      — list starred results across all
 GET    /results/{id}                         — get single result
 PATCH  /results/{id}                         — update rating/starred/notes
 DELETE /results/{id}                         — delete result
+POST   /results/{id}/evaluate               — evaluate result with LLM scoring
+GET    /results/{id}/evaluations             — list evaluations for a result
+GET    /results/{id}/evaluations/latest      — get latest evaluation
+GET    /results/{id}/evaluations/{version}   — get specific evaluation version
 GET    /teams                                — list user's teams
 POST   /teams                                — create team
 GET    /teams/{slug}                         — get team details
@@ -154,6 +190,7 @@ Auth: Bearer token → SHA-256 hash lookup. Keys scoped to specific prompts via 
 - **LlmDispatchService** — resolves LlmProvider driver to concrete driver class, dispatches prompt. Supports `dispatch()` and `dispatchWithSystem()`.
 - **AiAssistantService** — meta-prompts via `dispatchWithSystem()` for diff summarization (`summarizeDifferences`) and prompt improvement suggestions (`suggestImprovements`)
 - **CollectionNestingService** — circular reference detection (BFS ancestor walk), depth validation (configurable max depth with unlimited toggle), validates nesting before creating collection-type CollectionItems
+- **EvaluationService** — LLM-powered result scoring with 6 configurable dimensions, versioned evaluations, composite score calculation, auto-evaluate support
 
 ### Livewire Components
 
@@ -161,13 +198,14 @@ Auth: Bearer token → SHA-256 hash lookup. Keys scoped to specific prompts via 
 app/Livewire/
 ├── Dashboard.php              # Recent prompts, starred results, inline create
 ├── Browse.php                 # Tabbed (prompts/fragments/collections/starred), category+tag filters, namespace sidebar, add-to-collection (single + bulk)
-├── Settings.php               # Tabbed settings container (API Keys, LLM Providers, Categories, Users)
+├── Settings.php               # Tabbed settings container (API Keys, LLM Providers, Categories, Pipelines, Evaluation, Users)
 ├── Teams.php                  # Teams list + create├── TeamDetail.php             # Team members + shared prompts management├── Browse/
 │   └── CollectionList.php     # Collection CRUD, expand/collapse, reorder items
 ├── Settings/
 │   ├── ApiKeys.php            # API key CRUD, reveal, scope to prompts
 │   ├── LlmProviders.php       # LLM provider CRUD, test connection, toggle active
 │   ├── Categories.php         # Category CRUD with color picker
+│   ├── Evaluation.php         # Enable/auto-evaluate toggles, provider selection, dimension config with weights
 │   └── UserManagement.php     # Admin-only user role management
 └── Workspace/
     ├── WorkspacePage.php      # 3-panel orchestrator
@@ -299,6 +337,7 @@ $this->dispatch('notify', message: 'Done', type: 'success'); // or 'error'
 - `php artisan urge:mcp-server` — stdio MCP server
 - `php artisan urge:import-v1 {path}` — import v1 SQLite database (idempotent, transaction-wrapped)
 - `php artisan oauth:create-client {name}` — create pre-registered OAuth client (`--redirect=URL`, `--confidential`)
+- `php artisan urge:seed-evaluation` — create default evaluation prompt, pipeline, and settings
 
 ### Live Preview (Phase 6)
 
@@ -317,7 +356,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**Phases 1-7 complete + UX sprints done + post-phase improvements + version branching + nested collections + React SPA UI + OAuth 2.1 (PKCE + confidential clients) + Streamable HTTP MCP.** 365 tests passing. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**Phases 1-7 complete + UX sprints done + post-phase improvements + version branching + nested collections + React SPA UI + OAuth 2.1 (PKCE + confidential clients) + Streamable HTTP MCP + result evaluation + pipeline management + client-side execution.** 376 tests passing. 29 MCP tools. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -340,4 +379,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **Nested collections** — collections inside collections (DAG), `CollectionNestingService` for circular ref detection + depth validation, configurable depth (`max_collection_depth`, `unlimited_collection_depth`), recursive API/share rendering, "Nest" action in UI (spec: `docs/superpowers/specs/2026-03-27-nested-collections-design.md`)
 - **React SPA** — React 19 mounted at `/app/*` with Browse (card grid, tabs, filters), Canvas (graph visualization via @xyflow/react), and Workspace (3-panel editor) pages. Slim icon-rail sidebar, mobile bottom tab bar. Post-login redirect to `/app/browse`.
 - **OAuth 2.1** — PKCE (S256), confidential client support (`client_secret`), Dynamic Client Registration (RFC 7591), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub external identity provider, OIDC discovery (`/.well-known/openid-configuration`). Verified with Claude.ai/Desktop (public PKCE) and Mistral Le Chat (confidential client).
-- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 16 tools (added `create_prompt`, `list_pipelines`, `run_pipeline`). Verified with Claude.ai, Claude Desktop, Mistral Le Chat, and stdio (Claude Code).
+- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 29 tools. Verified with Claude.ai, Claude Desktop, Mistral Le Chat, and stdio (Claude Code).
+- **Result evaluation** — LLM-powered scoring with 6 configurable dimensions (relevance, completeness, accuracy, clarity, conciseness, human), versioned evaluations, composite scores, auto-evaluate option. Evaluation settings UI tab. Canvas nodes show color-coded score badges. Workspace result cards show composite scores.
+- **Pipeline management** — PipelineTemplate renamed to Pipeline everywhere (tables, models, routes, MCP tools, UI). Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels.
+- **Client-side execution** — LLMs can fetch prompts/pipelines from URGE, run them natively (free, no API cost), store results back. Flow: get_prompt → execute → store_result. For pipelines: get_pipeline → run each channel → store_result per channel. store_result version now optional (defaults to active), accepts rendered_content and variables_used.

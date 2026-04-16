@@ -125,6 +125,10 @@ curl -X POST \
 | GET | `/results/{id}` | Get single result |
 | PATCH | `/results/{id}` | Update result (rating, starred, notes) |
 | DELETE | `/results/{id}` | Delete result |
+| POST | `/results/{id}/evaluate` | Evaluate result with LLM scoring |
+| GET | `/results/{id}/evaluations` | List evaluations for a result |
+| GET | `/results/{id}/evaluations/latest` | Get latest evaluation |
+| GET | `/results/{id}/evaluations/{version}` | Get specific evaluation version |
 | GET | `/teams` | List user's teams |
 | POST | `/teams` | Create team |
 | GET | `/teams/{slug}` | Get team details |
@@ -142,24 +146,53 @@ URGE exposes an MCP server (protocol version 2025-06-18) via Streamable HTTP tra
 
 Verified MCP clients: Claude.ai, Claude Desktop (OAuth via Dynamic Client Registration), Mistral Le Chat (OAuth via confidential client), Claude Code (stdio, no auth).
 
-### Available MCP Tools (16)
+### Available MCP Tools (29)
 
-- **get_prompt** — Fetch a prompt by slug (+ optional `owner` for namespace resolution)
-- **list_prompts** — List/search prompts (scope: mine/shared/team:{slug}/all)
-- **render_prompt** — Render a template with variables
-- **save_version** — Create a new version
-- **create_prompt** — Create a new prompt with initial version
-- **store_result** — Save an LLM response
-- **get_results** — Get results for a prompt
-- **update_result** — Update result metadata (rating, starred, notes)
-- **delete_result** — Delete a result
-- **delete_prompt** — Delete a prompt (owner/admin only)
-- **share_prompt** — Share a prompt with a team
-- **list_teams** — List user's teams with member/prompt counts
-- **list_branches** — List branches for a prompt
-- **create_branch** — Create a new branch
-- **list_pipelines** — List available pipelines
-- **run_pipeline** — Run a pipeline against a prompt
+**Prompt:** `create_prompt`, `get_prompt`, `list_prompts`, `render_prompt`, `save_version`, `delete_prompt`
+
+**Results:** `store_result` (version defaults to active, accepts rendered_content/variables_used), `get_results`, `update_result`, `delete_result`
+
+**Evaluation:** `evaluate_result` (server-side, uses configured provider), `store_evaluation` (client-side, free), `get_evaluation_prompt`, `get_evaluations`
+
+**Pipeline:** `list_pipelines`, `get_pipeline`, `run_pipeline`, `create_pipeline`, `update_pipeline`, `delete_pipeline`
+
+**Channels:** `add_channel`, `update_channel`, `remove_channel`
+
+**Providers:** `list_providers`, `run_prompt`
+
+**Branches:** `list_branches`, `create_branch`
+
+**Teams:** `list_teams`, `share_prompt`
+
+### Client-Side Execution (free, no API cost)
+
+LLMs can fetch prompts/pipelines from URGE, run them natively, and store results back:
+
+```
+1. get_prompt → get prompt content
+2. Execute the prompt natively (no URGE API cost)
+3. store_result → archive the response
+4. (Optional) store_evaluation → score the result (also free)
+```
+
+For pipelines: `get_pipeline` → run each channel → `store_result` per channel.
+
+### Evaluation Examples
+
+```bash
+# Server-side evaluation (uses URGE's configured LLM provider)
+curl -X POST \
+  -H "Authorization: Bearer urge_YOUR_KEY" \
+  https://urge-next.acordado.org/api/v1/results/42/evaluate
+
+# Get evaluations for a result
+curl -H "Authorization: Bearer urge_YOUR_KEY" \
+  https://urge-next.acordado.org/api/v1/results/42/evaluations
+
+# Get latest evaluation
+curl -H "Authorization: Bearer urge_YOUR_KEY" \
+  https://urge-next.acordado.org/api/v1/results/42/evaluations/latest
+```
 
 ### MCP Resources (6)
 
