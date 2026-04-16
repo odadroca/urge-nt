@@ -1,12 +1,14 @@
 import client from './client.js';
 
-export async function getNodes() {
-    const { data } = await client.get('/graph/nodes');
+export async function getNodes(layers) {
+    const params = layers ? { layers: layers.join(',') } : {};
+    const { data } = await client.get('/graph/nodes', { params });
     return data;
 }
 
-export async function getEdges() {
-    const { data } = await client.get('/graph/edges');
+export async function getEdges(layers) {
+    const params = layers ? { layers: layers.join(',') } : {};
+    const { data } = await client.get('/graph/edges', { params });
     return data;
 }
 
