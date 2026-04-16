@@ -7,12 +7,12 @@ import FlowCanvas from '../components/canvas/FlowCanvas.jsx';
 import Sidebar from '../components/canvas/Sidebar.jsx';
 import PropertiesPanel from '../components/canvas/PropertiesPanel.jsx';
 import Toolbar from '../components/canvas/Toolbar.jsx';
-import LayerToggles from '../components/canvas/LayerToggles.jsx';
 import { savePositions } from '../api/graph.js';
 
 export default function CanvasPage() {
     const [activeLayers, setActiveLayers] = useState(['prompts', 'fragments']);
     const [expandedPrompts, setExpandedPrompts] = useState(new Set());
+    const [hiddenPrompts, setHiddenPrompts] = useState(new Set());
     const { nodes, edges, meta, isLoading, error, refetch } = useGraphData(activeLayers, expandedPrompts);
     const { getLayoutedNodes, isLayouting } = useElkLayout();
     const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -47,20 +47,59 @@ export default function CanvasPage() {
         });
     }, []);
 
-    const nodesWithCallbacks = useMemo(() => {
-        return nodes.map(node => {
-            if (node.type === 'prompt') {
-                return {
-                    ...node,
-                    data: {
-                        ...node.data,
-                        onToggleResults: handleTogglePromptResults,
-                    },
-                };
+    const handleTogglePromptVisibility = useCallback((promptId) => {
+        setHiddenPrompts(prev => {
+            const next = new Set(prev);
+            if (next.has(promptId)) {
+                next.delete(promptId);
+            } else {
+                next.add(promptId);
             }
-            return node;
+            return next;
         });
-    }, [nodes, handleTogglePromptResults]);
+    }, []);
+
+    const nodesWithCallbacks = useMemo(() => {
+        // Get hidden prompt IDs for filtering child nodes
+        const hiddenPromptIds = hiddenPrompts;
+
+        return nodes
+            .filter(node => {
+                // Filter out hidden prompts
+                if (node.type === 'prompt') {
+                    const id = parseInt(node.id.split('-')[1]);
+                    return !hiddenPromptIds.has(id);
+                }
+                // Filter out results belonging to hidden prompts
+                if (node.type === 'result') {
+                    return !hiddenPromptIds.has(node.data.prompt_id);
+                }
+                // Filter out evaluations for hidden results
+                if (node.type === 'evaluation') {
+                    const parentResult = nodes.find(n => n.id === `result-${node.data.result_id}`);
+                    if (parentResult && hiddenPromptIds.has(parentResult.data.prompt_id)) return false;
+                }
+                return true;
+            })
+            .map(node => {
+                if (node.type === 'prompt') {
+                    return {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            onToggleResults: handleTogglePromptResults,
+                        },
+                    };
+                }
+                return node;
+            });
+    }, [nodes, handleTogglePromptResults, hiddenPrompts]);
+
+    // Filter edges to exclude those connecting to/from hidden nodes
+    const filteredEdges = useMemo(() => {
+        const visibleNodeIds = new Set(nodesWithCallbacks.map(n => n.id));
+        return edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+    }, [edges, nodesWithCallbacks]);
 
     const handleMermaidExport = useCallback(async () => {
         await copyToClipboard();
@@ -136,12 +175,13 @@ export default function CanvasPage() {
                     nodes={nodes}
                     layoutMode={layoutMode}
                     onLayoutChange={handleLayoutChange}
+                    activeLayers={activeLayers}
+                    onToggleLayer={handleToggleLayer}
+                    hiddenPrompts={hiddenPrompts}
+                    onTogglePromptVisibility={handleTogglePromptVisibility}
                 />
-                <FlowCanvas initialNodes={nodesWithCallbacks} initialEdges={edges} onNodeSelect={setSelectedNode} />
+                <FlowCanvas initialNodes={nodesWithCallbacks} initialEdges={filteredEdges} onNodeSelect={setSelectedNode} />
                 <PropertiesPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
-                <div className="absolute top-2 right-2 z-40">
-                    <LayerToggles activeLayers={activeLayers} onToggle={handleToggleLayer} />
-                </div>
                 <Toolbar
                     layoutMode={layoutMode}
                     onLayoutChange={handleLayoutChange}
