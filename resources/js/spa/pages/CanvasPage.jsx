@@ -29,6 +29,13 @@ export default function CanvasPage() {
     }, []);
 
     const handleTogglePromptResults = useCallback((promptId) => {
+        // Auto-enable results layer when expanding
+        setActiveLayers(prev => {
+            if (!prev.includes('results')) {
+                return [...prev, 'results'];
+            }
+            return prev;
+        });
         setExpandedPrompts(prev => {
             const next = new Set(prev);
             if (next.has(promptId)) {

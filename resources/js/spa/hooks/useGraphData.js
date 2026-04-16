@@ -98,14 +98,27 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
 
                 const parentPos = promptPositions[pid] || { x: 0, y: 0 };
 
-                results.forEach((r, i) => {
-                    const x = r.position?.x ?? (parentPos.x + (i - (results.length - 1) / 2) * 140);
-                    const y = r.position?.y ?? (parentPos.y + 120);
-                    resultNodes.push({
-                        id: `result-${r.id}`,
-                        type: 'result',
-                        position: { x, y },
-                        data: r,
+                // Group results by version for visual separation
+                const byVersion = {};
+                results.forEach(r => {
+                    const vKey = `v${r.version_number || '?'}${r.branch_name ? '-' + r.branch_name : ''}`;
+                    if (!byVersion[vKey]) byVersion[vKey] = [];
+                    byVersion[vKey].push(r);
+                });
+
+                const versionGroups = Object.entries(byVersion);
+                versionGroups.forEach(([vKey, vResults], groupIdx) => {
+                    const yOffset = parentPos.y + 120 + groupIdx * 100;
+
+                    vResults.forEach((r, i) => {
+                        const x = r.position?.x ?? (parentPos.x + (i - (vResults.length - 1) / 2) * 150);
+                        const y = r.position?.y ?? yOffset;
+                        resultNodes.push({
+                            id: `result-${r.id}`,
+                            type: 'result',
+                            position: { x, y },
+                            data: { ...r, versionLabel: vKey },
+                        });
                     });
                 });
             });

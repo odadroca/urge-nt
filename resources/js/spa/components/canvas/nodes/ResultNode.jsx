@@ -26,7 +26,10 @@ function ResultNode({ data, selected }) {
                         <span className={scoreColor}>{'\u2B50'}{Number(score).toFixed(1)}</span>
                     )}
                 </div>
-                <div className="text-[8px] text-gray-600 mt-1">{data.source}</div>
+                <div className="flex items-center gap-2 text-[8px] text-gray-600 mt-1">
+                    <span>{data.source}</span>
+                    {data.versionLabel && <span className="text-indigo-400">{data.versionLabel}</span>}
+                </div>
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-green-500 !w-2 !h-2" />
         </div>

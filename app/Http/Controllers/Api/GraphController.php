@@ -149,7 +149,7 @@ class GraphController extends ApiController
 
             if (!empty($resultIds)) {
                 $results = \App\Models\Result::whereIn('id', $resultIds)
-                    ->with(['promptVersion'])
+                    ->with(['promptVersion.branch'])
                     ->orderByDesc('created_at')
                     ->get();
 
@@ -167,6 +167,8 @@ class GraphController extends ApiController
                     return [
                         'id'               => $result->id,
                         'prompt_id'        => $result->prompt_id,
+                        'version_number'   => $result->promptVersion?->version_number,
+                        'branch_name'      => $result->promptVersion?->branch?->name,
                         'provider_name'    => $result->provider_name,
                         'model_name'       => $result->model_name,
                         'duration_ms'      => $result->duration_ms,
