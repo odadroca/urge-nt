@@ -23,6 +23,11 @@ class GraphController extends ApiController
     {
         $user = $request->user();
 
+        $layers = $request->query('layers', 'prompts,fragments,collections');
+        $layerList = explode(',', $layers);
+        $includeResults = in_array('results', $layerList);
+        $includeEvaluations = in_array('evaluations', $layerList);
+
         // Load visible prompts (includes both prompts and fragments)
         $promptsQuery = Prompt::visibleTo($user)
             ->with(['creator', 'category', 'pinnedVersion', 'defaultBranch.headVersion', 'latestVersion'])
@@ -133,14 +138,99 @@ class GraphController extends ApiController
             ];
         })->values();
 
+        $resultsData = collect();
+        $evaluationsData = collect();
+
+        if ($includeResults) {
+            $resultIds = [];
+            foreach ($prompts as $prompt) {
+                $resultIds = array_merge($resultIds, $prompt->results()->pluck('results.id')->toArray());
+            }
+
+            if (!empty($resultIds)) {
+                $results = \App\Models\Result::whereIn('id', $resultIds)
+                    ->with(['promptVersion'])
+                    ->orderByDesc('created_at')
+                    ->get();
+
+                $resultPositions = collect();
+                if ($results->isNotEmpty()) {
+                    $resultPositions = \App\Models\GraphPosition::where('user_id', $user->id)
+                        ->where('node_type', 'result')
+                        ->whereIn('node_id', $results->pluck('id'))
+                        ->get()
+                        ->keyBy('node_id');
+                }
+
+                $resultsData = $results->map(function ($result) use ($resultPositions) {
+                    $position = $resultPositions->get($result->id);
+                    return [
+                        'id'               => $result->id,
+                        'prompt_id'        => $result->prompt_id,
+                        'provider_name'    => $result->provider_name,
+                        'model_name'       => $result->model_name,
+                        'duration_ms'      => $result->duration_ms,
+                        'rating'           => $result->rating,
+                        'evaluation_score' => $result->evaluation_score,
+                        'source'           => $result->source,
+                        'created_at'       => $result->created_at,
+                        'position'         => $position ? ['x' => $position->x, 'y' => $position->y] : null,
+                    ];
+                })->values();
+            }
+        }
+
+        if ($includeEvaluations && $includeResults && $resultsData->isNotEmpty()) {
+            $evalResultIds = $resultsData->pluck('id')->toArray();
+
+            $evaluations = \App\Models\ResultEvaluation::whereIn('result_id', $evalResultIds)
+                ->whereRaw('evaluation_version = (SELECT MAX(re2.evaluation_version) FROM result_evaluations re2 WHERE re2.result_id = result_evaluations.result_id)')
+                ->get()
+                ->groupBy('result_id');
+
+            $evalPositions = collect();
+            if ($evaluations->isNotEmpty()) {
+                $evalPositions = \App\Models\GraphPosition::where('user_id', $user->id)
+                    ->where('node_type', 'evaluation')
+                    ->whereIn('node_id', $evaluations->keys())
+                    ->get()
+                    ->keyBy('node_id');
+            }
+
+            $evaluationsData = $evaluations->map(function ($scores, $resultId) use ($evalPositions) {
+                $first = $scores->first();
+                $position = $evalPositions->get($resultId);
+                $totalWeight = $scores->sum('weight');
+                $composite = $totalWeight > 0
+                    ? round($scores->sum(fn ($s) => $s->score * $s->weight) / $totalWeight, 2)
+                    : null;
+
+                return [
+                    'result_id'          => $resultId,
+                    'evaluation_version' => $first->evaluation_version,
+                    'composite_score'    => $composite,
+                    'evaluator_provider' => $first->evaluator_provider,
+                    'scores'             => $scores->map(fn ($s) => [
+                        'dimension' => $s->dimension,
+                        'score'     => $s->score,
+                        'reasoning' => $s->reasoning,
+                    ])->values()->toArray(),
+                    'created_at'         => $first->created_at,
+                    'position'           => $position ? ['x' => $position->x, 'y' => $position->y] : null,
+                ];
+            })->values();
+        }
+
         return response()->json([
             'data' => [
-                'prompts' => $promptsData,
+                'prompts'     => $promptsData,
                 'collections' => $collectionsData,
+                'results'     => $resultsData,
+                'evaluations' => $evaluationsData,
             ],
             'meta' => [
                 'total_count' => $totalCount,
-                'truncated' => $truncated,
+                'truncated'   => $truncated,
             ],
         ]);
     }
@@ -247,6 +337,9 @@ class GraphController extends ApiController
     {
         $user = $request->user();
 
+        $layers = $request->query('layers', 'prompts,fragments,collections');
+        $layerList = explode(',', $layers);
+
         // Composition edges: derived from {{>slug}} includes in prompt content
         $prompts = Prompt::visibleTo($user)->get();
         $compositionEdges = [];
@@ -284,10 +377,36 @@ class GraphController extends ApiController
             }
         }
 
+        $resultEdges = [];
+        $evaluationEdges = [];
+
+        if (in_array('results', $layerList)) {
+            $promptIds = Prompt::visibleTo($user)->pluck('id');
+            $results = \App\Models\Result::whereIn('prompt_id', $promptIds)->get(['id', 'prompt_id']);
+            $resultEdges = $results->map(fn ($r) => [
+                'prompt_id' => $r->prompt_id,
+                'result_id' => $r->id,
+            ])->values()->toArray();
+
+            if (in_array('evaluations', $layerList)) {
+                $resultIds = $results->pluck('id');
+                $evals = \App\Models\ResultEvaluation::whereIn('result_id', $resultIds)
+                    ->selectRaw('result_id, MAX(evaluation_version) as evaluation_version')
+                    ->groupBy('result_id')
+                    ->get();
+                $evaluationEdges = $evals->map(fn ($e) => [
+                    'result_id'          => $e->result_id,
+                    'evaluation_version' => $e->evaluation_version,
+                ])->values()->toArray();
+            }
+        }
+
         return response()->json([
             'data' => [
                 'composition' => $compositionEdges,
-                'collection' => $collectionEdges,
+                'collection'  => $collectionEdges,
+                'result'      => $resultEdges,
+                'evaluation'  => $evaluationEdges,
             ],
         ]);
     }
