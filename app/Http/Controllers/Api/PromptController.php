@@ -110,7 +110,7 @@ class PromptController extends ApiController
 
         $validated = $request->validate([
             'name'        => 'sometimes|required|string|max:255',
-            'type'        => 'in:prompt,fragment',
+            'type'        => 'sometimes|in:prompt,fragment',
             'description' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
             'tags'        => 'nullable|array',
