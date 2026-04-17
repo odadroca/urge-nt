@@ -242,7 +242,7 @@ class GraphController extends ApiController
     {
         $validated = $request->validate([
             'positions' => ['present', 'array'],
-            'positions.*.node_type' => ['required', 'string', 'in:prompt,fragment,collection'],
+            'positions.*.node_type' => ['required', 'string', 'in:prompt,fragment,collection,result,evaluation'],
             'positions.*.node_id' => ['required', 'integer', 'min:1'],
             'positions.*.x' => ['required', 'numeric'],
             'positions.*.y' => ['required', 'numeric'],

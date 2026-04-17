@@ -25,8 +25,12 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
     useEffect(() => { setEdges(initialEdges); }, [initialEdges, setEdges]);
 
     const handleNodeDragStop = useCallback((_event, node) => {
-        const [type, id] = node.id.split('-');
-        savePositions([{ node_type: type, node_id: parseInt(id), x: node.position.x, y: node.position.y }]);
+        // Parse node ID: "prompt-1", "result-42", "evaluation-42-v1"
+        const parts = node.id.split('-');
+        const type = parts[0];
+        const id = parseInt(parts[1]);
+        if (!type || isNaN(id)) return;
+        savePositions([{ node_type: type, node_id: id, x: node.position.x, y: node.position.y }]);
     }, []);
 
     const handleSelectionChange = useCallback(({ nodes: selected }) => {
