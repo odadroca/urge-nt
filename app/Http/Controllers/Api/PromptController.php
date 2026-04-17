@@ -115,6 +115,8 @@ class PromptController extends ApiController
             'category_id' => 'nullable|exists:categories,id',
             'tags'        => 'nullable|array',
             'tags.*'      => 'string|max:50',
+            'visibility'  => 'nullable|in:private,shared',
+            'derived_from_prompt_id' => 'nullable|integer|exists:prompts,id',
         ]);
 
         $prompt->update($validated);

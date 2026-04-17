@@ -4,6 +4,7 @@ import {
 } from '@xyflow/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePositions, appendInclude } from '../../api/graph.js';
+import { updatePrompt } from '../../api/prompts.js';
 import PromptNode from './nodes/PromptNode.jsx';
 import FragmentNode from './nodes/FragmentNode.jsx';
 import CollectionNode from './nodes/CollectionNode.jsx';
@@ -36,13 +37,29 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
         const sourceNode = nodes.find((n) => n.id === params.source);
         const targetNode = nodes.find((n) => n.id === params.target);
         if (!sourceNode || !targetNode) return;
-        if (targetNode.type !== 'fragment') return;
 
-        try {
-            await appendInclude(sourceNode.data.owner, sourceNode.data.slug, targetNode.data.slug);
-            queryClient.invalidateQueries({ queryKey: ['graph'] });
-        } catch (err) {
-            console.error('Failed to add include:', err);
+        // Prompt → Fragment: add include ({{>slug}})
+        if (targetNode.type === 'fragment') {
+            try {
+                await appendInclude(sourceNode.data.owner, sourceNode.data.slug, targetNode.data.slug);
+                queryClient.invalidateQueries({ queryKey: ['graph'] });
+            } catch (err) {
+                console.error('Failed to add include:', err);
+            }
+            return;
+        }
+
+        // Prompt → Prompt: set derived-from (source is derived from target)
+        if (sourceNode.type === 'prompt' && targetNode.type === 'prompt') {
+            try {
+                await updatePrompt(sourceNode.data.owner, sourceNode.data.slug, {
+                    derived_from_prompt_id: parseInt(targetNode.id.split('-')[1]),
+                });
+                queryClient.invalidateQueries({ queryKey: ['graph'] });
+            } catch (err) {
+                console.error('Failed to set derived-from:', err);
+            }
+            return;
         }
     }, [nodes, queryClient]);
 
