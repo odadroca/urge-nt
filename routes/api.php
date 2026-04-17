@@ -1,19 +1,22 @@
 <?php
 
+use App\Http\Controllers\Api\ApiKeyController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
+use App\Http\Controllers\Api\EvaluationController;
+use App\Http\Controllers\Api\EvaluationSettingsController;
 use App\Http\Controllers\Api\GraphController;
 use App\Http\Controllers\Api\LlmProviderController;
 use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\PromptController;
 use App\Http\Controllers\Api\RenderController;
-use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\ResultController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VersionController;
 use App\Http\Controllers\McpController;
 use Illuminate\Support\Facades\Route;
@@ -107,6 +110,10 @@ Route::prefix('v1')->group(function () {
 
         // LLM Providers
         Route::get('providers', [LlmProviderController::class, 'index']);
+        Route::post('providers', [LlmProviderController::class, 'store']);
+        Route::patch('providers/{id}', [LlmProviderController::class, 'update']);
+        Route::delete('providers/{id}', [LlmProviderController::class, 'destroy']);
+        Route::post('providers/{id}/test', [LlmProviderController::class, 'test']);
 
         // Run prompt with LLM
         Route::post('prompts/{username}/{promptSlug}/run', [PromptController::class, 'run']);
@@ -114,11 +121,29 @@ Route::prefix('v1')->group(function () {
         // Categories
         Route::get('categories', [CategoryController::class, 'index']);
         Route::post('categories', [CategoryController::class, 'store']);
+        Route::patch('categories/{id}', [CategoryController::class, 'update']);
+        Route::delete('categories/{id}', [CategoryController::class, 'destroy']);
 
         // Share Links
         Route::get('collections/{collection:slug}/share-links', [ShareLinkController::class, 'index']);
         Route::post('collections/{collection:slug}/share-links', [ShareLinkController::class, 'store']);
         Route::delete('collections/{collection:slug}/share-links/{shareLink}', [ShareLinkController::class, 'destroy']);
+
+        // API Keys
+        Route::get('api-keys', [ApiKeyController::class, 'index']);
+        Route::post('api-keys', [ApiKeyController::class, 'store']);
+        Route::patch('api-keys/{id}', [ApiKeyController::class, 'update']);
+        Route::delete('api-keys/{id}', [ApiKeyController::class, 'destroy']);
+
+        // Evaluation Settings
+        Route::get('evaluation-settings', [EvaluationSettingsController::class, 'show']);
+        Route::patch('evaluation-settings', [EvaluationSettingsController::class, 'update']);
+
+        // Users (admin)
+        Route::get('users', [UserController::class, 'index']);
+        Route::post('users', [UserController::class, 'store']);
+        Route::patch('users/{id}', [UserController::class, 'update']);
+        Route::delete('users/{id}', [UserController::class, 'destroy']);
 
         // Graph
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
