@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\GraphController;
+use App\Http\Controllers\Api\LlmProviderController;
 use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\PromptController;
@@ -103,6 +104,12 @@ Route::prefix('v1')->group(function () {
         Route::patch('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'updateChannel']);
         Route::delete('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'removeChannel']);
         Route::post('prompts/{username}/{promptSlug}/run-pipeline', [PipelineController::class, 'runPipeline']);
+
+        // LLM Providers
+        Route::get('providers', [LlmProviderController::class, 'index']);
+
+        // Run prompt with LLM
+        Route::post('prompts/{username}/{promptSlug}/run', [PromptController::class, 'run']);
 
         // Categories
         Route::get('categories', [CategoryController::class, 'index']);

@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\LlmProvider;
 use App\Models\Prompt;
+use App\Models\Result;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\LlmDispatchService;
+use App\Services\TemplateEngine;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -231,6 +235,74 @@ class PromptController extends ApiController
             'pinned_version_id' => $prompt->pinned_version_id,
             'message' => $versionId ? "Pinned to version #{$version->version_number}." : 'Unpinned — using latest.',
         ]);
+    }
+
+    public function run(Request $request, string $username, string $promptSlug, TemplateEngine $templateEngine, LlmDispatchService $dispatchService): JsonResponse
+    {
+        $prompt = $this->resolvePrompt($username, $promptSlug, $request);
+        $this->authorizePromptAccess($prompt, $request);
+
+        $validated = $request->validate([
+            'version_number' => 'nullable|integer',
+            'provider_ids'   => 'required|array|min:1',
+            'provider_ids.*' => 'integer',
+            'variables'      => 'nullable|array',
+        ]);
+
+        // Resolve version
+        $version = null;
+        if (!empty($validated['version_number'])) {
+            $version = $prompt->versions()->where('version_number', $validated['version_number'])->first();
+            if (!$version) {
+                return $this->error('Version not found.', 404);
+            }
+        }
+        $version = $version ?? $prompt->activeVersion;
+
+        if (!$version) {
+            return $this->error('No version found. Save a version first.', 404);
+        }
+
+        // Render template
+        $variables = $validated['variables'] ?? [];
+        $renderResult = $templateEngine->render(
+            $version->content,
+            $variables,
+            $version->variable_metadata,
+            $request->user(),
+        );
+        $renderedContent = $renderResult['rendered'];
+
+        // Dispatch to each provider
+        $results = [];
+        foreach ($validated['provider_ids'] as $providerId) {
+            $provider = LlmProvider::where('id', $providerId)->where('is_active', true)->first();
+            if (!$provider) {
+                continue;
+            }
+
+            $llmResult = $dispatchService->dispatch($provider, $renderedContent);
+
+            $results[] = Result::create([
+                'prompt_id'         => $prompt->id,
+                'prompt_version_id' => $version->id,
+                'source'            => 'api',
+                'provider_name'     => $provider->name,
+                'model_name'        => $llmResult->modelUsed,
+                'llm_provider_id'   => $provider->id,
+                'rendered_content'  => $renderedContent,
+                'variables_used'    => !empty($variables) ? $variables : null,
+                'response_text'     => $llmResult->success ? $llmResult->text : null,
+                'input_tokens'      => $llmResult->inputTokens,
+                'output_tokens'     => $llmResult->outputTokens,
+                'duration_ms'       => $llmResult->durationMs,
+                'status'            => $llmResult->success ? 'success' : 'error',
+                'error_message'     => $llmResult->error,
+                'created_by'        => $request->user()->id,
+            ]);
+        }
+
+        return $this->success($results, 201);
     }
 
     private function authorizePromptAccess(Prompt $prompt, Request $request): void

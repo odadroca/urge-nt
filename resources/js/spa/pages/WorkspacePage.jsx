@@ -7,12 +7,14 @@ import Editor from '../components/workspace/Editor.jsx';
 import VersionSidebar from '../components/workspace/VersionSidebar.jsx';
 import ResultsPanel from '../components/workspace/ResultsPanel.jsx';
 import PromptMetadataModal from '../components/workspace/PromptMetadataModal.jsx';
+import RunWithLlm from '../components/workspace/RunWithLlm.jsx';
 
 export default function WorkspacePage() {
     const { username, slug } = useParams();
     const queryClient = useQueryClient();
     const [currentVersionId, setCurrentVersionId] = useState(null);
     const [showMetadata, setShowMetadata] = useState(false);
+    const [showRunPanel, setShowRunPanel] = useState(false);
 
     const { data: promptData, isLoading, error } = useQuery({
         queryKey: ['workspace', username, slug, 'prompt'],
@@ -86,15 +88,28 @@ export default function WorkspacePage() {
                 />
             </div>
 
-            {/* Right: Results Panel */}
-            <div className="w-80 border-l border-gray-700 bg-gray-800 overflow-y-auto shrink-0">
-                <ResultsPanel
-                    prompt={prompt}
-                    username={username}
-                    slug={slug}
-                    currentVersionId={currentVersion?.id}
-                    currentVersionNumber={currentVersion?.version_number}
-                />
+            {/* Right: Results Panel + Run LLM */}
+            <div className="w-80 border-l border-gray-700 bg-gray-800 overflow-y-auto shrink-0 flex flex-col">
+                <div className="flex-1 overflow-y-auto">
+                    <ResultsPanel
+                        prompt={prompt}
+                        username={username}
+                        slug={slug}
+                        currentVersionId={currentVersion?.id}
+                        currentVersionNumber={currentVersion?.version_number}
+                        showRunPanel={showRunPanel}
+                        onToggleRunPanel={() => setShowRunPanel(p => !p)}
+                    />
+                </div>
+                {showRunPanel && (
+                    <RunWithLlm
+                        prompt={prompt}
+                        version={currentVersion}
+                        username={username}
+                        slug={slug}
+                        onClose={() => setShowRunPanel(false)}
+                    />
+                )}
             </div>
 
             <PromptMetadataModal

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listResults, updateResult, deleteResult } from '../../api/results.js';
 import ManualResultForm from './ManualResultForm.jsx';
 
-export default function ResultsPanel({ prompt, username, slug, currentVersionId, currentVersionNumber }) {
+export default function ResultsPanel({ prompt, username, slug, currentVersionId, currentVersionNumber, showRunPanel, onToggleRunPanel }) {
     const queryClient = useQueryClient();
     const [sortBy, setSortBy] = useState('newest');
     const [showAllVersions, setShowAllVersions] = useState(false);
@@ -84,13 +84,12 @@ export default function ResultsPanel({ prompt, username, slug, currentVersionId,
                     >
                         + Add Result
                     </button>
-                    <a
-                        href={`/prompts/${username}/${slug}`}
-                        className="text-xs text-gray-500 hover:text-indigo-400"
-                        title="Run with LLM in Classic UI"
+                    <button
+                        onClick={() => onToggleRunPanel?.()}
+                        className={`text-xs px-2 py-1 rounded ${showRunPanel ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
                     >
-                        Run LLM &rarr;
-                    </a>
+                        Run LLM
+                    </button>
                 </div>
             </div>
 

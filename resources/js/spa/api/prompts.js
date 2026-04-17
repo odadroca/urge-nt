@@ -19,3 +19,12 @@ export async function createPrompt({ name, type }) {
     const { data } = await client.post('/prompts', { name, type });
     return data;
 }
+
+export async function runPrompt(username, slug, { version_number, provider_ids, variables }) {
+    const { data } = await client.post(`/prompts/${username}/${slug}/run`, {
+        version_number,
+        provider_ids,
+        variables,
+    });
+    return data;
+}
