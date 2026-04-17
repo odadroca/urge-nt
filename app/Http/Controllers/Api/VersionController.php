@@ -51,4 +51,22 @@ class VersionController extends ApiController
 
         return $this->success($promptVersion);
     }
+
+    public function archive(Request $request, string $username, string $promptSlug, int $version): JsonResponse
+    {
+        $prompt = $this->resolvePrompt($username, $promptSlug, $request);
+        $this->authorizeOwnership($prompt, $request);
+
+        $promptVersion = $prompt->versions()->where('version_number', $version)->firstOrFail();
+
+        if ($promptVersion->archived_at) {
+            $promptVersion->archived_at = null;
+            $promptVersion->save();
+            return $this->success(['message' => "Version {$version} unarchived.", 'archived' => false]);
+        }
+
+        $promptVersion->archived_at = now();
+        $promptVersion->save();
+        return $this->success(['message' => "Version {$version} archived.", 'archived' => true]);
+    }
 }

@@ -30,12 +30,24 @@ class PromptVersion extends Model
         'variable_metadata' => 'array',
         'includes' => 'array',
         'created_at' => 'datetime',
+        'archived_at' => 'datetime',
     ];
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
 
     protected static function booted(): void
     {
-        static::updating(function () {
-            throw new \LogicException('Prompt versions are immutable and cannot be updated.');
+        static::updating(function (PromptVersion $version) {
+            // Allow only archived_at changes
+            $dirty = $version->getDirty();
+            $allowed = ['archived_at'];
+            $disallowed = array_diff(array_keys($dirty), $allowed);
+            if (!empty($disallowed)) {
+                throw new \LogicException('PromptVersion is immutable. Only archived_at can be modified.');
+            }
         });
 
         static::creating(function (PromptVersion $version) {

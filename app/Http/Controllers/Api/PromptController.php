@@ -195,6 +195,32 @@ class PromptController extends ApiController
         return $this->success(['message' => 'Prompt unshared from team.']);
     }
 
+    public function pin(Request $request, string $username, string $promptSlug): JsonResponse
+    {
+        $prompt = $this->resolvePrompt($username, $promptSlug, $request);
+        $this->authorizeOwnership($prompt, $request);
+
+        $validated = $request->validate([
+            'version_id' => 'nullable|integer',
+        ]);
+
+        $versionId = $validated['version_id'] ?? null;
+
+        if ($versionId) {
+            $version = $prompt->versions()->where('id', $versionId)->first();
+            if (!$version) {
+                return $this->error('Version not found.', 404);
+            }
+        }
+
+        $prompt->update(['pinned_version_id' => $versionId]);
+
+        return $this->success([
+            'pinned_version_id' => $prompt->pinned_version_id,
+            'message' => $versionId ? "Pinned to version #{$version->version_number}." : 'Unpinned — using latest.',
+        ]);
+    }
+
     private function authorizePromptAccess(Prompt $prompt, Request $request): void
     {
         $apiKey = $request->attributes->get('api_key');
