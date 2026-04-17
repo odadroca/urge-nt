@@ -1,5 +1,20 @@
 import { useState } from 'react';
 import useAuth from '../hooks/useAuth.js';
+import ApiKeysTab from '../components/settings/ApiKeysTab.jsx';
+import LlmProvidersTab from '../components/settings/LlmProvidersTab.jsx';
+import CategoriesTab from '../components/settings/CategoriesTab.jsx';
+import PipelinesTab from '../components/settings/PipelinesTab.jsx';
+import EvaluationTab from '../components/settings/EvaluationTab.jsx';
+import UserManagementTab from '../components/settings/UserManagementTab.jsx';
+
+const TAB_COMPONENTS = {
+    'api-keys': ApiKeysTab,
+    'llm-providers': LlmProvidersTab,
+    'categories': CategoriesTab,
+    'pipelines': PipelinesTab,
+    'evaluation': EvaluationTab,
+    'users': UserManagementTab,
+};
 
 const TABS = [
     { key: 'api-keys', label: 'API Keys', roles: ['admin'] },
@@ -38,7 +53,10 @@ export default function SettingsPage() {
 
             {/* Tab content */}
             <div className="flex-1 overflow-y-auto p-6">
-                <p className="text-gray-400 text-sm">Tab: {activeTab} — components coming next</p>
+                {(() => {
+                    const TabComponent = TAB_COMPONENTS[activeTab];
+                    return TabComponent ? <TabComponent role={role} /> : null;
+                })()}
             </div>
         </div>
     );
