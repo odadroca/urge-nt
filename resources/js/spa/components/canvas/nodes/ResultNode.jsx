@@ -30,6 +30,11 @@ function ResultNode({ data, selected }) {
                     <span>{data.source}</span>
                     {data.versionLabel && <span className="text-indigo-400">{data.versionLabel}</span>}
                 </div>
+                {data.sourceLabel && (
+                    <div className="text-[8px] text-purple-400 mt-1 truncate" title={data.sourceLabel}>
+                        {data.sourceLabel}
+                    </div>
+                )}
             </div>
             <Handle type="source" position={Position.Bottom} className="!bg-green-500 !w-2 !h-2" />
         </div>

@@ -122,6 +122,12 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
                 versionGroups.forEach(([vKey, vResults], groupIdx) => {
                     const yOffset = parentPos.y + 120 + groupIdx * 100;
 
+                    // Find parent prompt info for context on result nodes
+                    const parentPrompt = apiPrompts.find(p => p.id === pid);
+                    const derivedFromId = parentPrompt?.derived_from_prompt_id;
+                    const sourcePrompt = derivedFromId ? apiPrompts.find(p => p.id === derivedFromId) : null;
+                    const sourceLabel = sourcePrompt ? `synthesis of ${sourcePrompt.name}` : null;
+
                     vResults.forEach((r, i) => {
                         const x = r.position?.x ?? (parentPos.x + (i - (vResults.length - 1) / 2) * 150);
                         const y = r.position?.y ?? yOffset;
@@ -129,7 +135,7 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
                             id: `result-${r.id}`,
                             type: 'result',
                             position: { x, y },
-                            data: { ...r, versionLabel: vKey },
+                            data: { ...r, versionLabel: vKey, sourceLabel },
                         });
                     });
                 });
@@ -201,7 +207,7 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
         const allNodes = [...promptNodes, ...collectionNodes, ...resultNodes, ...evaluationNodes];
         const visibleNodeIds = new Set(allNodes.map(n => n.id));
 
-        // Derived-from edges (derived prompt → source prompt)
+        // Derived-from edges (source prompt → derived prompt, story direction)
         const derivedFlowEdges = derivedApiEdges
             .map(e => {
                 const sourceId = `${e.source_prompt_type}-${e.source_prompt_id}`;
@@ -209,11 +215,11 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
                 if (!visibleNodeIds.has(sourceId) || !visibleNodeIds.has(derivedId)) return null;
                 return {
                     id: `edge-derived-${e.prompt_id}-${e.source_prompt_id}`,
-                    source: derivedId,
-                    target: sourceId,
+                    source: sourceId,
+                    target: derivedId,
                     type: 'smoothstep',
                     style: { stroke: '#a855f7', strokeWidth: 1.5, strokeDasharray: '8 4' },
-                    label: 'derived from',
+                    label: 'synthesis',
                     labelStyle: { fill: '#a855f7', fontSize: 9 },
                     labelBgStyle: { fill: '#1f2937' },
                 };
