@@ -34,11 +34,13 @@ Route::prefix('v1')->group(function () {
         Route::get('prompts/{username}/{promptSlug}', [PromptController::class, 'show']);
         Route::patch('prompts/{username}/{promptSlug}', [PromptController::class, 'update']);
         Route::delete('prompts/{username}/{promptSlug}', [PromptController::class, 'destroy']);
+        Route::patch('prompts/{username}/{promptSlug}/pin', [PromptController::class, 'pin']);
 
         // Versions (namespaced)
         Route::get('prompts/{username}/{promptSlug}/versions', [VersionController::class, 'index']);
         Route::post('prompts/{username}/{promptSlug}/versions', [VersionController::class, 'store']);
         Route::get('prompts/{username}/{promptSlug}/versions/{version}', [VersionController::class, 'show']);
+        Route::patch('prompts/{username}/{promptSlug}/versions/{version}/archive', [VersionController::class, 'archive']);
 
         // Branches (namespaced)
         Route::get('prompts/{username}/{promptSlug}/branches', [BranchController::class, 'index']);

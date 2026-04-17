@@ -40,6 +40,7 @@ class McpToolHandler
             'create_branch', 'share_prompt', 'run_pipeline', 'run_prompt',
             'evaluate_result', 'store_evaluation',
             'create_pipeline', 'update_pipeline', 'add_channel', 'update_channel',
+            'pin_version', 'archive_version',
         ];
 
         $adminTools = [
@@ -449,6 +450,32 @@ class McpToolHandler
                     'required' => ['channel_id'],
                 ],
             ],
+            [
+                'name'        => 'pin_version',
+                'description' => 'Pin a specific version as the active version for a prompt, or unpin to use latest.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'slug'       => ['type' => 'string', 'description' => 'The prompt slug'],
+                        'owner'      => ['type' => 'string', 'description' => 'Owner username'],
+                        'version_id' => ['type' => 'integer', 'description' => 'Version ID to pin. Omit or null to unpin.'],
+                    ],
+                    'required' => ['slug'],
+                ],
+            ],
+            [
+                'name'        => 'archive_version',
+                'description' => 'Archive or unarchive a prompt version. Archived versions are flagged but not deleted.',
+                'inputSchema' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'slug'    => ['type' => 'string', 'description' => 'The prompt slug'],
+                        'owner'   => ['type' => 'string', 'description' => 'Owner username'],
+                        'version' => ['type' => 'integer', 'description' => 'Version number to archive/unarchive'],
+                    ],
+                    'required' => ['slug', 'version'],
+                ],
+            ],
         ];
     }
 
@@ -528,6 +555,8 @@ class McpToolHandler
             'add_channel'      => $this->addChannelTool($arguments, $user),
             'update_channel'   => $this->updateChannelTool($arguments, $user),
             'remove_channel'   => $this->removeChannelTool($arguments, $user),
+            'pin_version'      => $this->pinVersion($arguments, $user),
+            'archive_version'  => $this->archiveVersion($arguments, $user),
             default            => ['error' => "Unknown tool: {$name}"],
         };
     }
@@ -1767,5 +1796,48 @@ class McpToolHandler
         $channel->delete();
 
         return ['message' => "Channel '{$label}' removed."];
+    }
+
+    private function pinVersion(array $args, ?User $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+
+        $prompt = $this->resolvePrompt($args['slug'] ?? '', $args['owner'] ?? null, $user);
+        if (!$prompt) return ['error' => 'Prompt not found.'];
+
+        $versionId = $args['version_id'] ?? null;
+
+        if ($versionId) {
+            $version = $prompt->versions()->where('id', $versionId)->first();
+            if (!$version) return ['error' => 'Version not found.'];
+        }
+
+        $prompt->update(['pinned_version_id' => $versionId]);
+
+        return [
+            'pinned_version_id' => $prompt->pinned_version_id,
+            'message' => $versionId ? "Pinned to version #{$version->version_number}." : 'Unpinned — using latest.',
+        ];
+    }
+
+    private function archiveVersion(array $args, ?User $user): array
+    {
+        if (!$user) return ['error' => 'Authentication required.'];
+
+        $prompt = $this->resolvePrompt($args['slug'] ?? '', $args['owner'] ?? null, $user);
+        if (!$prompt) return ['error' => 'Prompt not found.'];
+
+        $version = $prompt->versions()->where('version_number', $args['version'])->first();
+        if (!$version) return ['error' => 'Version not found.'];
+
+        if ($version->archived_at) {
+            $version->archived_at = null;
+            $version->save();
+            return ['message' => "Version {$args['version']} unarchived.", 'archived' => false];
+        }
+
+        $version->archived_at = now();
+        $version->save();
+        return ['message' => "Version {$args['version']} archived.", 'archived' => true];
     }
 }
