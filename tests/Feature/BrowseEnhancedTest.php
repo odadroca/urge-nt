@@ -28,14 +28,10 @@ class BrowseEnhancedTest extends TestCase
         ]);
     }
 
-    public function test_browse_shows_all_tabs(): void
+    public function test_browse_redirects_to_react_spa(): void
     {
         $response = $this->actingAs($this->user)->get('/browse');
-        $response->assertOk();
-        $response->assertSee('Prompts', false);
-        $response->assertSee('Fragments', false);
-        $response->assertSee('Collections', false);
-        $response->assertSee('Starred', false);
+        $response->assertRedirect('/app/browse');
     }
 
     public function test_category_filter(): void

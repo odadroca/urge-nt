@@ -20,7 +20,7 @@ Route::get('/share/{token}', [ShareController::class, 'show'])
     ->where('token', '[a-f0-9]{64}');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/browse', Browse::class)->name('browse');
+    Route::get('/browse', fn () => redirect('/app/browse'))->name('browse');
     Route::get('/dashboard', fn () => redirect('/app/browse'))->name('dashboard');
     Route::get('/prompts/{username}/{slug}', WorkspacePage::class)->name('workspace');
 

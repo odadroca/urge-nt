@@ -136,10 +136,10 @@ class CoreWorkflowTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    public function test_browse_accessible_when_authenticated(): void
+    public function test_browse_redirects_to_react_spa(): void
     {
         $response = $this->actingAs($this->user)->get('/browse');
-        $response->assertOk();
+        $response->assertRedirect('/app/browse');
     }
 
     public function test_workspace_accessible_when_authenticated(): void

@@ -27,40 +27,20 @@ class NamespaceScopingTest extends TestCase
         $this->assertEquals('jane-doe-1', $user2->slug);
     }
 
-    public function test_browse_shows_only_own_prompts_by_default(): void
+    public function test_browse_redirects_to_react_spa(): void
     {
         $user = User::factory()->create();
-        $other = User::factory()->create();
 
-        Prompt::create(['name' => 'My Prompt', 'type' => 'prompt', 'created_by' => $user->id]);
-        Prompt::create(['name' => 'Other Prompt', 'type' => 'prompt', 'visibility' => 'private', 'created_by' => $other->id]);
-
-        $response = $this->actingAs($user)->get('/browse?browseScope=mine');
-        $response->assertStatus(200);
-        $response->assertSee('My Prompt');
-        $response->assertDontSee('Other Prompt');
+        $response = $this->actingAs($user)->get('/browse');
+        $response->assertRedirect('/app/browse');
     }
 
-    public function test_browse_shows_team_prompts_when_scoped(): void
+    public function test_browse_team_scope_redirects_to_react_spa(): void
     {
         $owner = User::factory()->create();
-        $member = User::factory()->create();
 
-        $team = Team::create(['name' => 'Test Team', 'created_by' => $owner->id]);
-        $team->members()->attach($owner->id, ['role' => 'owner']);
-        $team->members()->attach($member->id, ['role' => 'member']);
-
-        $prompt = Prompt::create([
-            'name' => 'Team Prompt',
-            'type' => 'prompt',
-            'visibility' => 'shared',
-            'created_by' => $owner->id,
-        ]);
-        $prompt->teams()->attach($team->id);
-
-        $response = $this->actingAs($member)->get('/browse?browseScope=team:' . $team->slug);
-        $response->assertStatus(200);
-        $response->assertSee('Team Prompt');
+        $response = $this->actingAs($owner)->get('/browse?browseScope=team:test');
+        $response->assertRedirect('/app/browse');
     }
 
     public function test_workspace_accessible_by_owner(): void
@@ -179,35 +159,12 @@ class NamespaceScopingTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_browse_all_scope_shows_visible_prompts(): void
+    public function test_browse_all_scope_redirects_to_react_spa(): void
     {
-        $owner = User::factory()->create();
-        $member = User::factory()->create();
+        $user = User::factory()->create();
 
-        $team = Team::create(['name' => 'Team', 'created_by' => $owner->id]);
-        $team->members()->attach($owner->id, ['role' => 'owner']);
-        $team->members()->attach($member->id, ['role' => 'member']);
-
-        // Owner's shared prompt (via team)
-        $shared = Prompt::create([
-            'name' => 'Shared Prompt',
-            'type' => 'prompt',
-            'visibility' => 'shared',
-            'created_by' => $owner->id,
-        ]);
-        $shared->teams()->attach($team->id);
-
-        // Member's own prompt
-        Prompt::create([
-            'name' => 'Member Prompt',
-            'type' => 'prompt',
-            'created_by' => $member->id,
-        ]);
-
-        $response = $this->actingAs($member)->get('/browse?browseScope=all');
-        $response->assertStatus(200);
-        $response->assertSee('Shared Prompt');
-        $response->assertSee('Member Prompt');
+        $response = $this->actingAs($user)->get('/browse?browseScope=all');
+        $response->assertRedirect('/app/browse');
     }
 
     public function test_prompt_workspace_url_helper(): void
