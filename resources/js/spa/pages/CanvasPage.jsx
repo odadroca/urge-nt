@@ -8,6 +8,7 @@ import Sidebar from '../components/canvas/Sidebar.jsx';
 import PropertiesPanel from '../components/canvas/PropertiesPanel.jsx';
 import Toolbar from '../components/canvas/Toolbar.jsx';
 import { savePositions } from '../api/graph.js';
+import { updatePrompt } from '../api/prompts.js';
 
 export default function CanvasPage() {
     const [activeLayers, setActiveLayers] = useState(['prompts', 'fragments']);
@@ -74,6 +75,15 @@ export default function CanvasPage() {
         });
     }, [nodes]);
 
+    const handleRemoveDerived = useCallback(async (nodeId, owner, slug) => {
+        try {
+            await updatePrompt(owner, slug, { derived_from_prompt_id: null });
+            refetch();
+        } catch (err) {
+            console.error('Failed to remove derived-from link:', err);
+        }
+    }, [refetch]);
+
     const nodesWithCallbacks = useMemo(() => {
         // Build set of hidden prompt numeric IDs (for filtering child results/evaluations)
         const hiddenPromptIds = new Set();
@@ -103,12 +113,13 @@ export default function CanvasPage() {
                         data: {
                             ...node.data,
                             onToggleResults: handleTogglePromptResults,
+                            onRemoveDerived: handleRemoveDerived,
                         },
                     };
                 }
                 return node;
             });
-    }, [nodes, handleTogglePromptResults, hiddenNodes]);
+    }, [nodes, handleTogglePromptResults, handleRemoveDerived, hiddenNodes]);
 
     // Filter edges to exclude those connecting to/from hidden nodes
     const filteredEdges = useMemo(() => {

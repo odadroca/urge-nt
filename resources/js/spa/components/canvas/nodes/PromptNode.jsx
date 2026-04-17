@@ -35,7 +35,16 @@ function PromptNode({ data, selected }) {
                     <span>📊 {data.results_count || 0}</span>
                     {varCount > 0 && <span>⚙ {varCount}</span>}
                     {data.derived_from_prompt_id && (
-                        <span className="text-purple-400 text-[9px]">derived</span>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                data.onRemoveDerived?.(data.id, data.owner, data.slug);
+                            }}
+                            title="Remove derived-from link"
+                            className="text-purple-400 hover:text-red-400 text-[9px] transition-colors"
+                        >
+                            derived ×
+                        </button>
                     )}
                     {data.avg_evaluation_score != null && (
                         <span className={
