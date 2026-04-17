@@ -74,6 +74,7 @@ class McpToolHandler
                         'type'        => ['type' => 'string', 'enum' => ['prompt', 'fragment'], 'description' => 'Type (default: prompt)'],
                         'description' => ['type' => 'string', 'description' => 'Optional description'],
                         'content'     => ['type' => 'string', 'description' => 'Optional initial content (creates first version)'],
+                        'derived_from' => ['type' => 'string', 'description' => 'Slug of the source prompt this is derived from (e.g. for synthesis/best-of results)'],
                     ],
                     'required' => ['name'],
                 ],
@@ -785,14 +786,23 @@ class McpToolHandler
             return ['error' => 'name is required.'];
         }
 
+        $derivedFromId = null;
+        if (!empty($args['derived_from'])) {
+            $sourcePrompt = Prompt::where('slug', $args['derived_from'])->first();
+            if ($sourcePrompt) {
+                $derivedFromId = $sourcePrompt->id;
+            }
+        }
+
         $prompt = Prompt::create([
             'name'        => $name,
             'type'        => $args['type'] ?? 'prompt',
             'description' => $args['description'] ?? null,
             'created_by'  => $user->id,
+            'derived_from_prompt_id' => $derivedFromId,
         ]);
 
-        $prompt->load('creator');
+        $prompt->load(['creator', 'derivedFrom']);
 
         $result = [
             'id'          => $prompt->id,
@@ -801,6 +811,7 @@ class McpToolHandler
             'type'        => $prompt->type,
             'description' => $prompt->description,
             'owner'       => $prompt->creator?->username ?? $prompt->creator?->name,
+            'derived_from' => $prompt->derivedFrom?->slug,
         ];
 
         // Optionally create first version with content
