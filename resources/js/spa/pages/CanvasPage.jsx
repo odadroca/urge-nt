@@ -12,7 +12,7 @@ import { savePositions } from '../api/graph.js';
 export default function CanvasPage() {
     const [activeLayers, setActiveLayers] = useState(['prompts', 'fragments']);
     const [expandedPrompts, setExpandedPrompts] = useState(new Set());
-    const [hiddenPrompts, setHiddenPrompts] = useState(new Set());
+    const [hiddenNodes, setHiddenNodes] = useState(new Set());
     const { nodes, edges, meta, isLoading, error, refetch } = useGraphData(activeLayers, expandedPrompts);
     const { getLayoutedNodes, isLayouting } = useElkLayout();
     const [sidebarVisible, setSidebarVisible] = useState(true);
@@ -47,29 +47,44 @@ export default function CanvasPage() {
         });
     }, []);
 
-    const handleTogglePromptVisibility = useCallback((promptId) => {
-        setHiddenPrompts(prev => {
+    const handleToggleNodeVisibility = useCallback((nodeKey) => {
+        setHiddenNodes(prev => {
             const next = new Set(prev);
-            if (next.has(promptId)) {
-                next.delete(promptId);
+            if (next.has(nodeKey)) {
+                next.delete(nodeKey);
             } else {
-                next.add(promptId);
+                next.add(nodeKey);
             }
             return next;
         });
     }, []);
 
+    const handleToggleAllVisibility = useCallback((nodeType) => {
+        const typeNodes = nodes.filter(n => n.type === nodeType);
+        const typeKeys = typeNodes.map(n => n.id);
+        setHiddenNodes(prev => {
+            const allHidden = typeKeys.every(k => prev.has(k));
+            const next = new Set(prev);
+            if (allHidden) {
+                typeKeys.forEach(k => next.delete(k));
+            } else {
+                typeKeys.forEach(k => next.add(k));
+            }
+            return next;
+        });
+    }, [nodes]);
+
     const nodesWithCallbacks = useMemo(() => {
-        // Get hidden prompt IDs for filtering child nodes
-        const hiddenPromptIds = hiddenPrompts;
+        // Build set of hidden prompt numeric IDs (for filtering child results/evaluations)
+        const hiddenPromptIds = new Set();
+        hiddenNodes.forEach(key => {
+            if (key.startsWith('prompt-')) hiddenPromptIds.add(parseInt(key.split('-')[1]));
+        });
 
         return nodes
             .filter(node => {
-                // Filter out hidden prompts
-                if (node.type === 'prompt') {
-                    const id = parseInt(node.id.split('-')[1]);
-                    return !hiddenPromptIds.has(id);
-                }
+                // Filter out any directly hidden node (prompt, fragment, collection)
+                if (hiddenNodes.has(node.id)) return false;
                 // Filter out results belonging to hidden prompts
                 if (node.type === 'result') {
                     return !hiddenPromptIds.has(node.data.prompt_id);
@@ -93,7 +108,7 @@ export default function CanvasPage() {
                 }
                 return node;
             });
-    }, [nodes, handleTogglePromptResults, hiddenPrompts]);
+    }, [nodes, handleTogglePromptResults, hiddenNodes]);
 
     // Filter edges to exclude those connecting to/from hidden nodes
     const filteredEdges = useMemo(() => {
@@ -177,8 +192,9 @@ export default function CanvasPage() {
                     onLayoutChange={handleLayoutChange}
                     activeLayers={activeLayers}
                     onToggleLayer={handleToggleLayer}
-                    hiddenPrompts={hiddenPrompts}
-                    onTogglePromptVisibility={handleTogglePromptVisibility}
+                    hiddenNodes={hiddenNodes}
+                    onToggleNodeVisibility={handleToggleNodeVisibility}
+                    onToggleAllVisibility={handleToggleAllVisibility}
                 />
                 <FlowCanvas initialNodes={nodesWithCallbacks} initialEdges={filteredEdges} onNodeSelect={setSelectedNode} />
                 <PropertiesPanel node={selectedNode} onClose={() => setSelectedNode(null)} />
