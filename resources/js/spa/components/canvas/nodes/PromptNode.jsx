@@ -34,6 +34,9 @@ function PromptNode({ data, selected }) {
                     {includeCount > 0 && <span>🔗 {includeCount}</span>}
                     <span>📊 {data.results_count || 0}</span>
                     {varCount > 0 && <span>⚙ {varCount}</span>}
+                    {data.derived_from_prompt_id && (
+                        <span className="text-purple-400 text-[9px]">derived</span>
+                    )}
                     {data.avg_evaluation_score != null && (
                         <span className={
                             data.avg_evaluation_score >= 4 ? 'text-green-400' :

@@ -35,6 +35,7 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
         const compositionEdges = edgesQuery.data.data?.composition ?? [];
         const resultEdges = edgesQuery.data.data?.result ?? [];
         const evaluationEdges = edgesQuery.data.data?.evaluation ?? [];
+        const derivedApiEdges = edgesQuery.data.data?.derived ?? [];
         const meta = nodesQuery.data.meta;
 
         // Count incoming edges per fragment slug
@@ -199,7 +200,27 @@ export default function useGraphData(activeLayers = ['prompts', 'fragments', 'co
 
         const allNodes = [...promptNodes, ...collectionNodes, ...resultNodes, ...evaluationNodes];
         const visibleNodeIds = new Set(allNodes.map(n => n.id));
-        const allEdges = [...flowEdges, ...resultFlowEdges, ...evalFlowEdges]
+
+        // Derived-from edges (derived prompt → source prompt)
+        const derivedFlowEdges = derivedApiEdges
+            .map(e => {
+                const sourceId = `${e.source_prompt_type}-${e.source_prompt_id}`;
+                const derivedId = `${e.prompt_type}-${e.prompt_id}`;
+                if (!visibleNodeIds.has(sourceId) || !visibleNodeIds.has(derivedId)) return null;
+                return {
+                    id: `edge-derived-${e.prompt_id}-${e.source_prompt_id}`,
+                    source: derivedId,
+                    target: sourceId,
+                    type: 'smoothstep',
+                    style: { stroke: '#a855f7', strokeWidth: 1.5, strokeDasharray: '8 4' },
+                    label: 'derived from',
+                    labelStyle: { fill: '#a855f7', fontSize: 9 },
+                    labelBgStyle: { fill: '#1f2937' },
+                };
+            })
+            .filter(Boolean);
+
+        const allEdges = [...flowEdges, ...resultFlowEdges, ...evalFlowEdges, ...derivedFlowEdges]
             .filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
 
         return { nodes: allNodes, edges: allEdges, meta };

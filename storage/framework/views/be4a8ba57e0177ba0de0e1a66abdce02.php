@@ -219,7 +219,7 @@ unset($__split);
 $__split = function ($name, $params = []) {
     return [$name, $params];
 };
-[$__name, $__params] = $__split('workspace.run-with-template', ['prompt' => $prompt,'current-version' => $currentVersion]);
+[$__name, $__params] = $__split('workspace.run-with-pipeline', ['prompt' => $prompt,'current-version' => $currentVersion]);
 
 $__keyOuter = $__key ?? null;
 

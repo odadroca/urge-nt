@@ -66,7 +66,16 @@ class PromptController extends ApiController
             'tags'        => 'nullable|array',
             'tags.*'      => 'string|max:50',
             'visibility'  => 'nullable|in:private,shared',
+            'derived_from' => 'nullable|string',
         ]);
+
+        $derivedFromId = null;
+        if (!empty($validated['derived_from'])) {
+            $sourcePrompt = Prompt::where('slug', $validated['derived_from'])->first();
+            if ($sourcePrompt) {
+                $derivedFromId = $sourcePrompt->id;
+            }
+        }
 
         $prompt = Prompt::create([
             'name'        => $validated['name'],
@@ -76,6 +85,7 @@ class PromptController extends ApiController
             'tags'        => $validated['tags'] ?? null,
             'visibility'  => $validated['visibility'] ?? 'private',
             'created_by'  => $request->user()->id,
+            'derived_from_prompt_id' => $derivedFromId,
         ]);
 
         return $this->success($prompt->load('category'), 201);

@@ -107,6 +107,7 @@ class GraphController extends ApiController
                 ] : null,
                 'versions_count' => $prompt->versions_count,
                 'results_count' => $prompt->results_count,
+                'derived_from_prompt_id' => $prompt->derived_from_prompt_id,
                 'avg_evaluation_score' => \App\Models\ResultEvaluation::whereIn(
                     'result_id', $prompt->results()->pluck('results.id')
                 )->whereRaw('evaluation_version = (SELECT MAX(re2.evaluation_version) FROM result_evaluations re2 WHERE re2.result_id = result_evaluations.result_id)')
@@ -403,12 +404,31 @@ class GraphController extends ApiController
             }
         }
 
+        // Derived-from edges (prompt → source prompt)
+        $derivedEdges = [];
+        $derivedPrompts = Prompt::visibleTo($user)
+            ->whereNotNull('derived_from_prompt_id')
+            ->get(['id', 'derived_from_prompt_id', 'type']);
+
+        foreach ($derivedPrompts as $dp) {
+            $sourcePrompt = Prompt::find($dp->derived_from_prompt_id);
+            if ($sourcePrompt) {
+                $derivedEdges[] = [
+                    'prompt_id' => $dp->id,
+                    'prompt_type' => $dp->type === 'fragment' ? 'fragment' : 'prompt',
+                    'source_prompt_id' => $sourcePrompt->id,
+                    'source_prompt_type' => $sourcePrompt->type === 'fragment' ? 'fragment' : 'prompt',
+                ];
+            }
+        }
+
         return response()->json([
             'data' => [
                 'composition' => $compositionEdges,
                 'collection'  => $collectionEdges,
                 'result'      => $resultEdges,
                 'evaluation'  => $evaluationEdges,
+                'derived'     => $derivedEdges,
             ],
         ]);
     }

@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -21,6 +23,7 @@ class Prompt extends Model
         'pinned_version_id',
         'default_branch_id',
         'created_by',
+        'derived_from_prompt_id',
     ];
 
     protected $casts = [
@@ -44,6 +47,16 @@ class Prompt extends Model
                 $prompt->slug = $slug;
             }
         });
+    }
+
+    public function derivedFrom(): BelongsTo
+    {
+        return $this->belongsTo(Prompt::class, 'derived_from_prompt_id');
+    }
+
+    public function derivatives(): HasMany
+    {
+        return $this->hasMany(Prompt::class, 'derived_from_prompt_id');
     }
 
     public function category()

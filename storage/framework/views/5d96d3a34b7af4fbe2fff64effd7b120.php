@@ -333,8 +333,8 @@
                                 <?php elseif($item->item_type === 'result'): ?>
                                     
                                     <div class="flex items-center gap-3 mb-1.5 text-[10px] text-gray-400 dark:text-gray-500">
-                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($resolved->pipelineTemplate): ?>
-                                            <span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold"><?php echo e($resolved->pipelineTemplate->name); ?></span>
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($resolved->pipeline): ?>
+                                            <span class="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold"><?php echo e($resolved->pipeline->name); ?></span>
                                         <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                         <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($resolved->promptVersion): ?>
                                             <span class="font-mono">v<?php echo e($resolved->promptVersion->version_number); ?></span>
