@@ -6,11 +6,13 @@ import { listVersions } from '../api/versions.js';
 import Editor from '../components/workspace/Editor.jsx';
 import VersionSidebar from '../components/workspace/VersionSidebar.jsx';
 import ResultsPanel from '../components/workspace/ResultsPanel.jsx';
+import PromptMetadataModal from '../components/workspace/PromptMetadataModal.jsx';
 
 export default function WorkspacePage() {
     const { username, slug } = useParams();
     const queryClient = useQueryClient();
     const [currentVersionId, setCurrentVersionId] = useState(null);
+    const [showMetadata, setShowMetadata] = useState(false);
 
     const { data: promptData, isLoading, error } = useQuery({
         queryKey: ['workspace', username, slug, 'prompt'],
@@ -80,6 +82,7 @@ export default function WorkspacePage() {
                     username={username}
                     slug={slug}
                     onVersionCreated={handleVersionCreated}
+                    onShowMetadata={() => setShowMetadata(true)}
                 />
             </div>
 
@@ -93,6 +96,14 @@ export default function WorkspacePage() {
                     currentVersionNumber={currentVersion?.version_number}
                 />
             </div>
+
+            <PromptMetadataModal
+                isOpen={showMetadata}
+                onClose={() => setShowMetadata(false)}
+                prompt={prompt}
+                username={username}
+                slug={slug}
+            />
         </div>
     );
 }
