@@ -182,9 +182,7 @@ function CreateKeyForm({ onCreated, onCancel }) {
                 name: name.trim(),
                 prompt_ids: selectedPromptIds.length > 0 ? selectedPromptIds : undefined,
             });
-            console.log('createApiKey result:', JSON.stringify(result));
             const plainKey = result?.data?.key ?? result?.key;
-            console.log('plainKey:', plainKey);
             onCreated(plainKey);
         } catch (err) {
             setError(err.response?.data?.message || err.response?.data?.error || 'Failed to create key');
