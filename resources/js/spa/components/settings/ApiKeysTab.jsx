@@ -182,7 +182,7 @@ function CreateKeyForm({ onCreated, onCancel }) {
                 name: name.trim(),
                 prompt_ids: selectedPromptIds.length > 0 ? selectedPromptIds : undefined,
             });
-            const plainKey = result?.data?.plain_text_key ?? result?.plain_text_key ?? result?.key;
+            const plainKey = result?.data?.key ?? result?.key;
             onCreated(plainKey);
         } catch (err) {
             setError(err.response?.data?.message || err.response?.data?.error || 'Failed to create key');
