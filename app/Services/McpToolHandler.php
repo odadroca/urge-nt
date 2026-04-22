@@ -81,7 +81,7 @@ class McpToolHandler
             ],
             [
                 'name'        => 'run_prompt',
-                'description' => 'Run a prompt through a registered LLM provider. Renders the template with variables, dispatches to the provider, stores the result, and returns the LLM response.',
+                'description' => 'Run a prompt through a URGE-registered LLM provider (server-side execution). Only use this when the user explicitly asks to run via a specific URGE provider (e.g. "run this with Mistral"). For normal execution, prefer: render_prompt → execute yourself → store_result.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
@@ -97,7 +97,7 @@ class McpToolHandler
             ],
             [
                 'name'        => 'list_providers',
-                'description' => 'List active LLM providers configured in URGE. Use these names with run_prompt.',
+                'description' => 'List active LLM providers configured in URGE for server-side execution via run_prompt.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => new \stdClass(),
@@ -190,7 +190,7 @@ class McpToolHandler
             ],
             [
                 'name'        => 'render_prompt',
-                'description' => 'Render a prompt template with variable substitution and include resolution.',
+                'description' => 'Render a prompt template with variable substitution and include resolution. This is the standard way to execute prompts: call render_prompt to get the final text, execute it yourself (natively), then call store_result to save your response back to URGE.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
