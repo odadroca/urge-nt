@@ -8,7 +8,6 @@ use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class BrowseCollectionTest extends TestCase
@@ -27,7 +26,7 @@ class BrowseCollectionTest extends TestCase
         ]);
     }
 
-    public function test_add_prompt_to_collection_adds_active_version(): void
+    public function test_add_prompt_version_to_collection(): void
     {
         $prompt = Prompt::create([
             'name' => 'Test Prompt',
@@ -47,9 +46,12 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->call('addPromptToCollection', $prompt->id, $collection->id);
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            'item_type' => 'prompt_version',
+            'item_id' => $version->id,
+        ]);
+
+        $response->assertStatus(201);
 
         $this->assertDatabaseHas('collection_items', [
             'collection_id' => $collection->id,
@@ -58,32 +60,27 @@ class BrowseCollectionTest extends TestCase
         ]);
     }
 
-    public function test_add_prompt_without_versions_dispatches_error(): void
+    public function test_add_nonexistent_item_returns_error(): void
     {
-        $prompt = Prompt::create([
-            'name' => 'Empty Prompt',
-            'type' => 'prompt',
-            'created_by' => $this->user->id,
-        ]);
-
         $collection = Collection::create([
             'title' => 'My Collection',
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->call('addPromptToCollection', $prompt->id, $collection->id)
-            ->assertDispatched('notify', message: 'Prompt has no versions yet', type: 'error');
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            'item_type' => 'prompt_version',
+            'item_id' => 99999,
+        ]);
+
+        $response->assertStatus(404);
 
         $this->assertDatabaseMissing('collection_items', [
             'collection_id' => $collection->id,
         ]);
     }
 
-    public function test_bulk_add_prompts_to_collection(): void
+    public function test_bulk_add_prompt_versions_to_collection(): void
     {
-        $prompts = [];
         $versions = [];
         for ($i = 1; $i <= 3; $i++) {
             $prompt = Prompt::create([
@@ -91,7 +88,6 @@ class BrowseCollectionTest extends TestCase
                 'type' => 'prompt',
                 'created_by' => $this->user->id,
             ]);
-            $prompts[] = $prompt;
             $versions[] = PromptVersion::create([
                 'prompt_id' => $prompt->id,
                 'version_number' => 1,
@@ -105,34 +101,29 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $promptIds = array_map(fn ($p) => $p->id, $prompts);
-
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->call('addPromptsToCollection', $promptIds, $collection->id)
-            ->assertDispatched('notify', message: 'Added 3 item(s) to collection', type: 'success')
-            ->assertDispatched('selection-cleared');
+        // Add each version individually via API
+        foreach ($versions as $version) {
+            $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+                'item_type' => 'prompt_version',
+                'item_id' => $version->id,
+            ]);
+            $response->assertStatus(201);
+        }
 
         $this->assertEquals(3, CollectionItem::where('collection_id', $collection->id)->count());
     }
 
-    public function test_bulk_add_skips_prompts_without_versions(): void
+    public function test_add_skips_nonexistent_versions(): void
     {
         $promptWithVersion = Prompt::create([
             'name' => 'Has Version',
             'type' => 'prompt',
             'created_by' => $this->user->id,
         ]);
-        PromptVersion::create([
+        $version = PromptVersion::create([
             'prompt_id' => $promptWithVersion->id,
             'version_number' => 1,
             'content' => 'Content',
-            'created_by' => $this->user->id,
-        ]);
-
-        $promptWithoutVersion = Prompt::create([
-            'name' => 'No Version',
-            'type' => 'prompt',
             'created_by' => $this->user->id,
         ]);
 
@@ -141,15 +132,24 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->call('addPromptsToCollection', [$promptWithVersion->id, $promptWithoutVersion->id], $collection->id)
-            ->assertDispatched('notify', message: 'Added 1 item(s) to collection', type: 'success');
+        // Add real version — succeeds
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            'item_type' => 'prompt_version',
+            'item_id' => $version->id,
+        ]);
+        $response->assertStatus(201);
+
+        // Add nonexistent version — fails
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            'item_type' => 'prompt_version',
+            'item_id' => 99999,
+        ]);
+        $response->assertStatus(404);
 
         $this->assertEquals(1, CollectionItem::where('collection_id', $collection->id)->count());
     }
 
-    public function test_duplicate_add_does_not_create_duplicate_items(): void
+    public function test_duplicate_add_returns_conflict(): void
     {
         $prompt = Prompt::create([
             'name' => 'Test Prompt',
@@ -157,7 +157,7 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        PromptVersion::create([
+        $version = PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Content',
@@ -169,11 +169,19 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $browse = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class);
+        // First add — succeeds
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            'item_type' => 'prompt_version',
+            'item_id' => $version->id,
+        ]);
+        $response->assertStatus(201);
 
-        $browse->call('addPromptToCollection', $prompt->id, $collection->id);
-        $browse->call('addPromptToCollection', $prompt->id, $collection->id);
+        // Second add — duplicate
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            'item_type' => 'prompt_version',
+            'item_id' => $version->id,
+        ]);
+        $response->assertStatus(409);
 
         $this->assertEquals(1, CollectionItem::where('collection_id', $collection->id)->count());
     }

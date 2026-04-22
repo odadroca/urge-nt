@@ -6,8 +6,9 @@ use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
+use App\Services\ApiKeyService;
+use App\Services\VersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class WorkspacePhase3Test extends TestCase
@@ -15,6 +16,7 @@ class WorkspacePhase3Test extends TestCase
     use RefreshDatabase;
 
     private User $user;
+    private array $headers;
 
     protected function setUp(): void
     {
@@ -24,30 +26,42 @@ class WorkspacePhase3Test extends TestCase
             'email' => 'admin@test.com',
             'password' => bcrypt('password'),
         ]);
+        $result = app(ApiKeyService::class)->generateKey($this->user, 'Test Key');
+        $this->headers = ['Authorization' => "Bearer {$result['key']}"];
     }
 
-    public function test_editor_has_mode_toggle(): void
+    public function test_prompt_show_returns_active_version(): void
     {
         $prompt = Prompt::create([
             'name' => 'Mode Test',
             'created_by' => $this->user->id,
         ]);
 
-        $prompt->load('creator');
-        $response = $this->actingAs($this->user)->get($prompt->workspaceUrl());
-        $response->assertOk();
-        $response->assertSee('Text', false);
-        $response->assertSee('Visual', false);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'version_number' => 1,
+            'content' => 'Test content',
+            'variables' => [],
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}",
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.slug', $prompt->slug);
     }
 
-    public function test_editor_switch_mode(): void
+    public function test_versions_list_returns_versions(): void
     {
         $prompt = Prompt::create([
             'name' => 'Switch Mode Test',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello',
@@ -55,23 +69,23 @@ class WorkspacePhase3Test extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->assertSet('editorMode', 'text')
-            ->call('switchMode', 'visual')
-            ->assertSet('editorMode', 'visual')
-            ->call('switchMode', 'text')
-            ->assertSet('editorMode', 'text');
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/versions",
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
     }
 
-    public function test_editor_saves_variable_metadata(): void
+    public function test_create_version_with_variable_metadata(): void
     {
         $prompt = Prompt::create([
             'name' => 'Meta Save Test',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Initial',
@@ -79,14 +93,22 @@ class WorkspacePhase3Test extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->set('content', 'Hello {{name}}')
-            ->call('setMetaField', 'name', 'type', 'string')
-            ->call('setMetaField', 'name', 'default', 'World')
-            ->call('setMetaField', 'name', 'description', 'User name')
-            ->call('saveVersion')
-            ->assertDispatched('version-created');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/versions",
+            [
+                'content' => 'Hello {{name}}',
+                'variable_metadata' => [
+                    'name' => [
+                        'type' => 'string',
+                        'default' => 'World',
+                        'description' => 'User name',
+                    ],
+                ],
+            ],
+            $this->headers
+        );
+
+        $response->assertStatus(201);
 
         $newVersion = PromptVersion::where('prompt_id', $prompt->id)
             ->where('version_number', 2)
@@ -96,14 +118,14 @@ class WorkspacePhase3Test extends TestCase
         $this->assertEquals('World', $newVersion->variable_metadata['name']['default']);
     }
 
-    public function test_editor_loads_metadata_on_version_select(): void
+    public function test_version_show_returns_metadata(): void
     {
         $prompt = Prompt::create([
             'name' => 'Meta Load Test',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello {{name}}',
@@ -112,28 +134,43 @@ class WorkspacePhase3Test extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->assertSet('variableMetadata.name.type', 'string')
-            ->assertSet('variableMetadata.name.default', 'World');
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/versions/1",
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.variable_metadata.name.type', 'string')
+            ->assertJsonPath('data.variable_metadata.name.default', 'World');
     }
 
-    public function test_workspace_page_renders_all_panels(): void
+    public function test_prompt_show_includes_version_and_result_counts(): void
     {
         $prompt = Prompt::create([
             'name' => 'Panel Test',
             'created_by' => $this->user->id,
         ]);
 
-        $prompt->load('creator');
-        $response = $this->actingAs($this->user)->get($prompt->workspaceUrl());
-        $response->assertOk();
-        $response->assertSee('Versions', false);
-        $response->assertSee('Results', false);
-        $response->assertSee('Metadata', false);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'version_number' => 1,
+            'content' => 'Hello',
+            'variables' => [],
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}",
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => ['slug', 'versions_count', 'results_count'],
+            ]);
     }
 
-    public function test_results_panel_with_multiple_results_shows_compare(): void
+    public function test_results_list_returns_multiple_results(): void
     {
         $prompt = Prompt::create([
             'name' => 'Compare Test',
@@ -168,18 +205,21 @@ class WorkspacePhase3Test extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\ResultsPanel::class, [
-                'prompt' => $prompt,
-                'currentVersion' => $version,
-            ]);
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/results",
+            $this->headers
+        );
 
-        $component->assertSee('GPT-4')
-            ->assertSee('Claude')
-            ->assertSee('Compare Results', false);
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+
+        $data = $response->json('data');
+        $providers = array_column($data, 'provider_name');
+        $this->assertContains('GPT-4', $providers);
+        $this->assertContains('Claude', $providers);
     }
 
-    public function test_version_sidebar_with_multiple_versions_has_diff(): void
+    public function test_versions_list_with_multiple_versions(): void
     {
         $prompt = Prompt::create([
             'name' => 'Diff Test',
@@ -194,7 +234,7 @@ class WorkspacePhase3Test extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $v2 = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 2,
             'content' => 'Version 2',
@@ -202,14 +242,12 @@ class WorkspacePhase3Test extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\VersionSidebar::class, [
-                'prompt' => $prompt,
-                'currentVersion' => $v2,
-            ]);
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/versions",
+            $this->headers
+        );
 
-        $component->assertSee('v1')
-            ->assertSee('v2')
-            ->assertSee('Quick Diff', false);
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
     }
 }

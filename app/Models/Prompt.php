@@ -140,10 +140,7 @@ class Prompt extends Model
 
     public function workspaceUrl(): string
     {
-        return route('workspace', [
-            'username' => $this->creator->slug,
-            'slug' => $this->slug,
-        ]);
+        return '/app/workspace/' . $this->creator->slug . '/' . $this->slug;
     }
 
     public function isFragment(): bool

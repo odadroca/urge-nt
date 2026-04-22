@@ -3,7 +3,7 @@
 ## Vision
 
 URGE is a **prompt registry, version control, and result archive** with two access patterns:
-- **Human access** via a React SPA (primary: Browse, Canvas, Workspace) and Livewire 3 pages (settings, teams)
+- **Human access** via a React SPA (Browse, Canvas, Workspace, Settings, Teams)
 - **Machine access** via REST API + MCP server (LLMs consume and contribute to the registry)
 
 The key insight: instead of URGE calling LLMs, **LLMs call URGE**. URGE is the memory and management layer; any LLM can pull prompts, render templates, and store results back.
@@ -67,12 +67,12 @@ ApiKey ──<> Prompt (pivot: api_key_prompt)
 ┌───────────────────────────────────────────────────────────────────┐
 │                         Laravel App                                │
 │                                                                    │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────┐ ┌────────┐│
-│  │React SPA │ │ Livewire │ │ REST API │ │MCP Stream.│ │MCP     ││
-│  │ /app/*   │ │ Pages    │ │ /api/v1/ │ │HTTP /mcp  │ │stdio   ││
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └─────┬─────┘ └───┬────┘│
-│       │             │            │              │            │     │
-│       └─────────────┼────────────┼──────────────┴────────────┘     │
+│  ┌──────────┐ ┌──────────┐ ┌───────────┐ ┌────────┐              │
+│  │React SPA │ │ REST API │ │MCP Stream.│ │MCP     │              │
+│  │ /app/*   │ │ /api/v1/ │ │HTTP /mcp  │ │stdio   │              │
+│  └────┬─────┘ └────┬─────┘ └─────┬─────┘ └───┬────┘              │
+│       │             │              │            │                   │
+│       └─────────────┼──────────────┴────────────┘                   │
 │                     v            v                                  │
 │            ┌──────────────────┐                                    │
 │            │  Service Layer   │                                    │
@@ -91,7 +91,7 @@ ApiKey ──<> Prompt (pivot: api_key_prompt)
 └───────────────────────────────────────────────────────────────────┘
 
 External consumers:
-  Browser (human)  ──> React SPA (primary) + Livewire Pages (settings/teams)
+  Browser (human)  ──> React SPA (/app/*)
   Any HTTP client  ──> REST API
   OAuth client     ──> OAuth 2.1 (PKCE) ──> REST API / MCP
   Claude Desktop   ──> MCP Streamable HTTP (remote) or MCP stdio (local)
@@ -268,7 +268,7 @@ POST /internal/variables     — extract variables from content
 GET  /internal/fragments     — list fragment slugs for autocomplete
 ```
 
-Used by the Editor's inline autocomplete (Alpine.js) to suggest variable names and fragment includes.
+Used by the Editor's inline autocomplete to suggest variable names and fragment includes.
 
 ### CustomGPT Actions
 
@@ -280,45 +280,41 @@ Markdown file with instructions + API examples. Tells Claude how to call the URG
 
 ## Component Architecture
 
-### Web UI (Livewire)
-
-```
-app/Livewire/
-├── Dashboard.php              # Recent prompts, starred results, inline create
-├── Browse.php                 # Tabbed: prompts, fragments, starred, collections + namespace sidebar├── Settings.php               # Tabbed settings container
-├── Teams.php                  # Teams list + create├── TeamDetail.php             # Team members + shared prompts├── Browse/
-│   └── CollectionList.php     # Collection CRUD, expand/collapse, reorder items, nest collections, share links
-├── Settings/
-│   ├── ApiKeys.php            # API key CRUD, reveal once, scope to prompts
-│   ├── LlmProviders.php      # LLM provider CRUD, test connection, toggle active
-│   ├── Categories.php         # Category CRUD with color picker
-│   └── UserManagement.php     # Admin-only user role management
-└── Workspace/
-    ├── WorkspacePage.php      # 3-panel orchestrator
-    ├── Editor.php             # Content editing, live preview, visual composer, Ctrl+S
-    ├── VersionSidebar.php     # Branch switcher, version list (filtered by branch), create/delete/set-default branch, diff
-    ├── ResultsPanel.php       # Results list, star, rate, compare, AI summarize
-    ├── ManualResultForm.php   # Paste result with provider/model/notes/rating
-    ├── ImportResults.php      # Upload .md files, preview frontmatter, import
-    ├── RunWithLlm.php         # LLM execution: provider selection, variable fill, run
-    └── PromptMetadata.php     # Name, type, category, tags, description
-```
-
 ### React SPA (mounted at `/app/*`)
 
+The React SPA is the sole user-facing frontend. Blade views remain only for auth pages (login, register) and user profile.
+
 ```
-resources/js/
-├── app.jsx                    # React root, BrowserRouter basename="/app"
+resources/js/spa/
+├── main.jsx                   # React root, BrowserRouter basename="/app"
+├── App.jsx                    # Route definitions
+├── api/
+│   ├── client.js              # Axios client with /api/v1 base, CSRF, credentials
+│   ├── prompts.js             # Prompt CRUD + render + run
+│   ├── providers.js           # LLM provider CRUD + test connection
+│   ├── categories.js          # Category CRUD
+│   ├── teams.js               # Team CRUD + members + leave
+│   ├── apiKeys.js             # API key CRUD
+│   ├── users.js               # User management (admin)
+│   ├── evaluationSettings.js  # Evaluation config get/save
+│   └── pipelines.js           # Pipeline + channel CRUD
 ├── components/
 │   ├── Sidebar.jsx            # Slim icon-rail navigation (desktop)
 │   ├── BottomTabBar.jsx       # Mobile bottom tab bar
-│   ├── PromptCard.jsx         # Card component for browse grid
-│   └── ...
+│   ├── Layout.jsx             # App shell with sidebar + content area
+│   ├── ProtectedRoute.jsx     # Auth guard
+│   ├── browse/                # Browse sub-components (PromptCard, CollectionList, etc.)
+│   └── settings/              # Settings tab components (6 tabs)
 ├── pages/
 │   ├── BrowsePage.jsx         # Tabs: prompts/fragments/collections/starred, filters, card grid
 │   ├── CanvasPage.jsx         # Graph visualization with @xyflow/react
-│   └── WorkspacePage.jsx      # 3-panel editor (React version)
+│   ├── WorkspacePage.jsx      # 3-panel editor (editor, version sidebar, results)
+│   ├── SettingsPage.jsx       # Tabbed settings (API Keys, Providers, Categories, Pipelines, Evaluation, Users)
+│   ├── TeamsPage.jsx          # Teams list + create
+│   ├── TeamDetailPage.jsx     # Team members + shared prompts management
+│   └── LoginPage.jsx          # Login form
 └── hooks/
+    ├── useAuth.js             # Auth state (user, login, logout)
     └── ...                    # React Query hooks for API data fetching
 ```
 
@@ -368,11 +364,12 @@ app/Services/
 | 6 (done) | Live preview | Rendered preview with include resolution + variable fill from defaults |
 | UX (done) | UX/UI polish | 8 sprints: browse merge, inline categories, toolbar, continue link, tag autocomplete, onboarding, settings access, visual polish |
 | 7 (done) | Namespaces + teams | User-scoped prompts, team sharing, namespace-aware API/MCP/UI |
-| Post-7 | Version branching | Non-linear version history with PromptBranch, branch CRUD, MCP/API support |
-| Post-7 | Nested collections | Collections inside collections (DAG), circular ref detection, configurable depth, public share rendering |
-| Post-7 | React SPA | React 19 primary UI (Browse, Canvas, Workspace), sidebar nav, mobile bottom tab bar |
-| Post-7 | OAuth 2.1 | PKCE (S256), scoped tokens, GitHub provider, discovery endpoints |
-| Post-7 | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 29 tools. Verified: Claude.ai, Claude Desktop, Mistral Le Chat, stdio |
-| Post-7 | Result evaluation | LLM-powered scoring with 6 dimensions, versioned evaluations, composite scores, auto-evaluate, evaluation settings UI, Canvas/Workspace integration |
-| Post-7 | Pipeline management | Pipeline CRUD via MCP (create/update/delete pipelines, add/update/remove channels), PipelineTemplate renamed to Pipeline |
-| Post-7 | Client-side execution | LLMs fetch prompts/pipelines, run natively (free), store results back. store_result version optional, accepts rendered_content/variables_used |
+| Post-7 (done) | Version branching | Non-linear version history with PromptBranch, branch CRUD, MCP/API support |
+| Post-7 (done) | Nested collections | Collections inside collections (DAG), circular ref detection, configurable depth, public share rendering |
+| Post-7 (done) | OAuth 2.1 | PKCE (S256), scoped tokens, GitHub provider, discovery endpoints |
+| Post-7 (done) | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 29 tools |
+| Post-7 (done) | Result evaluation | LLM-powered scoring, versioned evaluations, composite scores, auto-evaluate |
+| Post-7 (done) | Pipeline management | Pipeline CRUD via MCP, channel management |
+| Post-7 (done) | Client-side execution | LLMs fetch prompts/pipelines, run natively, store results back |
+| 8-9 (done) | React SPA migration | All pages ported from Livewire to React (Browse, Canvas, Workspace, Settings, Teams) |
+| 10 (done) | Livewire cleanup | Removed all Livewire components, Blade views, Alpine modules. Converted tests to API tests |

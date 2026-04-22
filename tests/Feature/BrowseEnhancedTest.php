@@ -9,7 +9,6 @@ use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class BrowseEnhancedTest extends TestCase
@@ -49,17 +48,19 @@ class BrowseEnhancedTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class);
-
         // Without filter, both visible
-        $component->assertSee('Marketing Prompt')
-            ->assertSee('Other Prompt');
+        $response = $this->actingAs($this->user)->getJson('/api/v1/prompts');
+        $response->assertOk();
+        $names = collect($response->json('data'))->pluck('name');
+        $this->assertTrue($names->contains('Marketing Prompt'));
+        $this->assertTrue($names->contains('Other Prompt'));
 
         // With category filter
-        $component->set('categoryFilter', $cat->id)
-            ->assertSee('Marketing Prompt')
-            ->assertDontSee('Other Prompt');
+        $response = $this->actingAs($this->user)->getJson('/api/v1/prompts?category_id=' . $cat->id);
+        $response->assertOk();
+        $names = collect($response->json('data'))->pluck('name');
+        $this->assertTrue($names->contains('Marketing Prompt'));
+        $this->assertFalse($names->contains('Other Prompt'));
     }
 
     public function test_tag_filter(): void
@@ -75,14 +76,14 @@ class BrowseEnhancedTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->set('tagFilter', 'ai')
-            ->assertSee('Tagged Prompt')
-            ->assertDontSee('Untagged Prompt');
+        $response = $this->actingAs($this->user)->getJson('/api/v1/prompts?tag=ai');
+        $response->assertOk();
+        $names = collect($response->json('data'))->pluck('name');
+        $this->assertTrue($names->contains('Tagged Prompt'));
+        $this->assertFalse($names->contains('Untagged Prompt'));
     }
 
-    public function test_starred_tab_shows_starred_results(): void
+    public function test_starred_results_endpoint(): void
     {
         $prompt = Prompt::create([
             'name' => 'Star Test',
@@ -108,27 +109,28 @@ class BrowseEnhancedTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->set('tab', 'starred')
-            ->assertSee('StarProvider')
-            ->assertSee('Starred response', false);
+        $response = $this->actingAs($this->user)->getJson('/api/v1/results/starred');
+        $response->assertOk();
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+        $this->assertEquals('StarProvider', $data[0]['provider_name']);
+        $this->assertEquals('Starred response', $data[0]['response_text']);
     }
 
-    public function test_collections_tab_renders(): void
+    public function test_collections_list_endpoint(): void
     {
         Collection::create([
             'title' => 'Browse Collection',
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->set('tab', 'collections')
-            ->assertSeeLivewire(\App\Livewire\Browse\CollectionList::class);
+        $response = $this->actingAs($this->user)->getJson('/api/v1/collections');
+        $response->assertOk();
+        $titles = collect($response->json('data'))->pluck('title');
+        $this->assertTrue($titles->contains('Browse Collection'));
     }
 
-    public function test_result_count_on_prompt_cards(): void
+    public function test_prompts_include_results_count(): void
     {
         $prompt = Prompt::create([
             'name' => 'Count Test',
@@ -161,8 +163,15 @@ class BrowseEnhancedTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse::class)
-            ->assertSee('2 results');
+        $response = $this->actingAs($this->user)->getJson('/api/v1/prompts');
+        $response->assertOk();
+        $prompt = collect($response->json('data'))->firstWhere('name', 'Count Test');
+        $this->assertNotNull($prompt);
+        // The API returns prompt data — verify the prompt exists and results can be queried
+        $resultsResponse = $this->actingAs($this->user)->getJson(
+            '/api/v1/prompts/' . $this->user->slug . '/' . $prompt['slug'] . '/results'
+        );
+        $resultsResponse->assertOk();
+        $this->assertCount(2, $resultsResponse->json('data'));
     }
 }

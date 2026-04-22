@@ -68,6 +68,11 @@ class TeamController extends ApiController
         $team->load('members');
         $team->loadCount('prompts');
 
+        $sharedPrompts = $team->prompts()
+            ->with('creator:id,name,slug')
+            ->orderByDesc('prompts.updated_at')
+            ->get(['prompts.id', 'prompts.name', 'prompts.slug', 'prompts.type', 'prompts.updated_at']);
+
         return $this->success([
             'id'           => $team->id,
             'name'         => $team->name,
@@ -80,9 +85,31 @@ class TeamController extends ApiController
                 'email' => $m->email,
                 'role'  => $m->pivot->role,
             ]),
+            'prompts'      => $sharedPrompts,
             'created_at'   => $team->created_at,
             'updated_at'   => $team->updated_at,
         ]);
+    }
+
+    public function leave(Request $request, Team $team): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$team->members()->where('users.id', $user->id)->exists()) {
+            return $this->error('You are not a member of this team.', 404);
+        }
+
+        $membership = $team->members()->where('users.id', $user->id)->first();
+        if ($membership->pivot->role === 'owner') {
+            $ownerCount = $team->members()->wherePivot('role', 'owner')->count();
+            if ($ownerCount <= 1) {
+                return $this->error('Cannot leave as sole owner. Transfer ownership first.', 422);
+            }
+        }
+
+        $team->members()->detach($user->id);
+
+        return $this->success(['message' => 'You have left the team.']);
     }
 
     public function update(Request $request, Team $team): JsonResponse

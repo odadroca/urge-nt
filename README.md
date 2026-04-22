@@ -7,7 +7,7 @@ Self-hosted prompt registry and version control system.
 URGE is a **prompt memory layer** that sits behind any LLM. Instead of URGE calling LLMs, **LLMs call URGE** — pulling prompts, filling variables, resolving includes, and storing results back via API or MCP.
 
 Two access patterns, one backend:
-- **Humans** manage and curate prompts through a React SPA (primary UI) and Livewire 3 pages (settings, teams)
+- **Humans** manage and curate prompts through a React SPA (Browse, Canvas, Workspace, Settings, Teams)
 - **Machines** (any LLM) consume and contribute to the registry via REST API or MCP server
 
 ## Features
@@ -15,10 +15,9 @@ Two access patterns, one backend:
 - **Prompt versioning** — immutable versions with auto-numbering, pin a specific version or default to latest
 - **Version branching** — non-linear version history with named branches, independent version numbers per branch, create/delete/set-default
 - **Template engine** — `{{variables}}` for substitution, `{{>slug}}` for recursive includes, circular reference detection
-- **React SPA** — Browse, Canvas (graph visualization), and Workspace pages with slim icon-rail sidebar and mobile bottom tab bar
+- **React SPA** — Browse, Canvas (graph visualization), Workspace, Settings, and Teams pages with slim icon-rail sidebar and mobile bottom tab bar
 - **3-panel workspace** — editor, version sidebar, and results panel in a single screen
 - **Live preview** — rendered preview with include resolution and variable fill from defaults
-- **Visual composer** — drag-and-drop blocks (text, variable chips, include chips) via SortableJS
 - **REST API** — full CRUD with Bearer token auth, rate limiting, OpenAPI 3.1 spec
 - **OAuth 2.1** — PKCE (S256), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub as external provider, confidential client support with client_secret
 - **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 29 tools and 6 resources
@@ -40,9 +39,8 @@ Two access patterns, one backend:
 | Component | Technology |
 |-----------|------------|
 | Backend | Laravel 12 / PHP 8.3+ |
-| Frontend (SPA) | React 19, React Query, @xyflow/react |
-| Frontend (settings/teams) | Livewire 3, Alpine.js |
-| Styling | Tailwind CSS 3.1 |
+| Frontend | React 19, React Query, @xyflow/react |
+| Styling | Tailwind CSS |
 | Database | SQLite (default, configurable) |
 | Build | Vite 7 |
 | Testing | PHPUnit 11 (376 tests) |
@@ -116,6 +114,7 @@ All API endpoints are under `/api/v1/` and require Bearer token authentication (
 | DELETE | `/teams/{slug}` | Delete team |
 | POST | `/teams/{slug}/members` | Add member |
 | DELETE | `/teams/{slug}/members/{user}` | Remove member |
+| POST | `/teams/{slug}/leave` | Leave team |
 | GET | `/collections` | List collections |
 | POST | `/collections` | Create collection |
 | GET | `/collections/{slug}` | Get collection (recursive nesting) |

@@ -12,11 +12,7 @@
 
         <script>
             (function() {
-                function applyTheme() {
-                    document.documentElement.classList.toggle('dark', localStorage.theme === 'dark');
-                }
-                applyTheme();
-                document.addEventListener('livewire:navigated', applyTheme);
+                document.documentElement.classList.toggle('dark', localStorage.theme === 'dark');
             })();
         </script>
 
@@ -24,7 +20,7 @@
     </head>
     <body class="font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         {{-- Toast Notifications --}}
-        <div x-data="toasts()" @notify.window="add($event.detail)"
+        <div x-data="toasts" @notify.window="add($event.detail)"
              class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
             <template x-for="toast in items" :key="toast.id">
                 <div x-show="toast.visible"
@@ -43,23 +39,6 @@
             </template>
         </div>
 
-        <script>
-            function toasts() {
-                return {
-                    items: [],
-                    add(detail) {
-                        const id = Date.now();
-                        this.items.push({ id, message: detail.message || detail[0]?.message || '', type: detail.type || detail[0]?.type || 'success', visible: true });
-                        setTimeout(() => {
-                            const t = this.items.find(i => i.id === id);
-                            if (t) t.visible = false;
-                            setTimeout(() => { this.items = this.items.filter(i => i.id !== id); }, 200);
-                        }, 3000);
-                    }
-                };
-            }
-        </script>
-
         @php
             $lastPrompt = session('last_prompt_id') ? \App\Models\Prompt::with('creator')->find(session('last_prompt_id')) : null;
         @endphp
@@ -67,7 +46,7 @@
         <div class="min-h-screen flex flex-col">
             <nav class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 h-14 flex items-center justify-between shrink-0" x-data="{ mobileMenu: false }">
                 <div class="flex items-center gap-6">
-                    <a href="{{ route('browse') }}" wire:navigate class="flex items-center gap-1.5 text-lg font-bold text-indigo-600 dark:text-indigo-400 tracking-tight">
+                    <a href="/app/browse" class="flex items-center gap-1.5 text-lg font-bold text-indigo-600 dark:text-indigo-400 tracking-tight">
                         <x-application-logo class="w-5 h-5 fill-current" />
                         URGE
                     </a>
@@ -81,23 +60,23 @@
                     </button>
 
                     <div class="hidden sm:flex items-center gap-1">
-                        <a href="{{ route('browse') }}" wire:navigate
-                           class="px-3 py-1.5 rounded-md text-sm font-medium {{ request()->routeIs('browse') ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                        <a href="/app/browse"
+                           class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
                             Browse
                         </a>
                         @auth
-                        <a href="{{ route('teams') }}" wire:navigate
-                           class="px-3 py-1.5 rounded-md text-sm font-medium {{ request()->routeIs('teams', 'team.detail') ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                        <a href="/app/teams"
+                           class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
                             Teams
                         </a>
-                        <a href="{{ route('settings') }}" wire:navigate
-                           class="px-3 py-1.5 rounded-md text-sm font-medium {{ request()->routeIs('settings') ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                        <a href="/app/settings"
+                           class="px-3 py-1.5 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700">
                             Settings
                         </a>
                         @endauth
                         @if($lastPrompt)
                         <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
-                        <a href="{{ $lastPrompt->workspaceUrl() }}" wire:navigate
+                        <a href="{{ $lastPrompt->workspaceUrl() }}"
                            class="px-2 py-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 truncate max-w-[12rem]"
                            title="{{ $lastPrompt->name }}">
                             Continue: {{ Str::limit($lastPrompt->name, 20) }}
@@ -129,22 +108,22 @@
                 {{-- Mobile menu dropdown --}}
                 <div x-show="mobileMenu" x-cloak @click.outside="mobileMenu = false"
                      class="sm:hidden absolute top-14 left-0 right-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-lg z-40 px-4 py-3 space-y-1">
-                    <a href="{{ route('browse') }}" wire:navigate @click="mobileMenu = false"
-                       class="block px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('browse') ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400' }}">
+                    <a href="/app/browse" @click="mobileMenu = false"
+                       class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400">
                         Browse
                     </a>
                     @auth
-                    <a href="{{ route('teams') }}" wire:navigate @click="mobileMenu = false"
-                       class="block px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('teams', 'team.detail') ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400' }}">
+                    <a href="/app/teams" @click="mobileMenu = false"
+                       class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400">
                         Teams
                     </a>
-                    <a href="{{ route('settings') }}" wire:navigate @click="mobileMenu = false"
-                       class="block px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('settings') ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-gray-400' }}">
+                    <a href="/app/settings" @click="mobileMenu = false"
+                       class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400">
                         Settings
                     </a>
                     @endauth
                     @if($lastPrompt)
-                    <a href="{{ $lastPrompt->workspaceUrl() }}" wire:navigate @click="mobileMenu = false"
+                    <a href="{{ $lastPrompt->workspaceUrl() }}" @click="mobileMenu = false"
                        class="block px-3 py-2 rounded-md text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 truncate"
                        title="{{ $lastPrompt->name }}">
                         Continue: {{ Str::limit($lastPrompt->name, 20) }}

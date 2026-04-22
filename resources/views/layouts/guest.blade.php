@@ -13,11 +13,7 @@
 
         <script>
             (function() {
-                function applyTheme() {
-                    document.documentElement.classList.toggle('dark', localStorage.theme === 'dark');
-                }
-                applyTheme();
-                document.addEventListener('livewire:navigated', applyTheme);
+                document.documentElement.classList.toggle('dark', localStorage.theme === 'dark');
             })();
         </script>
 

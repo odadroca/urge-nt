@@ -3,12 +3,12 @@
 ## Project Overview
 
 URGE v2 is a self-hosted **prompt registry and version control system** that serves two audiences:
-1. **Humans** via a React SPA (primary UI: Browse, Canvas, Workspace) and Livewire 3 pages (settings, teams)
+1. **Humans** via a React SPA (Browse, Canvas, Workspace, Settings, Teams)
 2. **LLMs** via a REST API, MCP server, CustomGPT actions, and Claude Skills
 
 URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fill variables, resolve includes, and store results back — all via API. The UI is for curation and management.
 
-**Stack:** Laravel 12 / PHP 8.3+, React 19, React Query, @xyflow/react, Livewire 3, Alpine.js, Tailwind CSS, SQLite, Vite 7
+**Stack:** Laravel 12 / PHP 8.3+, React 19, React Query, @xyflow/react, Tailwind CSS, SQLite, Vite 7
 
 ## Build & Dev Commands
 
@@ -69,12 +69,12 @@ Collection → CollectionItem[] (polymorphic: prompt_version|result|collection) 
 
 | Surface | Protocol | Consumer |
 |---|---|---|
-| React SPA | React 19 at `/app/*`, BrowserRouter, React Query | Humans in browsers (Browse, Canvas, Workspace) |
+| React SPA | React 19 at `/app/*`, BrowserRouter, React Query | Humans in browsers (Browse, Canvas, Workspace, Settings, Teams) |
 | REST API | JSON over HTTP, Bearer/OAuth token auth | Any HTTP client, CustomGPT Actions |
 | MCP Server (Streamable HTTP) | POST `/api/v1/mcp`, Mcp-Session-Id header, protocol 2025-06-18 | Remote MCP clients (Claude Desktop pointing at hosted URGE) |
 | MCP Server (stdio) | stdio transport, Model Context Protocol | Local MCP clients (Claude Code, Claude Desktop on same machine) |
 | Claude Skill | Markdown instructions + API calls | Claude Projects |
-| Livewire Pages | Livewire 3 (HTML over AJAX) | Humans: /settings, /teams, /teams/{slug}, /prompts/{u}/{s} (classic workspace) |
+| Blade Pages | Server-rendered HTML | Auth pages (login, register), user profile |
 
 ### MCP Server (dual transport, protocol 2025-06-18)
 
@@ -192,73 +192,53 @@ Auth: Bearer token → SHA-256 hash lookup. Keys scoped to specific prompts via 
 - **CollectionNestingService** — circular reference detection (BFS ancestor walk), depth validation (configurable max depth with unlimited toggle), validates nesting before creating collection-type CollectionItems
 - **EvaluationService** — LLM-powered result scoring with 6 configurable dimensions, versioned evaluations, composite score calculation, auto-evaluate support
 
-### Livewire Components
-
-```
-app/Livewire/
-├── Dashboard.php              # Recent prompts, starred results, inline create
-├── Browse.php                 # Tabbed (prompts/fragments/collections/starred), category+tag filters, namespace sidebar, add-to-collection (single + bulk)
-├── Settings.php               # Tabbed settings container (API Keys, LLM Providers, Categories, Pipelines, Evaluation, Users)
-├── Teams.php                  # Teams list + create├── TeamDetail.php             # Team members + shared prompts management├── Browse/
-│   └── CollectionList.php     # Collection CRUD, expand/collapse, reorder items
-├── Settings/
-│   ├── ApiKeys.php            # API key CRUD, reveal, scope to prompts
-│   ├── LlmProviders.php       # LLM provider CRUD, test connection, toggle active
-│   ├── Categories.php         # Category CRUD with color picker
-│   ├── Evaluation.php         # Enable/auto-evaluate toggles, provider selection, dimension config with weights
-│   └── UserManagement.php     # Admin-only user role management
-└── Workspace/
-    ├── WorkspacePage.php      # 3-panel orchestrator
-    ├── Editor.php             # Textarea, variable detection, save, export, AI suggest, Ctrl+S
-    ├── VersionSidebar.php     # Branch switcher, version list (filtered by branch), create/delete/set-default branch
-    ├── ResultsPanel.php       # Results list, star, rate, compare, AI summarize, export
-    ├── ManualResultForm.php   # Paste result with provider/model/notes/rating
-    ├── ImportResults.php      # Upload .md files, preview frontmatter, import as results
-    ├── RunWithLlm.php         # LLM execution: provider selection, variable fill, run, Ctrl+Enter
-    └── PromptMetadata.php     # Name, type, category, tags, description
-```
-
 ### React SPA (mounted at `/app/*`)
 
+The React SPA is the sole user-facing frontend. Blade views remain only for auth pages (login, register) and user profile.
+
 ```
-resources/js/
-├── app.jsx                    # React root, BrowserRouter basename="/app"
+resources/js/spa/
+├── main.jsx                   # React root, BrowserRouter basename="/app"
+├── App.jsx                    # Route definitions
+├── api/
+│   ├── client.js              # Axios client with /api/v1 base, CSRF, credentials
+│   ├── prompts.js             # Prompt CRUD + render + run
+│   ├── providers.js           # LLM provider CRUD + test connection
+│   ├── categories.js          # Category CRUD
+│   ├── teams.js               # Team CRUD + members + leave
+│   ├── apiKeys.js             # API key CRUD
+│   ├── users.js               # User management (admin)
+│   ├── evaluationSettings.js  # Evaluation config get/save
+│   └── pipelines.js           # Pipeline + channel CRUD
 ├── components/
 │   ├── Sidebar.jsx            # Slim icon-rail navigation (desktop)
-│   ├── BottomTabBar.jsx       # Mobile bottom tab bar
-│   ├── PromptCard.jsx         # Card component for browse grid
-│   └── ...
+│   ├── Layout.jsx             # App shell with sidebar + content area
+│   ├── ProtectedRoute.jsx     # Auth guard
+│   ├── browse/                # Browse sub-components (PromptCard, CollectionList, etc.)
+│   └── settings/              # Settings tab components (6 tabs)
 ├── pages/
 │   ├── BrowsePage.jsx         # Tabs: prompts/fragments/collections/starred, filters, card grid
 │   ├── CanvasPage.jsx         # Graph visualization with @xyflow/react
-│   └── WorkspacePage.jsx      # 3-panel editor (React version)
+│   ├── WorkspacePage.jsx      # 3-panel editor (editor, version sidebar, results)
+│   ├── SettingsPage.jsx       # Tabbed settings (API Keys, Providers, Categories, Pipelines, Evaluation, Users)
+│   ├── TeamsPage.jsx          # Teams list + create
+│   ├── TeamDetailPage.jsx     # Team members + shared prompts management
+│   └── LoginPage.jsx          # Login form
 └── hooks/
+    ├── useAuth.js             # Auth state (user, login, logout)
     └── ...                    # React Query hooks for API data fetching
 ```
 
 Post-login redirect: `/app/browse`
 
-### Livewire Event Flow
-
-```
-VersionSidebar --[version-selected]--> WorkspacePage --> Editor, ResultsPanel, ManualResultForm, ImportResults, RunWithLlm
-VersionSidebar --[branch-switched]--> WorkspacePage --> Editor
-Editor --[version-created]--> WorkspacePage --> VersionSidebar, ResultsPanel, ImportResults, RunWithLlm
-ManualResultForm --[result-saved]--> ResultsPanel
-ImportResults --[result-saved]--> ResultsPanel
-RunWithLlm --[result-saved]--> ResultsPanel
-Editor toolbar --[toggle-run-panel]--> RunWithLlm
-notify (any component) --[notify]--> app.blade.php toast system
-```
-
 ### Routes
 
 ```
 React SPA (at /app/*, BrowserRouter):
-/app/browse, /app/canvas, /app/workspace/:username/:slug
+/app/browse, /app/canvas, /app/workspace/:username/:slug, /app/settings, /app/teams, /app/teams/:slug
 
-Livewire (wire:navigate):
-/settings, /teams, /teams/{slug}, /prompts/{username}/{slug} (classic workspace)
+Legacy redirects (all redirect to /app/* equivalents):
+/settings, /teams, /teams/{slug}, /prompts/{username}/{slug}, /browse, /dashboard
 
 OAuth:
 GET/POST /oauth/authorize, POST /oauth/token
@@ -327,10 +307,7 @@ Drivers: openai, anthropic, mistral, gemini, ollama, openrouter. `LlmDispatchSer
 
 ### Toast Notifications
 
-Global Alpine `toasts()` component in `app.blade.php`. Any Livewire component dispatches:
-```php
-$this->dispatch('notify', message: 'Done', type: 'success'); // or 'error'
-```
+Alpine.js `toasts` component in `app.blade.php` layout (used by auth/profile Blade pages only). The React SPA handles its own notifications.
 
 ### Artisan Commands
 
@@ -356,7 +333,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**Phases 1-7 complete + UX sprints done + post-phase improvements + version branching + nested collections + React SPA UI + OAuth 2.1 (PKCE + confidential clients) + Streamable HTTP MCP + result evaluation + pipeline management + client-side execution.** 376 tests passing. 29 MCP tools. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 376 tests passing. 29 MCP tools. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -368,18 +345,17 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 | 4 (done) | Import/export + collections |
 | 5 (done) | LLM drivers + AI features + v1 migration + polish |
 | 6 (done) | Prompt preview (live rendered preview with includes resolved + variables filled from defaults) |
-| UX (done) | 8 UX/UI improvement sprints (see docs/ux-roadmap.md) |
-| 7 (done) | Namespaces + teams | User-scoped prompts, team sharing, namespace-aware API/MCP/UI |
+| UX (done) | 8 UX/UI improvement sprints |
+| 7 (done) | Namespaces + teams — user-scoped prompts, team sharing, namespace-aware API/MCP/UI |
+| 8-9 (done) | React SPA migration — all pages ported from Livewire to React (Browse, Canvas, Workspace, Settings, Teams) |
+| 10 (done) | Livewire cleanup — removed all Livewire components, Blade views, Alpine modules. Converted tests to API tests. |
 
-### Post-Phase 7 Improvements
-- **Collection visibility** — always-visible archive icon on version sidebar, styled "Collect" pill on results panel, "Collect" button + bulk selection mode on Browse page (spec: `docs/superpowers/specs/2026-03-26-collection-visibility-design.md`)
-- **Prompt metadata** — moved from sidebar inline editing to a dedicated modal (`PromptMetadata.php`)
-- **Public layout** — added anonymous Blade component at `resources/views/components/layouts/public.blade.php` for `<x-layouts.public>` resolution (fixes `view:cache`)
-- **Version branching** — non-linear version history with `PromptBranch` model, branch CRUD (create/delete/set-default), dual version numbers (global + per-branch), MCP tools (`list_branches`, `create_branch`), API endpoints, branch switcher UI
-- **Nested collections** — collections inside collections (DAG), `CollectionNestingService` for circular ref detection + depth validation, configurable depth (`max_collection_depth`, `unlimited_collection_depth`), recursive API/share rendering, "Nest" action in UI (spec: `docs/superpowers/specs/2026-03-27-nested-collections-design.md`)
-- **React SPA** — React 19 mounted at `/app/*` with Browse (card grid, tabs, filters), Canvas (graph visualization via @xyflow/react), and Workspace (3-panel editor) pages. Slim icon-rail sidebar, mobile bottom tab bar. Post-login redirect to `/app/browse`.
-- **OAuth 2.1** — PKCE (S256), confidential client support (`client_secret`), Dynamic Client Registration (RFC 7591), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub external identity provider, OIDC discovery (`/.well-known/openid-configuration`). Verified with Claude.ai/Desktop (public PKCE) and Mistral Le Chat (confidential client).
-- **Streamable HTTP MCP** — Protocol version 2025-06-18, POST `/api/v1/mcp`, session via `Mcp-Session-Id` header. 29 tools. Verified with Claude.ai, Claude Desktop, Mistral Le Chat, and stdio (Claude Code).
-- **Result evaluation** — LLM-powered scoring with 6 configurable dimensions (relevance, completeness, accuracy, clarity, conciseness, human), versioned evaluations, composite scores, auto-evaluate option. Evaluation settings UI tab. Canvas nodes show color-coded score badges. Workspace result cards show composite scores.
-- **Pipeline management** — PipelineTemplate renamed to Pipeline everywhere (tables, models, routes, MCP tools, UI). Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels.
-- **Client-side execution** — LLMs can fetch prompts/pipelines from URGE, run them natively (free, no API cost), store results back. Flow: get_prompt → execute → store_result. For pipelines: get_pipeline → run each channel → store_result per channel. store_result version now optional (defaults to active), accepts rendered_content and variables_used.
+### Post-Phase 7 Improvements (all complete)
+- **Version branching** — non-linear version history with `PromptBranch` model, branch CRUD, dual version numbers, MCP tools, API endpoints
+- **Nested collections** — collections inside collections (DAG), circular ref detection, configurable depth, recursive API/share rendering
+- **React SPA** — React 19 at `/app/*` with Browse, Canvas, Workspace, Settings, Teams pages. Slim icon-rail sidebar, mobile bottom tab bar.
+- **OAuth 2.1** — PKCE (S256), confidential client support, Dynamic Client Registration (RFC 7591), scoped tokens, GitHub external identity provider, OIDC discovery. Verified with Claude.ai/Desktop, Mistral Le Chat.
+- **Streamable HTTP MCP** — Protocol version 2025-06-18, 29 tools. Verified with Claude.ai, Claude Desktop, Mistral Le Chat, stdio.
+- **Result evaluation** — LLM-powered scoring with 6 configurable dimensions, versioned evaluations, composite scores, auto-evaluate option.
+- **Pipeline management** — Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels.
+- **Client-side execution** — LLMs fetch prompts/pipelines, run natively (free), store results back.

@@ -1,6 +1,6 @@
 # URGE v2 — Continuation Prompts
 
-Copy the relevant phase section into a new Claude Code session to continue development.
+> **HISTORICAL REFERENCE:** These prompts were written for the original Livewire-based development (Phases 2-7). The Livewire-to-React migration is now complete (all 10 prompts executed). Livewire has been fully removed. For current architecture, see CLAUDE.md.
 
 ---
 

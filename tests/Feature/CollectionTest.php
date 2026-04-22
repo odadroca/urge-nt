@@ -8,8 +8,8 @@ use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
+use App\Services\ApiKeyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class CollectionTest extends TestCase
@@ -267,15 +267,22 @@ class CollectionTest extends TestCase
         $this->assertEquals('my-collection-1', $c2->slug);
     }
 
-    public function test_collection_list_livewire_component(): void
+    public function test_collection_list_via_api(): void
     {
+        $result = app(ApiKeyService::class)->generateKey($this->user, 'Test Key');
+        $headers = ['Authorization' => "Bearer {$result['key']}"];
+
         Collection::create([
             'title' => 'Test Collection',
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse\CollectionList::class)
-            ->assertSee('Test Collection');
+        $response = $this->getJson('/api/v1/collections', $headers);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+
+        $data = $response->json('data');
+        $this->assertEquals('Test Collection', $data[0]['title']);
     }
 }

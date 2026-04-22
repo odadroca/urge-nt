@@ -12,7 +12,6 @@ use App\Services\ApiKeyService;
 use App\Services\CollectionNestingService;
 use App\Services\ShareLinkService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class NestedCollectionTest extends TestCase
@@ -337,16 +336,19 @@ class NestedCollectionTest extends TestCase
             ->assertJsonPath('data.items.0.children.0.title', 'C');
     }
 
-    // --- Livewire ---
+    // --- API ---
 
-    public function test_livewire_add_collection_to_collection(): void
+    public function test_api_add_collection_to_collection(): void
     {
         $parent = Collection::create(['title' => 'Parent', 'created_by' => $this->user->id]);
         $child = Collection::create(['title' => 'Child', 'created_by' => $this->user->id]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse\CollectionList::class)
-            ->call('addCollectionToCollection', $child->id, $parent->id);
+        $response = $this->postJson("/api/v1/collections/{$parent->slug}/items", [
+            'item_type' => 'collection',
+            'item_id' => $child->id,
+        ], $this->headers);
+
+        $response->assertStatus(201);
 
         $this->assertDatabaseHas('collection_items', [
             'collection_id' => $parent->id,
@@ -355,7 +357,7 @@ class NestedCollectionTest extends TestCase
         ]);
     }
 
-    public function test_livewire_rejects_circular_nesting(): void
+    public function test_api_rejects_circular_nesting_via_add_item(): void
     {
         $a = Collection::create(['title' => 'A', 'created_by' => $this->user->id]);
         $b = Collection::create(['title' => 'B', 'created_by' => $this->user->id]);
@@ -367,10 +369,13 @@ class NestedCollectionTest extends TestCase
             'sort_order' => 0,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Browse\CollectionList::class)
-            ->call('addCollectionToCollection', $a->id, $b->id)
-            ->assertDispatched('notify', fn ($name, $params) => $params['type'] === 'error');
+        $response = $this->postJson("/api/v1/collections/{$b->slug}/items", [
+            'item_type' => 'collection',
+            'item_id' => $a->id,
+        ], $this->headers);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error', 'Circular reference detected.');
     }
 
     // --- Share / Story View ---

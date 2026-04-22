@@ -52,8 +52,13 @@ class NamespaceScopingTest extends TestCase
             'created_by' => $user->id,
         ]);
 
+        // Web route now redirects to React SPA
         $response = $this->actingAs($user)->get('/prompts/' . $user->slug . '/' . $prompt->slug);
-        $response->assertStatus(200);
+        $response->assertRedirect('/app/workspace/' . $user->slug . '/' . $prompt->slug);
+
+        // API route still works for direct access
+        $apiResponse = $this->actingAs($user)->getJson('/api/v1/prompts/' . $user->slug . '/' . $prompt->slug);
+        $apiResponse->assertStatus(200);
     }
 
     public function test_workspace_accessible_by_team_member(): void
@@ -73,8 +78,13 @@ class NamespaceScopingTest extends TestCase
         ]);
         $prompt->teams()->attach($team->id);
 
+        // Web route redirects to React SPA
         $response = $this->actingAs($member)->get('/prompts/' . $owner->slug . '/' . $prompt->slug);
-        $response->assertStatus(200);
+        $response->assertRedirect('/app/workspace/' . $owner->slug . '/' . $prompt->slug);
+
+        // API route verifies team member access
+        $apiResponse = $this->actingAs($member)->getJson('/api/v1/prompts/' . $owner->slug . '/' . $prompt->slug);
+        $apiResponse->assertStatus(200);
     }
 
     public function test_workspace_404_for_non_member(): void
@@ -89,8 +99,13 @@ class NamespaceScopingTest extends TestCase
             'created_by' => $owner->id,
         ]);
 
+        // Web route now always redirects (access check happens in React/API)
         $response = $this->actingAs($outsider)->get('/prompts/' . $owner->slug . '/' . $prompt->slug);
-        $response->assertStatus(404);
+        $response->assertRedirect('/app/workspace/' . $owner->slug . '/' . $prompt->slug);
+
+        // API route correctly denies access
+        $apiResponse = $this->actingAs($outsider)->getJson('/api/v1/prompts/' . $owner->slug . '/' . $prompt->slug);
+        $apiResponse->assertStatus(404);
     }
 
     public function test_legacy_slug_redirects_to_namespaced_url(): void
@@ -103,7 +118,7 @@ class NamespaceScopingTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)->get('/prompts/' . $prompt->slug);
-        $response->assertRedirect('/prompts/' . $user->slug . '/' . $prompt->slug);
+        $response->assertRedirect('/app/workspace/' . $user->slug . '/' . $prompt->slug);
     }
 
     public function test_legacy_slug_prefers_current_users_prompt(): void
@@ -114,9 +129,9 @@ class NamespaceScopingTest extends TestCase
         Prompt::create(['name' => 'Same Name', 'type' => 'prompt', 'created_by' => $user1->id]);
         Prompt::create(['name' => 'Same Name', 'type' => 'prompt', 'created_by' => $user2->id]);
 
-        // User2 accesses legacy URL — should redirect to their own prompt
+        // User2 accesses legacy URL — should redirect to their own prompt via SPA
         $response = $this->actingAs($user2)->get('/prompts/same-name');
-        $response->assertRedirect('/prompts/' . $user2->slug . '/same-name');
+        $response->assertRedirect('/app/workspace/' . $user2->slug . '/same-name');
     }
 
     public function test_only_owner_can_delete_prompt(): void
@@ -138,7 +153,6 @@ class NamespaceScopingTest extends TestCase
 
         // Team member cannot delete
         $this->actingAs($member);
-        $metadata = new \App\Livewire\Workspace\PromptMetadata();
         // The canManage method should return false for non-owner
         $this->assertFalse($prompt->created_by === $member->id);
     }
@@ -155,8 +169,13 @@ class NamespaceScopingTest extends TestCase
             'created_by' => $owner->id,
         ]);
 
+        // Web route redirects to SPA
         $response = $this->actingAs($admin)->get('/prompts/' . $owner->slug . '/' . $prompt->slug);
-        $response->assertStatus(200);
+        $response->assertRedirect('/app/workspace/' . $owner->slug . '/' . $prompt->slug);
+
+        // API route verifies admin access
+        $apiResponse = $this->actingAs($admin)->getJson('/api/v1/prompts/' . $owner->slug . '/' . $prompt->slug);
+        $apiResponse->assertStatus(200);
     }
 
     public function test_browse_all_scope_redirects_to_react_spa(): void
@@ -178,7 +197,7 @@ class NamespaceScopingTest extends TestCase
         $prompt->load('creator');
 
         $url = $prompt->workspaceUrl();
-        $this->assertStringContainsString('/prompts/test-user/my-prompt', $url);
+        $this->assertStringContainsString('/app/workspace/test-user/my-prompt', $url);
     }
 
     public function test_internal_fragments_scoped_to_visible(): void

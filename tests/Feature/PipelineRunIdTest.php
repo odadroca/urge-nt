@@ -11,12 +11,12 @@ use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
+use App\Services\ApiKeyService;
 use App\Services\LlmDispatchService;
 use App\Services\LlmProviders\LlmResult;
 use App\Services\PipelineService;
 use App\Services\TemplateEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Mockery;
 use Tests\TestCase;
 
@@ -28,6 +28,7 @@ class PipelineRunIdTest extends TestCase
     private Prompt $prompt;
     private PromptVersion $version;
     private LlmProvider $provider;
+    private array $headers;
 
     protected function setUp(): void
     {
@@ -38,6 +39,9 @@ class PipelineRunIdTest extends TestCase
             'email' => 'test@example.com',
             'password' => bcrypt('password'),
         ]);
+
+        $result = app(ApiKeyService::class)->generateKey($this->user, 'Test Key');
+        $this->headers = ['Authorization' => "Bearer {$result['key']}"];
 
         $this->prompt = Prompt::create([
             'name' => 'Test Prompt',
@@ -142,10 +146,8 @@ class PipelineRunIdTest extends TestCase
         $this->assertNotEquals($firstRunId, $secondRunId);
     }
 
-    public function test_collect_pipeline_run_adds_all_results(): void
+    public function test_collect_pipeline_run_adds_all_results_via_api(): void
     {
-        $this->actingAs($this->user);
-
         $collection = Collection::create([
             'title' => 'Test Collection',
             'created_by' => $this->user->id,
@@ -153,7 +155,7 @@ class PipelineRunIdTest extends TestCase
 
         $runId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
-        Result::create([
+        $resultA = Result::create([
             'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $this->version->id,
             'source' => 'api',
@@ -165,7 +167,7 @@ class PipelineRunIdTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Result::create([
+        $resultB = Result::create([
             'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $this->version->id,
             'source' => 'api',
@@ -177,16 +179,22 @@ class PipelineRunIdTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::test(\App\Livewire\Workspace\ResultsPanel::class, ['prompt' => $this->prompt])
-            ->call('collectPipelineRun', $runId, $collection->id);
+        // Add each result to collection via API
+        $this->postJson("/api/v1/collections/{$collection->slug}/items", [
+            'item_type' => 'result',
+            'item_id' => $resultA->id,
+        ], $this->headers)->assertStatus(201);
+
+        $this->postJson("/api/v1/collections/{$collection->slug}/items", [
+            'item_type' => 'result',
+            'item_id' => $resultB->id,
+        ], $this->headers)->assertStatus(201);
 
         $this->assertEquals(2, CollectionItem::where('collection_id', $collection->id)->count());
     }
 
-    public function test_grouping_uses_run_id_not_timestamp(): void
+    public function test_results_grouped_by_pipeline_run_id(): void
     {
-        $this->actingAs($this->user);
-
         $template = Pipeline::create([
             'name' => 'Template',
             'created_by' => $this->user->id,
@@ -220,12 +228,17 @@ class PipelineRunIdTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::test(\App\Livewire\Workspace\ResultsPanel::class, ['prompt' => $this->prompt]);
+        // Fetch results via API and verify they have different pipeline_run_ids
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/results",
+            $this->headers
+        );
 
-        // The component should render with two separate pipeline groups
-        $groupedResults = $component->viewData('groupedResults');
-        $pipelineGroups = $groupedResults->where('type', 'pipeline');
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
 
-        $this->assertCount(2, $pipelineGroups);
+        $data = $response->json('data');
+        $runIds = array_unique(array_column($data, 'pipeline_run_id'));
+        $this->assertCount(2, $runIds);
     }
 }

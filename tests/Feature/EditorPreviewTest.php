@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\User;
+use App\Services\ApiKeyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Livewire\Livewire;
 use Tests\TestCase;
 
 class EditorPreviewTest extends TestCase
@@ -14,6 +14,7 @@ class EditorPreviewTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+    private array $headers;
 
     protected function setUp(): void
     {
@@ -23,16 +24,18 @@ class EditorPreviewTest extends TestCase
             'email' => 'admin@test.com',
             'password' => bcrypt('password'),
         ]);
+        $result = app(ApiKeyService::class)->generateKey($this->user, 'Test Key');
+        $this->headers = ['Authorization' => "Bearer {$result['key']}"];
     }
 
-    public function test_toggle_preview_on_and_off(): void
+    public function test_render_returns_content(): void
     {
         $prompt = Prompt::create([
             'name' => 'Preview Toggle',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello world',
@@ -40,17 +43,14 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->assertSet('showPreview', false)
-            ->call('togglePreview')
-            ->assertSet('showPreview', true);
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
 
-        $this->assertNotNull($component->get('previewResult'));
-
-        $component->call('togglePreview')
-            ->assertSet('showPreview', false)
-            ->assertSet('previewResult', null);
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Hello world');
     }
 
     public function test_preview_renders_content_with_variable_defaults(): void
@@ -60,7 +60,7 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello {{name}}, welcome to {{place}}',
@@ -72,15 +72,19 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
 
-        $previewResult = $component->get('previewResult');
-        $this->assertEquals('Hello Alice, welcome to Wonderland', $previewResult['rendered']);
-        $this->assertContains('name', $previewResult['variables_used']);
-        $this->assertContains('place', $previewResult['variables_used']);
-        $this->assertEmpty($previewResult['variables_missing']);
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Hello Alice, welcome to Wonderland');
+
+        $data = $response->json('data');
+        $this->assertContains('name', $data['variables_used']);
+        $this->assertContains('place', $data['variables_used']);
+        $this->assertEmpty($data['variables_missing']);
     }
 
     public function test_preview_renders_with_user_filled_overrides(): void
@@ -90,7 +94,7 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello {{name}}',
@@ -101,13 +105,14 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview')
-            ->set('previewVariables.name', 'Bob');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            ['variables' => ['name' => 'Bob']],
+            $this->headers
+        );
 
-        $previewResult = $component->get('previewResult');
-        $this->assertEquals('Hello Bob', $previewResult['rendered']);
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Hello Bob');
     }
 
     public function test_preview_resolves_includes(): void
@@ -131,7 +136,7 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => '{{>system-context}} Now help me.',
@@ -140,13 +145,17 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
 
-        $previewResult = $component->get('previewResult');
-        $this->assertEquals('You are a helpful assistant. Now help me.', $previewResult['rendered']);
-        $this->assertContains('system-context', $previewResult['includes_resolved']);
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'You are a helpful assistant. Now help me.');
+
+        $data = $response->json('data');
+        $this->assertContains('system-context', $data['includes_resolved']);
     }
 
     public function test_preview_handles_circular_includes(): void
@@ -186,7 +195,7 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Start {{>circular-a}}',
@@ -195,12 +204,14 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
 
-        $this->assertNull($component->get('previewResult'));
-        $this->assertStringContainsString('Circular include', $component->get('previewError'));
+        // Circular includes throw RuntimeException which becomes a 500 error
+        $response->assertStatus(500);
     }
 
     public function test_preview_shows_missing_variables(): void
@@ -210,7 +221,7 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello {{name}} and {{role}}',
@@ -218,24 +229,28 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
 
-        $previewResult = $component->get('previewResult');
-        $this->assertContains('name', $previewResult['variables_missing']);
-        $this->assertContains('role', $previewResult['variables_missing']);
-        $this->assertStringContainsString('{{name}}', $previewResult['rendered']);
+        $response->assertStatus(200);
+
+        $data = $response->json('data');
+        $this->assertContains('name', $data['variables_missing']);
+        $this->assertContains('role', $data['variables_missing']);
+        $this->assertStringContainsString('{{name}}', $data['rendered']);
     }
 
-    public function test_preview_updates_when_content_changes(): void
+    public function test_render_returns_updated_content_for_new_version(): void
     {
         $prompt = Prompt::create([
             'name' => 'Content Change',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello',
@@ -243,24 +258,42 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            ['version' => 1],
+            $this->headers
+        );
 
-        $this->assertEquals('Hello', $component->get('previewResult.rendered'));
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Hello');
 
-        $component->set('content', 'Goodbye');
-        $this->assertEquals('Goodbye', $component->get('previewResult.rendered'));
+        // Create a new version with different content
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'version_number' => 2,
+            'content' => 'Goodbye',
+            'variables' => [],
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            ['version' => 2],
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Goodbye');
     }
 
-    public function test_preview_updates_when_metadata_default_changes(): void
+    public function test_render_uses_metadata_defaults(): void
     {
         $prompt = Prompt::create([
             'name' => 'Meta Default Change',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => 'Hello {{name}}',
@@ -271,24 +304,34 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $component = Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview');
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
 
-        $this->assertEquals('Hello Alice', $component->get('previewResult.rendered'));
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Hello Alice');
 
-        $component->call('setMetaField', 'name', 'default', 'Bob');
-        $this->assertEquals('Hello Bob', $component->get('previewResult.rendered'));
+        // Override the default with a variable
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            ['variables' => ['name' => 'Bob']],
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', 'Hello Bob');
     }
 
-    public function test_preview_empty_content_shows_no_result(): void
+    public function test_render_empty_content_returns_empty(): void
     {
         $prompt = Prompt::create([
             'name' => 'Empty Content',
             'created_by' => $this->user->id,
         ]);
 
-        $version = PromptVersion::create([
+        PromptVersion::create([
             'prompt_id' => $prompt->id,
             'version_number' => 1,
             'content' => '',
@@ -296,23 +339,37 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        Livewire::actingAs($this->user)
-            ->test(\App\Livewire\Workspace\Editor::class, ['prompt' => $prompt, 'currentVersion' => $version])
-            ->call('togglePreview')
-            ->assertSet('previewResult', null)
-            ->assertSet('previewError', null);
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            [],
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.rendered', '');
     }
 
-    public function test_preview_button_visible_in_toolbar(): void
+    public function test_prompt_show_includes_active_version(): void
     {
         $prompt = Prompt::create([
             'name' => 'Toolbar Test',
             'created_by' => $this->user->id,
         ]);
 
-        $prompt->load('creator');
-        $response = $this->actingAs($this->user)->get($prompt->workspaceUrl());
-        $response->assertOk();
-        $response->assertSee('Preview', false);
+        PromptVersion::create([
+            'prompt_id' => $prompt->id,
+            'version_number' => 1,
+            'content' => 'Test content',
+            'variables' => [],
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}",
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.slug', $prompt->slug);
     }
 }

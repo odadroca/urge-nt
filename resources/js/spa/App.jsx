@@ -5,6 +5,8 @@ import CanvasPage from './pages/CanvasPage.jsx';
 import WorkspacePage from './pages/WorkspacePage.jsx';
 import BrowsePage from './pages/BrowsePage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import TeamsPage from './pages/TeamsPage.jsx';
+import TeamDetailPage from './pages/TeamDetailPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 
 export default function App() {
@@ -19,6 +21,8 @@ export default function App() {
                             <Route path="/workspace/:username/:slug" element={<WorkspacePage />} />
                             <Route path="/browse" element={<BrowsePage />} />
                             <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/teams" element={<TeamsPage />} />
+                            <Route path="/teams/:slug" element={<TeamDetailPage />} />
                             <Route path="*" element={<Navigate to="/browse" replace />} />
                         </Routes>
                     </Layout>

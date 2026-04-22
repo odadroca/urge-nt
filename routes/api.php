@@ -87,6 +87,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('teams/{team:slug}', [TeamController::class, 'destroy']);
         Route::post('teams/{team:slug}/members', [TeamController::class, 'addMember']);
         Route::delete('teams/{team:slug}/members/{user}', [TeamController::class, 'removeMember']);
+        Route::post('teams/{team:slug}/leave', [TeamController::class, 'leave']);
 
         // Collections
         Route::get('collections', [CollectionController::class, 'index']);

@@ -1,10 +1,6 @@
 {
-  "_index-42ANG6Sg.js": {
-    "file": "assets/index-42ANG6Sg.js",
-    "name": "index"
-  },
   "resources/css/app.css": {
-    "file": "assets/app-B8z_MLMd.css",
+    "file": "assets/app-XwE0GDxR.css",
     "src": "resources/css/app.css",
     "isEntry": true,
     "name": "app",
@@ -13,22 +9,16 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-DDR7b6TN.js",
+    "file": "assets/app-BhZXZA7S.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true,
-    "imports": [
-      "_index-42ANG6Sg.js"
-    ]
+    "isEntry": true
   },
   "resources/js/spa/main.jsx": {
-    "file": "assets/main-C4_sYhTs.js",
+    "file": "assets/main-DpTNgYzA.js",
     "name": "main",
     "src": "resources/js/spa/main.jsx",
     "isEntry": true,
-    "imports": [
-      "_index-42ANG6Sg.js"
-    ],
     "css": [
       "assets/main-DHSqERPj.css"
     ]

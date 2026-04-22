@@ -3,13 +3,8 @@
 use App\Http\Controllers\InternalApiController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShareController;
-use App\Livewire\Browse;
-use App\Livewire\Dashboard;
-use App\Livewire\Settings;
-use App\Livewire\TeamDetail;
-use App\Livewire\Teams;
-use App\Livewire\Workspace\WorkspacePage;
 use App\Models\Prompt;
+use App\Models\Team;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect('/app/browse'));
@@ -22,9 +17,9 @@ Route::get('/share/{token}', [ShareController::class, 'show'])
 Route::middleware(['auth'])->group(function () {
     Route::get('/browse', fn () => redirect('/app/browse'))->name('browse');
     Route::get('/dashboard', fn () => redirect('/app/browse'))->name('dashboard');
-    Route::get('/prompts/{username}/{slug}', WorkspacePage::class)->name('workspace');
+    Route::get('/prompts/{username}/{slug}', fn (string $username, string $slug) => redirect("/app/workspace/{$username}/{$slug}"))->name('workspace');
 
-    // Legacy redirect: /prompts/{slug} → /prompts/{owner}/{slug}
+    // Legacy redirect: /prompts/{slug} → /app/workspace/{owner}/{slug}
     Route::get('/prompts/{slug}', function (string $slug) {
         $prompt = Prompt::where('slug', $slug)
             ->where('created_by', auth()->id())
@@ -38,11 +33,11 @@ Route::middleware(['auth'])->group(function () {
             abort(404);
         }
 
-        return redirect()->to($prompt->workspaceUrl());
+        return redirect($prompt->workspaceUrl());
     });
-    Route::get('/teams', Teams::class)->name('teams');
-    Route::get('/teams/{team:slug}', TeamDetail::class)->name('team.detail');
-    Route::get('/settings', Settings::class)->name('settings');
+    Route::get('/teams', fn () => redirect('/app/teams'))->name('teams');
+    Route::get('/teams/{team:slug}', fn (Team $team) => redirect("/app/teams/{$team->slug}"))->name('team.detail');
+    Route::get('/settings', fn () => redirect('/app/settings'))->name('settings');
 
     // Internal API for autocomplete
     Route::get('/internal/variables', [InternalApiController::class, 'variables'])->name('internal.variables');
