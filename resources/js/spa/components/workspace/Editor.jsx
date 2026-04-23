@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createVersion } from '../../api/versions.js';
 import PreviewPanel from './PreviewPanel.jsx';
 import AutocompleteDropdown from './AutocompleteDropdown.jsx';
+import VisualComposer from './VisualComposer.jsx';
 import useAutocomplete from '../../hooks/useAutocomplete.js';
 
 const VAR_PATTERN = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
@@ -16,6 +17,7 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
     const [variables, setVariables] = useState([]);
     const [includes, setIncludes] = useState([]);
     const [showPreview, setShowPreview] = useState(false);
+    const [editorMode, setEditorMode] = useState('text');
     const textareaRef = useRef(null);
     const queryClient = useQueryClient();
     const autocomplete = useAutocomplete(textareaRef);
@@ -95,6 +97,24 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
                     {includes.length > 0 && (
                         <span className="text-[10px] text-indigo-400">{includes.length} includes</span>
                     )}
+                    <div className="flex bg-gray-900 rounded text-xs">
+                        <button
+                            onClick={() => setEditorMode('text')}
+                            className={`px-2 py-0.5 rounded-l transition-colors ${
+                                editorMode === 'text' ? 'bg-gray-700 text-gray-200' : 'text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            Text
+                        </button>
+                        <button
+                            onClick={() => setEditorMode('visual')}
+                            className={`px-2 py-0.5 rounded-r transition-colors ${
+                                editorMode === 'visual' ? 'bg-gray-700 text-gray-200' : 'text-gray-500 hover:text-gray-300'
+                            }`}
+                        >
+                            Visual
+                        </button>
+                    </div>
                     <button
                         onClick={() => setShowPreview(!showPreview)}
                         className={`text-xs px-2 py-0.5 rounded transition-colors ${
@@ -110,24 +130,33 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
 
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="relative" style={{ flex: showPreview ? '0 0 50%' : '1 1 auto', overflow: 'hidden' }}>
-                    <textarea
-                        ref={textareaRef}
-                        value={content}
-                        onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
-                        onInput={autocomplete.handleInput}
-                        onKeyDown={(e) => { if (autocomplete.handleKeyDown(e)) return; }}
-                        onBlur={() => { setTimeout(() => autocomplete.dismiss(), 150); }}
-                        className="w-full h-full bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none border-none"
-                        placeholder="Write your prompt... (type {{ for variables, {{> for includes)"
-                        spellCheck={false}
-                    />
-                    {autocomplete.isOpen && (
-                        <AutocompleteDropdown
-                            items={autocomplete.filteredItems}
-                            selectedIndex={autocomplete.selectedIndex}
-                            position={autocomplete.position}
-                            triggerType={autocomplete.triggerType}
-                            onSelect={autocomplete.insertItem}
+                    {editorMode === 'text' ? (
+                        <>
+                            <textarea
+                                ref={textareaRef}
+                                value={content}
+                                onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
+                                onInput={autocomplete.handleInput}
+                                onKeyDown={(e) => { if (autocomplete.handleKeyDown(e)) return; }}
+                                onBlur={() => { setTimeout(() => autocomplete.dismiss(), 150); }}
+                                className="w-full h-full bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none border-none"
+                                placeholder="Write your prompt... (type {{ for variables, {{> for includes)"
+                                spellCheck={false}
+                            />
+                            {autocomplete.isOpen && (
+                                <AutocompleteDropdown
+                                    items={autocomplete.filteredItems}
+                                    selectedIndex={autocomplete.selectedIndex}
+                                    position={autocomplete.position}
+                                    triggerType={autocomplete.triggerType}
+                                    onSelect={autocomplete.insertItem}
+                                />
+                            )}
+                        </>
+                    ) : (
+                        <VisualComposer
+                            content={content}
+                            onChange={(newContent) => { setContent(newContent); setIsDirty(true); }}
                         />
                     )}
                 </div>
