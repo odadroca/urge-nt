@@ -16,10 +16,13 @@ Two access patterns, one backend:
 - **Version branching** — non-linear version history with named branches, independent version numbers per branch, create/delete/set-default
 - **Template engine** — `{{variables}}` for substitution, `{{>slug}}` for recursive includes, circular reference detection
 - **React SPA** — Browse, Canvas (graph visualization), Workspace, Settings, and Teams pages with slim icon-rail sidebar and mobile bottom tab bar
-- **3-panel workspace** — editor, version sidebar, and results panel in a single screen
+- **3-panel workspace** — editor (text + visual composer modes), version sidebar (with diff viewer), and results panel
+- **Inline autocomplete** — type `{{` for variable suggestions, `{{>` for fragment includes
+- **Visual composer** — drag-and-drop block editor for text, variables, and includes
+- **Version diff** — compare any two versions with color-coded word-level or character-level diff
 - **Live preview** — rendered preview with include resolution and variable fill from defaults
 - **REST API** — full CRUD with Bearer token auth, rate limiting, OpenAPI 3.1 spec
-- **OAuth 2.1** — PKCE (S256), scoped tokens (mcp:read, mcp:write, mcp:admin), GitHub as external provider, confidential client support with client_secret
+- **OAuth 2.1** — PKCE (S256), refresh tokens with rotation, scoped tokens, GitHub provider, confidential client support
 - **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 29 tools and 6 resources
 - **Result evaluation** — LLM-powered scoring with 6 configurable dimensions (relevance, completeness, accuracy, clarity, conciseness, human), versioned evaluations, composite scores, auto-evaluate option
 - **Client-side execution** — LLMs can fetch prompts/pipelines from URGE, run them natively (free, no API cost), and store results back
@@ -28,7 +31,6 @@ Two access patterns, one backend:
 - **Import/export** — Markdown with YAML frontmatter for prompts and results
 - **Collections** — curated groupings of prompt versions, results, and nested collections (DAG) with ordering and public share links
 - **Categories and tags** — organize prompts with color-coded categories and freeform tags
-- **Version diff** — side-by-side comparison of any two versions
 - **Result comparison** — compare 2-4 LLM responses side by side
 - **Role-based access** — admin, editor, viewer roles (first user auto-admin)
 - **User namespaces** — private prompts by default, GitHub-style `{username}/{slug}` URLs, visibility scoping across all surfaces
@@ -43,7 +45,7 @@ Two access patterns, one backend:
 | Styling | Tailwind CSS |
 | Database | SQLite (default, configurable) |
 | Build | Vite 7 |
-| Testing | PHPUnit 11 (376 tests) |
+| Testing | PHPUnit 11 (385 tests) |
 
 ## Quick Start
 
@@ -211,7 +213,7 @@ Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`
 ## Testing
 
 ```bash
-php artisan test    # 376 tests
+php artisan test    # 385 tests
 ```
 
 ## Artisan Commands

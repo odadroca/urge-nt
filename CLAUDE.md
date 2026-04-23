@@ -221,6 +221,8 @@ resources/js/spa/
 │   ├── BrowsePage.jsx         # Tabs: prompts/fragments/collections/starred, filters, card grid
 │   ├── CanvasPage.jsx         # Graph visualization with @xyflow/react
 │   ├── WorkspacePage.jsx      # 3-panel editor (editor, version sidebar, results)
+│   │                          # Editor: text mode (with autocomplete) + visual composer mode, preview toggle
+│   │                          # VersionSidebar: branch selector, version list, compare mode (diff viewer)
 │   ├── SettingsPage.jsx       # Tabbed settings (API Keys, Providers, Categories, Pipelines, Evaluation, Users)
 │   ├── TeamsPage.jsx          # Teams list + create
 │   ├── TeamDetailPage.jsx     # Team members + shared prompts management
@@ -334,7 +336,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 376 tests passing. 29 MCP tools. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 385 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -360,3 +362,5 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **Result evaluation** — LLM-powered scoring with 6 configurable dimensions, versioned evaluations, composite scores, auto-evaluate option.
 - **Pipeline management** — Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels.
 - **Client-side execution** — LLMs fetch prompts/pipelines, run natively (free), store results back.
+- **OAuth refresh tokens** — 30-day refresh tokens with rotation (single-use, client-bound, scope downscoping only). Clients silently renew sessions.
+- **Workspace editor features** — version diff viewer (word/char mode), inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop block editor with Text|Visual mode toggle).
