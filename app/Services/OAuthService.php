@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\OAuthAccessToken;
 use App\Models\OAuthAuthorizationCode;
 use App\Models\OAuthClient;
+use App\Models\OAuthRefreshToken;
 use App\Models\User;
 use Illuminate\Support\Str;
 
@@ -77,11 +78,79 @@ class OAuthService
             'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
         ]);
 
+        $rawRefreshToken = Str::random(64);
+        OAuthRefreshToken::create([
+            'token'           => hash('sha256', $rawRefreshToken),
+            'user_id'         => $authCode->user_id,
+            'client_id'       => $authCode->client_id,
+            'scope'           => $authCode->scope,
+            'access_token_id' => $token->id,
+            'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
+        ]);
+
         $authCode->delete();
 
         $token->raw_token = $rawToken;
+        $token->raw_refresh_token = $rawRefreshToken;
 
         return $token;
+    }
+
+    public function refreshToken(
+        string $rawRefreshToken,
+        string $clientId,
+        ?string $requestedScope = null,
+    ): ?OAuthAccessToken {
+        $refreshToken = OAuthRefreshToken::where('token', hash('sha256', $rawRefreshToken))->first();
+
+        if (!$refreshToken || $refreshToken->isExpired()) {
+            return null;
+        }
+
+        if ($refreshToken->client_id !== $clientId) {
+            return null;
+        }
+
+        $scope = $refreshToken->scope;
+
+        if ($requestedScope !== null && $requestedScope !== '') {
+            $grantedScopes = explode(' ', $refreshToken->scope);
+            $requestedParts = explode(' ', $requestedScope);
+            foreach ($requestedParts as $s) {
+                if (!in_array($s, $grantedScopes)) {
+                    return null;
+                }
+            }
+            $scope = $requestedScope;
+        }
+
+        $rawToken = Str::random(64);
+        $newAccessToken = OAuthAccessToken::create([
+            'token'      => hash('sha256', $rawToken),
+            'user_id'    => $refreshToken->user_id,
+            'client_id'  => $refreshToken->client_id,
+            'scope'      => $scope,
+            'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
+        ]);
+
+        $rawNewRefreshToken = Str::random(64);
+        OAuthRefreshToken::create([
+            'token'           => hash('sha256', $rawNewRefreshToken),
+            'user_id'         => $refreshToken->user_id,
+            'client_id'       => $refreshToken->client_id,
+            'scope'           => $scope,
+            'access_token_id' => $newAccessToken->id,
+            'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
+        ]);
+
+        // Clean up old tokens
+        OAuthAccessToken::where('id', $refreshToken->access_token_id)->delete();
+        $refreshToken->delete();
+
+        $newAccessToken->raw_token = $rawToken;
+        $newAccessToken->raw_refresh_token = $rawNewRefreshToken;
+
+        return $newAccessToken;
     }
 
     public function findByToken(string $rawToken): ?OAuthAccessToken

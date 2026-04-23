@@ -261,7 +261,7 @@ See API Endpoints above
 
 Web: Breeze (Blade stack). Roles: admin, editor, viewer. First user auto-admin. `RequireRole` middleware as `role`.
 API: Triple-auth cascade — Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix). Rate limited per key.
-OAuth 2.1: PKCE with S256 (required for public clients, optional for confidential). Confidential client support with `client_secret` (for Mistral Le Chat). Dynamic Client Registration (RFC 7591) for Claude Desktop / Claude.ai. Scopes `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens only; API keys have full access). GitHub as external identity provider. Discovery via `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, and `/.well-known/openid-configuration`.
+OAuth 2.1: PKCE with S256 (required for public clients, optional for confidential). Confidential client support with `client_secret` (for Mistral Le Chat). Dynamic Client Registration (RFC 7591) for Claude Desktop / Claude.ai. Refresh tokens with rotation (30-day TTL, single-use, client-bound, scope downscoping only). Scopes `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens only; API keys have full access). GitHub as external identity provider. Discovery via `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server`, and `/.well-known/openid-configuration`.
 Namespaces: Prompts are private by default. Shared via teams. Visibility scope: `Prompt::visibleTo($user)`. Owner can delete/rename/share. Team members can edit content. Admins override all.
 
 ### Template Syntax
@@ -282,7 +282,7 @@ Namespaces: Prompts are private by default. Shared via teams. Visibility scope: 
 
 `config/urge.php` — `max_include_depth`, `curl_ssl_verify`, `api_rate_limit`, `api_rate_window`, `key_prefix`, `key_bytes`, `max_collection_depth` (default 5), `unlimited_collection_depth` (default false)
 
-OAuth config (env): `OAUTH_TOKEN_TTL` (token lifetime), `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (for GitHub OAuth provider)
+OAuth config (env): `OAUTH_TOKEN_TTL` (access token lifetime, default 3600s), `OAUTH_REFRESH_TOKEN_TTL` (refresh token lifetime, default 2592000s / 30 days), `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (for GitHub OAuth provider)
 OAuth clients: Created via `php artisan oauth:create-client {name}` with `--redirect` and `--confidential` flags. Pre-registered clients use `client_id` + `client_secret` (confidential) or Dynamic Client Registration (public).
 
 ### LLM Driver Architecture

@@ -123,13 +123,18 @@ class OAuthController
     {
         $grantType = $request->input('grant_type');
 
-        if ($grantType !== 'authorization_code') {
-            return response()->json([
+        return match ($grantType) {
+            'authorization_code' => $this->handleAuthorizationCodeGrant($request),
+            'refresh_token'      => $this->handleRefreshTokenGrant($request),
+            default              => response()->json([
                 'error'             => 'unsupported_grant_type',
-                'error_description' => 'Only authorization_code grant is supported.',
-            ], 400);
-        }
+                'error_description' => 'Supported grant types: authorization_code, refresh_token.',
+            ], 400),
+        };
+    }
 
+    private function handleAuthorizationCodeGrant(Request $request): JsonResponse
+    {
         $code = $request->input('code', '');
         $codeVerifier = $request->input('code_verifier', '');
         $clientId = $request->input('client_id', '');
@@ -143,7 +148,6 @@ class OAuthController
             ], 400);
         }
 
-        // Confidential clients authenticate with client_secret, public clients with PKCE
         if (!$codeVerifier && !$clientSecret) {
             return response()->json([
                 'error'             => 'invalid_request',
@@ -160,11 +164,42 @@ class OAuthController
             ], 400);
         }
 
+        return $this->tokenResponse($token);
+    }
+
+    private function handleRefreshTokenGrant(Request $request): JsonResponse
+    {
+        $refreshToken = $request->input('refresh_token', '');
+        $clientId = $request->input('client_id', '');
+        $scope = $request->input('scope');
+
+        if (!$refreshToken || !$clientId) {
+            return response()->json([
+                'error'             => 'invalid_request',
+                'error_description' => 'Missing required parameters: refresh_token, client_id.',
+            ], 400);
+        }
+
+        $token = $this->oauthService->refreshToken($refreshToken, $clientId, $scope);
+
+        if (!$token) {
+            return response()->json([
+                'error'             => 'invalid_grant',
+                'error_description' => 'Invalid or expired refresh token.',
+            ], 400);
+        }
+
+        return $this->tokenResponse($token);
+    }
+
+    private function tokenResponse(mixed $token): JsonResponse
+    {
         return response()->json([
-            'access_token' => $token->raw_token,
-            'token_type'   => 'Bearer',
-            'expires_in'   => config('urge.oauth.token_ttl', 3600),
-            'scope'        => $token->scope,
+            'access_token'  => $token->raw_token,
+            'token_type'    => 'Bearer',
+            'expires_in'    => config('urge.oauth.token_ttl', 3600),
+            'refresh_token' => $token->raw_refresh_token,
+            'scope'         => $token->scope,
         ]);
     }
 

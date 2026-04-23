@@ -102,7 +102,7 @@ class OAuthFlowTest extends TestCase
         ]);
 
         $tokenResponse->assertStatus(200)
-            ->assertJsonStructure(['access_token', 'token_type', 'expires_in', 'scope']);
+            ->assertJsonStructure(['access_token', 'token_type', 'expires_in', 'scope', 'refresh_token']);
 
         $accessToken = $tokenResponse->json('access_token');
 
@@ -299,7 +299,7 @@ class OAuthFlowTest extends TestCase
             'redirect_uri' => 'http://127.0.0.1:3000/callback',
         ]);
         $tokenResponse->assertOk()
-            ->assertJsonStructure(['access_token', 'token_type']);
+            ->assertJsonStructure(['access_token', 'token_type', 'refresh_token']);
 
         // Step 5: Use token on MCP
         $mcpResponse = $this->postJson('/api/v1/mcp', [
@@ -365,5 +365,188 @@ class OAuthFlowTest extends TestCase
 
         $response->assertOk()
             ->assertSee('Authorize Application');
+    }
+
+    // --- Refresh Token Tests ---
+
+    private function obtainTokens(string $scope = 'mcp:read', string $clientId = 'http://localhost:3000'): array
+    {
+        $oauthService = app(OAuthService::class);
+
+        $code = $oauthService->generateAuthorizationCode(
+            $this->user,
+            $clientId,
+            $clientId . '/callback',
+            $scope,
+            $this->challenge,
+            'S256',
+        );
+
+        $token = $oauthService->exchangeCode(
+            $code,
+            $this->verifier,
+            $clientId,
+            $clientId . '/callback',
+        );
+
+        return [
+            'access_token'  => $token->raw_token,
+            'refresh_token' => $token->raw_refresh_token,
+            'client_id'     => $clientId,
+        ];
+    }
+
+    public function test_refresh_token_grants_new_access_token(): void
+    {
+        $tokens = $this->obtainTokens();
+
+        $response = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $tokens['refresh_token'],
+            'client_id'     => $tokens['client_id'],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonStructure(['access_token', 'token_type', 'expires_in', 'refresh_token', 'scope']);
+
+        // New access token works on MCP
+        $mcpResponse = $this->postJson('/api/v1/mcp', [
+            'jsonrpc' => '2.0',
+            'id'      => '1',
+            'method'  => 'initialize',
+            'params'  => [],
+        ], ['Authorization' => 'Bearer ' . $response->json('access_token')]);
+
+        $mcpResponse->assertOk()
+            ->assertJsonPath('result.protocolVersion', '2025-06-18');
+    }
+
+    public function test_refresh_token_rotation_invalidates_old_token(): void
+    {
+        $tokens = $this->obtainTokens();
+        $oldRefreshToken = $tokens['refresh_token'];
+
+        // First refresh succeeds
+        $response = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $oldRefreshToken,
+            'client_id'     => $tokens['client_id'],
+        ]);
+        $response->assertOk();
+
+        // Second refresh with OLD token fails (rotation — single use)
+        $response2 = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $oldRefreshToken,
+            'client_id'     => $tokens['client_id'],
+        ]);
+        $response2->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_grant');
+    }
+
+    public function test_refresh_token_bound_to_client_id(): void
+    {
+        $tokens = $this->obtainTokens('mcp:read', 'http://localhost:3000');
+
+        // Try to refresh with a different client_id
+        $response = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $tokens['refresh_token'],
+            'client_id'     => 'http://localhost:9999',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_grant');
+    }
+
+    public function test_refresh_token_scope_downscoping(): void
+    {
+        $tokens = $this->obtainTokens('mcp:read mcp:write');
+
+        // Refresh with narrower scope
+        $response = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $tokens['refresh_token'],
+            'client_id'     => $tokens['client_id'],
+            'scope'         => 'mcp:read',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('scope', 'mcp:read');
+    }
+
+    public function test_refresh_token_scope_escalation_rejected(): void
+    {
+        $tokens = $this->obtainTokens('mcp:read');
+
+        // Try to refresh with broader scope
+        $response = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $tokens['refresh_token'],
+            'client_id'     => $tokens['client_id'],
+            'scope'         => 'mcp:admin',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_grant');
+    }
+
+    public function test_expired_refresh_token_rejected(): void
+    {
+        $tokens = $this->obtainTokens();
+
+        // Expire the refresh token directly in DB
+        \App\Models\OAuthRefreshToken::where('token', hash('sha256', $tokens['refresh_token']))
+            ->update(['expires_at' => now()->subDay()]);
+
+        $response = $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $tokens['refresh_token'],
+            'client_id'     => $tokens['client_id'],
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_grant');
+    }
+
+    public function test_refresh_grant_missing_parameters(): void
+    {
+        $response = $this->postJson('/oauth/token', [
+            'grant_type' => 'refresh_token',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('error', 'invalid_request');
+    }
+
+    public function test_well_known_advertises_refresh_token_grant(): void
+    {
+        $response = $this->getJson('/.well-known/oauth-authorization-server');
+
+        $response->assertOk()
+            ->assertJsonFragment(['grant_types_supported' => ['authorization_code', 'refresh_token']]);
+    }
+
+    public function test_old_access_token_invalidated_after_refresh(): void
+    {
+        $tokens = $this->obtainTokens();
+        $oldAccessToken = $tokens['access_token'];
+
+        // Refresh
+        $this->postJson('/oauth/token', [
+            'grant_type'    => 'refresh_token',
+            'refresh_token' => $tokens['refresh_token'],
+            'client_id'     => $tokens['client_id'],
+        ])->assertOk();
+
+        // Old access token should no longer work
+        $mcpResponse = $this->postJson('/api/v1/mcp', [
+            'jsonrpc' => '2.0',
+            'id'      => '1',
+            'method'  => 'initialize',
+            'params'  => [],
+        ], ['Authorization' => "Bearer {$oldAccessToken}"]);
+
+        $mcpResponse->assertStatus(401);
     }
 }
