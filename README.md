@@ -230,7 +230,4 @@ php artisan test    # 376 tests
 - [`documentation/mcp-clients.md`](documentation/mcp-clients.md) — MCP client setup guide (Claude, Mistral Le Chat, stdio)
 - [`documentation/claude-skill.md`](documentation/claude-skill.md) — API reference for LLM integration
 - [`public/openapi.json`](public/openapi.json) — OpenAPI 3.1 specification
-- [`docs/superpowers/specs/2026-03-25-user-namespaces-design.md`](docs/superpowers/specs/2026-03-25-user-namespaces-design.md) — Namespaces & teams design spec
-- [`docs/namespaces-sprints.md`](docs/namespaces-sprints.md) — Phase 7 sprint plan with ready-to-use prompts
-- [`docs/superpowers/specs/2026-03-26-collection-visibility-design.md`](docs/superpowers/specs/2026-03-26-collection-visibility-design.md) — Collection visibility improvements design spec
-- [`docs/superpowers/specs/2026-03-27-nested-collections-design.md`](docs/superpowers/specs/2026-03-27-nested-collections-design.md) — Nested collections (collections inside collections) design spec
+- [`docs/legacy/`](docs/legacy/) — Historical design specs and migration plans

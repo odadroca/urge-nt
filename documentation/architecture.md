@@ -182,6 +182,7 @@ Teams:
   DELETE /teams/{slug}                         — delete team
   POST   /teams/{slug}/members                 — add member
   DELETE /teams/{slug}/members/{user}          — remove member
+  POST   /teams/{slug}/leave                   — leave team
 
 Collections:
   GET    /collections                          — list collections

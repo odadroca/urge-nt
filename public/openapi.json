@@ -1898,6 +1898,69 @@
                 }
             }
         },
+        "/teams/{slug}/leave": {
+            "post": {
+                "operationId": "leaveTeam",
+                "summary": "Leave team",
+                "description": "Remove yourself from a team. Blocked if you are the sole owner.",
+                "tags": [
+                    "Teams"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Team slug"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully left the team",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not a member of this team",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Cannot leave — you are the sole owner",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/pipelines": {
             "get": {
                 "operationId": "listPipelines",

@@ -176,6 +176,7 @@ PATCH  /teams/{slug}                         — update team
 DELETE /teams/{slug}                         — delete team
 POST   /teams/{slug}/members                 — add member
 DELETE /teams/{slug}/members/{user}          — remove member
+POST   /teams/{slug}/leave                   — leave team
 GET    /health                               — health check
 ```
 
