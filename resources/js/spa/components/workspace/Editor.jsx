@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createVersion } from '../../api/versions.js';
 import PreviewPanel from './PreviewPanel.jsx';
+import AutocompleteDropdown from './AutocompleteDropdown.jsx';
+import useAutocomplete from '../../hooks/useAutocomplete.js';
 
 const VAR_PATTERN = /\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g;
 const INCLUDE_PATTERN = /\{\{>([a-zA-Z0-9_-]+)\}\}/g;
@@ -16,6 +18,7 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
     const [showPreview, setShowPreview] = useState(false);
     const textareaRef = useRef(null);
     const queryClient = useQueryClient();
+    const autocomplete = useAutocomplete(textareaRef);
 
     useEffect(() => {
         if (version) {
@@ -106,14 +109,28 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
             </div>
 
             <div className="flex-1 overflow-hidden flex flex-col">
-                <textarea
-                    ref={textareaRef}
-                    value={content}
-                    onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
-                    className={`w-full bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none border-none ${showPreview ? 'h-1/2' : 'h-full'}`}
-                    placeholder="Write your prompt..."
-                    spellCheck={false}
-                />
+                <div className="relative" style={{ flex: showPreview ? '0 0 50%' : '1 1 auto', overflow: 'hidden' }}>
+                    <textarea
+                        ref={textareaRef}
+                        value={content}
+                        onChange={(e) => { setContent(e.target.value); setIsDirty(true); }}
+                        onInput={autocomplete.handleInput}
+                        onKeyDown={(e) => { if (autocomplete.handleKeyDown(e)) return; }}
+                        onBlur={() => { setTimeout(() => autocomplete.dismiss(), 150); }}
+                        className="w-full h-full bg-gray-900 text-gray-100 font-mono text-sm p-4 resize-none outline-none border-none"
+                        placeholder="Write your prompt... (type {{ for variables, {{> for includes)"
+                        spellCheck={false}
+                    />
+                    {autocomplete.isOpen && (
+                        <AutocompleteDropdown
+                            items={autocomplete.filteredItems}
+                            selectedIndex={autocomplete.selectedIndex}
+                            position={autocomplete.position}
+                            triggerType={autocomplete.triggerType}
+                            onSelect={autocomplete.insertItem}
+                        />
+                    )}
+                </div>
                 {showPreview && (
                     <PreviewPanel
                         username={username}
