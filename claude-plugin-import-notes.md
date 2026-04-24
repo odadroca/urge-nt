@@ -65,6 +65,35 @@ you're not just versioning plugin content, you're unlocking three execution
 pathways over it. Mode 2 specifically — chat-UI-as-reasoning-driver, URGE-as-
 ops-layer — sidesteps API quotas entirely for interactive use.
 
+## Observability angle (URGE + Langfuse, paired)
+
+When URGE executes a plugin-Pipeline (modes 1 and 2-via-pipeline-run) AND the
+Langfuse integration is enabled, you get an observability view over Claude-
+plugin orchestration that doesn't exist anywhere today.
+
+**What becomes visible:**
+
+- **Per-agent generation** — every sub-agent invocation as a first-class generation with input/output, tokens, latency, cost, model, prompt version
+- **Preserved hierarchy** — synthesis-of-parallels relationship visible in the trace tree (orchestrator parent, sub-agent children — not flat siblings)
+- **Cross-run aggregation** — slowest / most expensive / most failure-prone sub-agent across N runs
+- **Version-pinned analysis** — did v3 of a sub-agent improve or regress vs v2 on comparable inputs
+- **Per-role cost attribution** — plugin-wide spend broken down by which sub-agent burned what
+- **Evaluation trend** — URGE's `EvaluationService` scores + Langfuse human annotations pulled back → per-agent score over time
+- **Cross-plugin signal** — "across all imported 'code review' agents from all imported plugins, which score highest" — only answerable because everything is normalized into one registry
+
+**What remains invisible (honest boundary):**
+
+- **Chat-UI-as-registry pure form (mode 2).** When a chat client fetches prompt content from URGE and reasons natively, that LLM call doesn't touch URGE and doesn't emit traces. URGE sees only the prompt fetch and (if the client calls back) the result storage.
+- **Plugin running natively in Claude Code (mode 3).** Invisible entirely; Claude Code doesn't emit to Langfuse. To gain observability you must route execution through URGE.
+
+Strategic consequence: **observability is itself a reason to run plugins
+through URGE**, not just to store them. Plugin authors today have zero
+observability of their plugins in the wild. Even Anthropic — who sees the API
+calls — doesn't see the *structure of plugin orchestration* around those calls,
+because that structure lives in plugin code on each user's machine. URGE +
+Langfuse for a routed-through-URGE plugin provides a vantage point nobody else
+currently has.
+
 ## Orchestrator framing
 
 Parallel to the Langfuse story: URGE and Claude Code are **peers**, not parent-
@@ -72,6 +101,24 @@ and-add-on. URGE owns the content primitives (prompts, fragments, pipelines)
 and provides execution via modes 1 and 2. Claude Code owns local IDE/CLI
 execution (mode 3). Each tool stays in its strength; the imported plugin lives
 simultaneously in both worlds.
+
+## Two value propositions stacked on the same import
+
+Plugin import is really two distinct value propositions on shared
+infrastructure:
+
+1. **URGE as plugin authoring layer.** Branching, fragment composability, team sharing, run + archive loop, cross-plugin distillation. Sells to plugin *creators* iterating on their own work.
+2. **URGE as plugin observability layer.** Import third-party plugin, run through URGE, see what happens under the hood via Langfuse. Sells to plugin *users* (individuals or teams) who want insight, not authorship.
+
+They don't conflict, but they prioritize the MVP differently:
+
+- **Authoring-shaped MVP** emphasizes branching, fragments, teams, editing UI. Assumes the user is a creator.
+- **Observability-shaped MVP** emphasizes source tracking, re-import, running imported plugins faithfully as-is, trace emission, and cross-plugin aggregation. Assumes the user is a consumer.
+
+The observability audience is larger and doesn't require the user to be a
+plugin author at all. Worth noticing which audience the MVP targets first —
+it's a real scope fork and the right choice depends on who you're building for
+(plus which audience URGE already attracts today).
 
 ## MVP scope (when this gets picked up)
 
