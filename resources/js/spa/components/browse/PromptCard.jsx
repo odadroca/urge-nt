@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
+import AddToCollectionButton from './AddToCollectionButton.jsx';
 
 export default function PromptCard({ prompt }) {
     const owner = prompt.creator?.slug || prompt.creator?.username || prompt.creator?.name;
+    const activeVersionId = prompt.active_version?.id || prompt.latest_version?.id;
 
     return (
         <Link
@@ -10,17 +12,22 @@ export default function PromptCard({ prompt }) {
         >
             <div className="flex items-start justify-between mb-2">
                 <h3 className="text-sm font-medium text-gray-100 truncate">{prompt.name}</h3>
-                {prompt.category && (
-                    <span
-                        className="text-[10px] px-1.5 py-0.5 rounded shrink-0 ml-2"
-                        style={{
-                            backgroundColor: (prompt.category.color || '#4b5563') + '20',
-                            color: prompt.category.color || '#9ca3af',
-                        }}
-                    >
-                        {prompt.category.name}
-                    </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {activeVersionId && (
+                        <AddToCollectionButton promptVersionId={activeVersionId} />
+                    )}
+                    {prompt.category && (
+                        <span
+                            className="text-[10px] px-1.5 py-0.5 rounded"
+                            style={{
+                                backgroundColor: (prompt.category.color || '#4b5563') + '20',
+                                color: prompt.category.color || '#9ca3af',
+                            }}
+                        >
+                            {prompt.category.name}
+                        </span>
+                    )}
+                </div>
             </div>
 
             {prompt.description && (
