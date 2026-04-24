@@ -220,10 +220,13 @@ resources/js/spa/
 ├── pages/
 │   ├── BrowsePage.jsx         # Tabs: prompts/fragments/collections/starred, filters, card grid
 │   ├── CanvasPage.jsx         # Graph visualization with @xyflow/react
+│   │                          # Layer toggles, ELK auto-layout, node position persistence
+│   │                          # fitView on first render only — viewport stable across state changes
+│   ├── PipelinesPage.jsx      # Pipeline CRUD with channel management (promoted from Settings)
 │   ├── WorkspacePage.jsx      # 3-panel editor (editor, version sidebar, results)
 │   │                          # Editor: text mode (with autocomplete) + visual composer mode, preview toggle
 │   │                          # VersionSidebar: branch selector, version list, compare mode (diff viewer)
-│   ├── SettingsPage.jsx       # Tabbed settings (API Keys, Providers, Categories, Pipelines, Evaluation, Users)
+│   ├── SettingsPage.jsx       # Tabbed settings (API Keys, Providers, Categories, Evaluation, Users)
 │   ├── TeamsPage.jsx          # Teams list + create
 │   ├── TeamDetailPage.jsx     # Team members + shared prompts management
 │   └── LoginPage.jsx          # Login form
@@ -238,7 +241,7 @@ Post-login redirect: `/app/browse`
 
 ```
 React SPA (at /app/*, BrowserRouter):
-/app/browse, /app/canvas, /app/workspace/:username/:slug, /app/settings, /app/teams, /app/teams/:slug
+/app/browse, /app/pipelines, /app/teams, /app/teams/:slug, /app/canvas, /app/workspace/:username/:slug, /app/settings
 
 Legacy redirects (all redirect to /app/* equivalents):
 /settings, /teams, /teams/{slug}, /prompts/{username}/{slug}, /browse, /dashboard
