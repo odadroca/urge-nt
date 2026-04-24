@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Sortable from 'sortablejs';
+import client from '../../api/client.js';
 
 const BLOCK_PATTERN = /(\{\{>[a-zA-Z0-9_-]+\}\}|\{\{[a-zA-Z_][a-zA-Z0-9_]*\}\})/g;
 
@@ -47,6 +49,22 @@ export default function VisualComposer({ content, onChange }) {
     const [blocks, setBlocks] = useState(() => parseContent(content));
     const [addingType, setAddingType] = useState(null);
     const [addingValue, setAddingValue] = useState('');
+    const [suggestionIndex, setSuggestionIndex] = useState(0);
+
+    const { data: fragmentsData } = useQuery({
+        queryKey: ['autocomplete', 'fragments'],
+        queryFn: async () => { const { data } = await client.get('/internal/fragments', { baseURL: '' }); return data; },
+        staleTime: 60000,
+    });
+
+    const { data: variablesData } = useQuery({
+        queryKey: ['autocomplete', 'variables'],
+        queryFn: async () => { const { data } = await client.get('/internal/variables', { baseURL: '' }); return data; },
+        staleTime: 60000,
+    });
+
+    const fragments = fragmentsData ?? [];
+    const variables = variablesData ?? [];
     const containerRef = useRef(null);
     const sortableRef = useRef(null);
 
@@ -169,37 +187,16 @@ export default function VisualComposer({ content, onChange }) {
             {/* Add block toolbar */}
             <div className="border-t border-gray-700 px-3 py-2">
                 {addingType ? (
-                    <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                            addingType === 'variable' ? 'bg-blue-900/50 text-blue-400' : 'bg-amber-900/50 text-amber-400'
-                        }`}>
-                            {addingType === 'variable' ? 'VAR' : 'INC'}
-                        </span>
-                        <input
-                            value={addingValue}
-                            onChange={(e) => setAddingValue(e.target.value)}
-                            placeholder={addingType === 'variable' ? 'variable_name' : 'fragment_slug'}
-                            className="flex-1 bg-gray-900 border border-gray-600 text-gray-200 text-xs font-mono rounded px-2 py-1 outline-none focus:border-indigo-500"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') addBlock(addingType, addingValue);
-                                if (e.key === 'Escape') { setAddingType(null); setAddingValue(''); }
-                            }}
-                            autoFocus
-                        />
-                        <button
-                            onClick={() => addBlock(addingType, addingValue)}
-                            disabled={!addingValue.trim()}
-                            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
-                        >
-                            Add
-                        </button>
-                        <button
-                            onClick={() => { setAddingType(null); setAddingValue(''); }}
-                            className="text-xs text-gray-500 hover:text-gray-300"
-                        >
-                            Cancel
-                        </button>
-                    </div>
+                    <AddBlockForm
+                        type={addingType}
+                        value={addingValue}
+                        onChange={setAddingValue}
+                        suggestions={addingType === 'include' ? fragments : variables}
+                        suggestionIndex={suggestionIndex}
+                        onSuggestionIndexChange={setSuggestionIndex}
+                        onAdd={(val) => { addBlock(addingType, val); setSuggestionIndex(0); }}
+                        onCancel={() => { setAddingType(null); setAddingValue(''); setSuggestionIndex(0); }}
+                    />
                 ) : (
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-500">Add:</span>
@@ -224,6 +221,108 @@ export default function VisualComposer({ content, onChange }) {
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+function AddBlockForm({ type, value, onChange, suggestions, suggestionIndex, onSuggestionIndexChange, onAdd, onCancel }) {
+    const isInclude = type === 'include';
+    const isVariable = type === 'variable';
+    const items = isInclude
+        ? suggestions.map(f => ({ value: f.slug, label: f.name }))
+        : suggestions.map(v => ({ value: v, label: v }));
+
+    const q = value.toLowerCase();
+    const filtered = q ? items.filter(i => i.value.toLowerCase().includes(q) || i.label.toLowerCase().includes(q)) : items;
+
+    const handleKeyDown = (e) => {
+        if (filtered.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault();
+            const delta = e.key === 'ArrowDown' ? 1 : -1;
+            onSuggestionIndexChange((suggestionIndex + delta + filtered.length) % filtered.length);
+            return;
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (filtered.length > 0 && filtered[suggestionIndex]) {
+                onAdd(filtered[suggestionIndex].value);
+            } else if (value.trim()) {
+                onAdd(value.trim());
+            }
+            return;
+        }
+        if (e.key === 'Tab' && filtered.length > 0) {
+            e.preventDefault();
+            onChange(filtered[suggestionIndex].value);
+            return;
+        }
+        if (e.key === 'Escape') {
+            onCancel();
+        }
+    };
+
+    return (
+        <div className="relative">
+            <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                    isVariable ? 'bg-blue-900/50 text-blue-400' : 'bg-amber-900/50 text-amber-400'
+                }`}>
+                    {isVariable ? 'VAR' : 'INC'}
+                </span>
+                <input
+                    value={value}
+                    onChange={(e) => { onChange(e.target.value); onSuggestionIndexChange(0); }}
+                    onKeyDown={handleKeyDown}
+                    placeholder={isVariable ? 'variable_name' : 'fragment_slug'}
+                    className="flex-1 bg-gray-900 border border-gray-600 text-gray-200 text-xs font-mono rounded px-2 py-1 outline-none focus:border-indigo-500"
+                    autoFocus
+                />
+                <button
+                    onClick={() => {
+                        if (filtered.length > 0 && filtered[suggestionIndex]) {
+                            onAdd(filtered[suggestionIndex].value);
+                        } else if (value.trim()) {
+                            onAdd(value.trim());
+                        }
+                    }}
+                    disabled={!value.trim() && filtered.length === 0}
+                    className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
+                >
+                    Add
+                </button>
+                <button onClick={onCancel} className="text-xs text-gray-500 hover:text-gray-300">
+                    Cancel
+                </button>
+            </div>
+
+            {filtered.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl overflow-hidden z-40"
+                     style={{ minWidth: '200px', maxHeight: '160px' }}>
+                    <div className="overflow-y-auto" style={{ maxHeight: '160px' }}>
+                        {filtered.map((item, i) => (
+                            <button
+                                key={item.value}
+                                onMouseDown={(e) => { e.preventDefault(); onAdd(item.value); }}
+                                className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors ${
+                                    i === suggestionIndex
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'text-gray-300 hover:bg-gray-700'
+                                }`}
+                            >
+                                <span className={`shrink-0 text-[9px] px-1 py-0.5 rounded font-medium ${
+                                    isInclude ? 'bg-amber-900/50 text-amber-400' : 'bg-blue-900/50 text-blue-400'
+                                }`}>
+                                    {isInclude ? '>' : '$'}
+                                </span>
+                                <span className="font-mono truncate">{item.value}</span>
+                                {item.label !== item.value && (
+                                    <span className="text-[10px] text-gray-500 truncate ml-auto">{item.label}</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
