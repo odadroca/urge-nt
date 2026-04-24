@@ -14,13 +14,13 @@ const navItems = [
         ),
     },
     {
-        key: 'canvas',
-        label: 'Canvas',
-        to: '/canvas',
+        key: 'pipelines',
+        label: 'Pipelines',
+        to: '/pipelines',
         spa: true,
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
             </svg>
         ),
     },
@@ -36,13 +36,13 @@ const navItems = [
         ),
     },
     {
-        key: 'pipelines',
-        label: 'Pipelines',
-        to: '/pipelines',
+        key: 'canvas',
+        label: 'Canvas',
+        to: '/canvas',
         spa: true,
         icon: (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M12 17.25h8.25" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
             </svg>
         ),
     },
