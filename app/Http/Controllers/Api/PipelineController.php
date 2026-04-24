@@ -41,7 +41,7 @@ class PipelineController extends ApiController
 
     public function show(Pipeline $pipeline): JsonResponse
     {
-        $pipeline->load(['channels.llmProvider', 'channels.fragment:id,name,slug']);
+        $pipeline->load(['channels.llmProvider']);
 
         return $this->success($pipeline);
     }
@@ -72,7 +72,6 @@ class PipelineController extends ApiController
             'role_label' => 'required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
             'system_prompt' => 'nullable|string',
-            'prompt_fragment_id' => 'nullable|integer|exists:prompts,id',
             'trigger' => 'required|in:parallel,synthesis',
             'sort_order' => 'integer|min:0',
         ]);
@@ -82,12 +81,9 @@ class PipelineController extends ApiController
             'role_label' => $validated['role_label'],
             'llm_provider_id' => $validated['llm_provider_id'] ?? null,
             'system_prompt' => $validated['system_prompt'] ?? null,
-            'prompt_fragment_id' => $validated['prompt_fragment_id'] ?? null,
             'trigger' => $validated['trigger'],
             'sort_order' => $validated['sort_order'] ?? 0,
         ]);
-
-        $channel->load('fragment:id,name,slug');
 
         return $this->success($channel, 201);
     }
@@ -102,14 +98,13 @@ class PipelineController extends ApiController
             'role_label' => 'sometimes|required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
             'system_prompt' => 'nullable|string',
-            'prompt_fragment_id' => 'nullable|integer|exists:prompts,id',
             'trigger' => 'sometimes|required|in:parallel,synthesis',
             'sort_order' => 'sometimes|integer|min:0',
         ]);
 
         $channel->update($validated);
 
-        return $this->success($channel->fresh()->load('fragment:id,name,slug'));
+        return $this->success($channel->fresh());
     }
 
     public function removeChannel(Pipeline $pipeline, PipelineChannel $channel): JsonResponse

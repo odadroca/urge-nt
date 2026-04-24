@@ -26,12 +26,7 @@ class PipelineService
         array $variableValues,
         int $userId,
     ): array {
-        $pipeline->load([
-            'parallelChannels.llmProvider',
-            'parallelChannels.fragment.activeVersion',
-            'synthesisChannel.llmProvider',
-            'synthesisChannel.fragment.activeVersion',
-        ]);
+        $pipeline->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
 
         // Render the prompt content
         $renderResult = $this->templateEngine->render(
@@ -127,18 +122,16 @@ class PipelineService
 
     private function resolveSystemPrompt(\App\Models\PipelineChannel $channel): string
     {
-        $fragmentContent = '';
-        if ($channel->fragment && $channel->fragment->activeVersion) {
-            $fragmentContent = $channel->fragment->activeVersion->content ?? '';
-        }
-
         $systemPrompt = $channel->system_prompt ?? '';
 
-        if ($fragmentContent && $systemPrompt) {
-            return $fragmentContent . "\n\n" . $systemPrompt;
+        if (!$systemPrompt) {
+            return '';
         }
 
-        return $fragmentContent ?: $systemPrompt;
+        // Resolve {{>slug}} includes in the system prompt
+        $result = $this->templateEngine->render($systemPrompt, [], null);
+
+        return $result['rendered'];
     }
 
     private function buildSynthesisInput(array $parallelResults): string
