@@ -3,7 +3,6 @@ import useAuth from '../hooks/useAuth.js';
 import ApiKeysTab from '../components/settings/ApiKeysTab.jsx';
 import LlmProvidersTab from '../components/settings/LlmProvidersTab.jsx';
 import CategoriesTab from '../components/settings/CategoriesTab.jsx';
-import PipelinesTab from '../components/settings/PipelinesTab.jsx';
 import EvaluationTab from '../components/settings/EvaluationTab.jsx';
 import UserManagementTab from '../components/settings/UserManagementTab.jsx';
 
@@ -11,7 +10,6 @@ const TAB_COMPONENTS = {
     'api-keys': ApiKeysTab,
     'llm-providers': LlmProvidersTab,
     'categories': CategoriesTab,
-    'pipelines': PipelinesTab,
     'evaluation': EvaluationTab,
     'users': UserManagementTab,
 };
@@ -20,7 +18,6 @@ const TABS = [
     { key: 'api-keys', label: 'API Keys', roles: ['admin'] },
     { key: 'llm-providers', label: 'LLM Providers', roles: ['admin', 'editor', 'viewer'] },
     { key: 'categories', label: 'Categories', roles: ['admin', 'editor', 'viewer'] },
-    { key: 'pipelines', label: 'Pipelines', roles: ['admin', 'editor'] },
     { key: 'evaluation', label: 'Evaluation', roles: ['admin', 'editor'] },
     { key: 'users', label: 'Users', roles: ['admin'] },
 ];
