@@ -64,8 +64,8 @@ class CollectionController extends ApiController
         $collection->load(['items' => function ($query) {
             $query->orderBy('sort_order')->with(['item' => function ($morphTo) {
                 $morphTo->morphWith([
-                    PromptVersion::class => ['prompt'],
-                    Result::class => ['prompt', 'promptVersion'],
+                    PromptVersion::class => ['prompt.creator'],
+                    Result::class => ['prompt.creator', 'promptVersion'],
                 ]);
             }]);
         }]);
@@ -90,6 +90,7 @@ class CollectionController extends ApiController
                 if ($item->item_type === 'prompt_version' && $resolved) {
                     $entry['prompt_name']    = $resolved->prompt->name ?? null;
                     $entry['prompt_slug']    = $resolved->prompt->slug ?? null;
+                    $entry['prompt_owner']   = $resolved->prompt->creator->slug ?? null;
                     $entry['version_number'] = $resolved->version_number;
                     $entry['content']        = $resolved->content;
                     $entry['variables']      = $resolved->variables;
@@ -97,6 +98,7 @@ class CollectionController extends ApiController
                 } elseif ($item->item_type === 'result' && $resolved) {
                     $entry['prompt_name']    = $resolved->prompt->name ?? null;
                     $entry['prompt_slug']    = $resolved->prompt->slug ?? null;
+                    $entry['prompt_owner']   = $resolved->prompt->creator->slug ?? null;
                     $entry['version_number'] = $resolved->promptVersion->version_number ?? null;
                     $entry['provider_name']  = $resolved->provider_name;
                     $entry['model_name']     = $resolved->model_name;
