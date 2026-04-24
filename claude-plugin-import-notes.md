@@ -27,15 +27,19 @@ URGE already has shapes for:
 | Skill (`.md` + YAML frontmatter) | `Prompt` (body = content, frontmatter = metadata/tags) | Native — storage is identical |
 | Slash command | `Prompt` | Native — a command is a prompt that gets injected |
 | Agent (`.md` + tools + model) | `Prompt` + extra metadata (allowed tools, model) | Fits with one new JSON metadata column, or via tags |
-| Plugin itself (the bundle) | `Collection` | Perfect — curated polymorphic grouping is what Collections are |
+| Multi-agent orchestration (orchestrator + sub-agents) | `Pipeline` (channels = sub-agents, synthesis channel = orchestrator) | Native — a Pipeline *is* a runtime orchestration graph |
+| Plugin itself (the bundle) | `Collection` containing Prompts **and** Pipelines | Perfect — curated polymorphic grouping is what Collections are |
 | Hooks (shell commands) | — | Out of scope; not prompts |
 | MCP servers (connection config) | — | Out of scope; not prompts |
 
-~70% of plugin content maps directly to existing primitives. The
-plugin-as-Collection insight is the unlock: `CollectionItem` is already
-polymorphic, so a plugin-Collection holds skills + commands + agents
-heterogeneously, and nested collections (already supported) give
-plugin-packs-of-plugins if that ever matters.
+Two layers, not one. **Static content** (skills, commands, non-orchestrating
+agents) maps to Prompts. **Runtime orchestration** (an orchestrator agent
+fanning out to sub-agents and synthesizing) maps to Pipelines. The plugin
+wrapper is a Collection that can hold both.
+
+Note: `CollectionItem`'s polymorphic types are currently `prompt_version |
+result | collection`. To represent full plugin structure, extend to include
+`pipeline`. Small principled extension; matches how Collections already work.
 
 ## Why it's valuable (beyond "I can import things")
 
@@ -47,20 +51,36 @@ Import is a means; the real wins only appear once plugin content lives in URGE:
 4. **Teams.** Plugins are usually solo-authored or PR'd. URGE's team model lets a group iterate privately before publishing.
 5. **Cross-plugin distillation.** The new thing. Synthesize across imported plugins. Genuinely novel value.
 
+## Execution modes (URGE is not registry-only)
+
+URGE already supports multiple execution pathways, and the same imported
+plugin-Pipeline can be run via any of them from the same stored artifact:
+
+1. **URGE-native execution** — `LlmDispatchService` + configured `LlmProvider` drivers (OpenAI/Anthropic/Mistral/Gemini/Ollama/OpenRouter) run the Pipeline directly. Paywalled against the user's API keys. Best for deterministic, scriptable, archived runs.
+2. **Chat-client-driven via MCP** — Claude Desktop, Mistral Le Chat, or a Custom GPT reasons in the chat UI; URGE serves as the ops layer (render prompts, run pipelines, archive results) via MCP or Custom-GPT-Actions. **The reasoning tokens are on the user's chat subscription, not metered API calls.** This is the economic sweet spot: the paywalled chat surface becomes the reasoning driver, URGE provides the structured runtime the chat UI doesn't have. Flow example: ask Claude to draft a prompt → save to URGE → ask Claude to render + run + store the result, all from the chat UI.
+3. **Claude-Code-driven** — Claude Code runs plugins locally (skills/hooks execute in the IDE/CLI). URGE as pure registry. Least interesting for URGE because URGE does no work.
+
+The plugin-import value proposition sharpens once modes 1 and 2 are in view:
+you're not just versioning plugin content, you're unlocking three execution
+pathways over it. Mode 2 specifically — chat-UI-as-reasoning-driver, URGE-as-
+ops-layer — sidesteps API quotas entirely for interactive use.
+
 ## Orchestrator framing
 
-Parallel to the Langfuse story: URGE doesn't *run* the plugin (Claude Code
-does), but URGE owns the *content primitives the plugin is built from*. Claude
-Code is the execution engine; URGE is the authoring + registry + distillation
-layer. Same pattern as URGE/Langfuse: URGE is a peer, not an add-on. Each tool
-stays in its strength.
+Parallel to the Langfuse story: URGE and Claude Code are **peers**, not parent-
+and-add-on. URGE owns the content primitives (prompts, fragments, pipelines)
+and provides execution via modes 1 and 2. Claude Code owns local IDE/CLI
+execution (mode 3). Each tool stays in its strength; the imported plugin lives
+simultaneously in both worlds.
 
 ## MVP scope (when this gets picked up)
 
-- **Import-only.** Parser for `plugin.json` + `skills/`, `commands/`, `agents/` dirs → Prompts + a wrapping Collection. Defer round-trip export.
-- **Source tracking column** — `Prompt.source_url` nullable (repo URL + commit hash + file path). Cheap; enables diffing/re-import later without committing to full sync.
-- **Tags over new type enum.** Use `tags: [skill, agent, command]` rather than expanding `Prompt.type` beyond `prompt|fragment`. Less schema churn. Promote to a dedicated type only if behavior genuinely diverges.
-- **CLI first, MCP tool second.** `php artisan urge:import-plugin <path-or-url>` mirrors the existing `urge:import-v1` command. Add an `import_plugin` MCP tool once the human workflow is validated.
+- **Import-only.** Parser for `plugin.json` + `skills/`, `commands/`, `agents/` dirs → Prompts (static content) + Pipelines (orchestration-shaped content) + a wrapping Collection. Defer round-trip export.
+- **Detect orchestration shape.** For plugins with a clear orchestrator + sub-agents pattern that matches URGE's Pipeline model (static parallel channels + single synthesis pass), import as a Pipeline. For plugins with richer dynamic orchestration (conditional dispatch, loops, recursive spawning), import the agents as Prompts and flag loudly that manual Pipeline composition is needed. **Silent approximation is worse than nothing** — fidelity matters more than import coverage.
+- **Extend `CollectionItem` polymorphism** to include `pipeline` alongside existing `prompt_version | result | collection`. Required for the Collection-of-Prompts-and-Pipelines shape.
+- **Source tracking column** — `Prompt.source_url` nullable (repo URL + commit hash + file path). Cheap; enables diffing/re-import later without committing to full sync. Apply the same pattern to imported Pipelines.
+- **Tags over new type enum.** Use `tags: [skill, agent, command]` on Prompts rather than expanding `Prompt.type` beyond `prompt|fragment`. Less schema churn. Promote to a dedicated type only if behavior genuinely diverges.
+- **CLI first, MCP tool second.** `php artisan urge:import-plugin <path-or-url>` mirrors the existing `urge:import-v1` command. Add an `import_plugin` MCP tool once the human workflow is validated — note that mode-2 execution (chat-UI-driven) makes the MCP tool the more valuable surface once it lands.
 - **Loose schema parser.** Treat unknown YAML frontmatter keys as
   metadata-preserved, not metadata-rejected. Plugin conventions are still
   shifting; don't lock in early.
@@ -76,6 +96,7 @@ stays in its strength.
 
 - Plugin taxonomy is still shifting. "Superpowers" is one convention (Jesse Vincent's pack); others exist and conventions will keep moving. Loose schema parsing matters.
 - Feature value depends on whether plugin authors want URGE as their authoring layer. Unknown. Start with *your own* plugin workflow as the validation case — if URGE makes *you* iterate plugins faster, that's a strong signal; if not, don't ship beyond MVP.
+- **Orchestration fidelity gap.** URGE's Pipeline is one specific shape: static parallel channels + single synthesis pass. Claude Code's agent dispatching is dynamic (orchestrator decides mid-run whether to spawn sub-agents, can loop, can recurse). Many interesting plugins live in that richer space. For those, URGE's Pipeline is a lossy approximation. The importer must detect mismatch and refuse rather than silently flatten.
 - The mapping I described is structural. The semantics may surprise — e.g., a slash command's "argument hint" frontmatter key has no obvious URGE analog. Discover these case-by-case during implementation, don't pre-design for them.
 
 ## Open design questions (for later)
