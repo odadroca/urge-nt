@@ -26,7 +26,7 @@ Two access patterns, one backend:
 - **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 29 tools and 6 resources
 - **Result evaluation** — LLM-powered scoring with 6 configurable dimensions (relevance, completeness, accuracy, clarity, conciseness, human), versioned evaluations, composite scores, auto-evaluate option
 - **Client-side execution** — LLMs can fetch prompts/pipelines from URGE, run them natively (free, no API cost), and store results back
-- **Pipeline management** — create, update, delete pipelines and manage channels via MCP
+- **Pipeline management** — create, update, delete pipelines and manage channels via MCP. Channel system prompts support `{{>slug}}` includes for versioned, composable context (personas, output formats)
 - **6 LLM drivers** — OpenAI, Anthropic, Mistral, Gemini, Ollama, OpenRouter
 - **Import/export** — Markdown with YAML frontmatter for prompts and results
 - **Collections** — curated groupings of prompt versions, results, and nested collections (DAG) with ordering and public share links

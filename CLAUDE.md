@@ -115,7 +115,7 @@ Pipeline:
 - `delete_pipeline(slug, owner?)` — delete a pipeline
 
 Channels:
-- `add_channel(pipeline_slug, owner?, name, provider_slug, system_prompt?, settings?)` — add channel to pipeline
+- `add_channel(pipeline_slug, owner?, name, provider_slug, system_prompt?, settings?)` — add channel to pipeline. system_prompt supports `{{>slug}}` includes for versioned fragments.
 - `update_channel(pipeline_slug, owner?, channel_id, name?, provider_slug?, system_prompt?, settings?)` — update a channel
 - `remove_channel(pipeline_slug, owner?, channel_id)` — remove channel from pipeline
 
@@ -269,7 +269,8 @@ Namespaces: Prompts are private by default. Shared via teams. Visibility scope: 
 ### Template Syntax
 
 - `{{variable_name}}` — variable placeholder
-- `{{>slug}}` — include another prompt's active version
+- `{{>slug}}` — include another prompt's active version content
+- Works in: prompt content, pipeline channel system prompts
 - Max depth: `URGE_MAX_INCLUDE_DEPTH` env (default 10)
 
 ### Key Patterns
@@ -360,7 +361,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **OAuth 2.1** — PKCE (S256), confidential client support, Dynamic Client Registration (RFC 7591), scoped tokens, GitHub external identity provider, OIDC discovery. Verified with Claude.ai/Desktop, Mistral Le Chat.
 - **Streamable HTTP MCP** — Protocol version 2025-06-18, 29 tools. Verified with Claude.ai, Claude Desktop, Mistral Le Chat, stdio.
 - **Result evaluation** — LLM-powered scoring with 6 configurable dimensions, versioned evaluations, composite scores, auto-evaluate option.
-- **Pipeline management** — Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels.
+- **Pipeline management** — Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels. Channel system prompts support `{{>slug}}` template includes for versioned, composable context (e.g., personas, output formats).
 - **Client-side execution** — LLMs fetch prompts/pipelines, run natively (free), store results back.
 - **OAuth refresh tokens** — 30-day refresh tokens with rotation (single-use, client-bound, scope downscoping only). Clients silently renew sessions.
 - **Workspace editor features** — version diff viewer (word/char mode), inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop block editor with Text|Visual mode toggle).

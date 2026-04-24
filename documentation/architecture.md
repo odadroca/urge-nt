@@ -43,7 +43,8 @@ ApiKey ──<> Prompt (pivot: api_key_prompt)
 | collection_share_links | collection_id, token, label, expires_at, access_count, created_by | Public share links for collections |
 | api_keys | key_hash (SHA-256), key_preview, is_active, expires_at | Bearer auth |
 | api_key_prompt | api_key_id, prompt_id | Scope keys to prompts |
-| pipelines | name, slug, description, owner, channels (JSON) | Multi-channel prompt execution pipelines |
+| pipelines | name, slug, description, created_by, is_active | Multi-channel prompt execution pipelines |
+| pipeline_channels | pipeline_id, role_label, llm_provider_id, system_prompt, trigger, sort_order | Pipeline channels. system_prompt supports `{{>slug}}` includes |
 | result_evaluations | result_id, version, scores (JSON), composite_score, evaluator_provider, evaluator_model, evaluation_prompt_version_id, evaluated_by | Versioned LLM-powered result scoring |
 | evaluation_settings | user_id, enabled, auto_evaluate, provider_id, dimensions (JSON) | Per-user evaluation configuration |
 | teams | name, slug (unique), created_by | Flat groups for sharing (Phase 7) |

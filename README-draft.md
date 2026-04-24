@@ -18,17 +18,19 @@ URGE flips the direction: instead of you pushing prompts to LLMs, **LLMs pull pr
 - **Template engine** -- `{{variables}}` for substitution, `{{>slug}}` for includes, recursive resolution
 - **MCP server** -- 29 tools, Streamable HTTP + stdio transports, works with Claude Desktop and Claude.ai out of the box
 - **REST API** -- full CRUD, Bearer token auth, OpenAPI 3.1 spec included
-- **React UI** -- Browse, Canvas (graph view), and Workspace (3-panel editor) for managing prompts visually
+- **React UI** -- Browse, Canvas (graph view), Workspace (3-panel editor), Settings, and Teams
+- **Workspace editor** -- inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop blocks), version diff viewer (word/char mode), live preview
 - **Result archive** -- every LLM response stored with provider, model, ratings, and notes
 - **Evaluation** -- LLM-powered scoring across 6 dimensions, composite scores, auto-evaluate option
-- **Pipelines** -- run the same prompt through multiple LLM providers and compare results
+- **Pipelines** -- run the same prompt through multiple channels with different providers and contexts. Channel system prompts support `{{>slug}}` includes for versioned personas and instructions
+- **OAuth 2.1** -- PKCE, refresh tokens with rotation, scoped tokens, Dynamic Client Registration
 - **Collections** -- curate prompt versions and results into shareable, nestable groups
 - **Teams and namespaces** -- private-by-default prompts with team sharing and `{username}/{slug}` URLs
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/urge.git && cd urge
+git clone https://github.com/odadroca/urge-nt.git && cd urge-nt
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
