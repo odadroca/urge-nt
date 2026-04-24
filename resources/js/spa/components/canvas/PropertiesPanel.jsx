@@ -116,7 +116,7 @@ export default function PropertiesPanel({ node, onClose }) {
                     </button>
                 )}
                 {isPromptOrFragment && (
-                    <a href={`/prompts/${d.owner}/${d.slug}`}
+                    <a href={`/app/workspace/${d.owner}/${d.slug}`}
                         className="block w-full bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm py-2 rounded-lg text-center">
                         Open in Editor
                     </a>

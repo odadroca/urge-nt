@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
-    ReactFlow, useNodesState, useEdgesState, Background, Controls, MiniMap,
+    ReactFlow, useNodesState, useEdgesState, useReactFlow, Background, Controls, MiniMap,
 } from '@xyflow/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePositions, appendInclude } from '../../api/graph.js';
@@ -19,9 +19,19 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const queryClient = useQueryClient();
+    const isFirstRender = useRef(true);
+    const { fitView } = useReactFlow();
 
     // Sync internal state when props change (layer toggles, expand/collapse)
-    useEffect(() => { setNodes(initialNodes); }, [initialNodes, setNodes]);
+    // Only fitView on first render — subsequent changes preserve the viewport
+    useEffect(() => {
+        setNodes(initialNodes);
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            // Delay fitView to let React Flow measure nodes
+            setTimeout(() => fitView({ padding: 0.15, duration: 200 }), 50);
+        }
+    }, [initialNodes, setNodes, fitView]);
     useEffect(() => { setEdges(initialEdges); }, [initialEdges, setEdges]);
 
     const handleNodeDragStop = useCallback((_event, node) => {
@@ -79,7 +89,6 @@ export default function FlowCanvas({ initialNodes, initialEdges, onNodeSelect })
                 onConnect={handleConnect}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
-                fitView
                 className="bg-gray-900"
             >
                 <Background color="#374151" gap={20} size={1} />
