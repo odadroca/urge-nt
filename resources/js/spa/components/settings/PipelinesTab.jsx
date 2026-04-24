@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listPipelines, createPipeline, getPipeline, updatePipeline, deletePipeline, addChannel, updateChannel, removeChannel } from '../../api/pipelines.js';
 import { listProviders } from '../../api/providers.js';
+import { listPrompts } from '../../api/prompts.js';
 
 export default function PipelinesTab() {
     const queryClient = useQueryClient();
@@ -213,9 +214,15 @@ function PipelineDetail({ slug }) {
         queryFn: listProviders,
     });
 
+    const { data: fragmentsData } = useQuery({
+        queryKey: ['settings', 'fragments'],
+        queryFn: () => listPrompts({ type: 'fragment', per_page: 100 }),
+    });
+
     const pipeline = pipelineData?.data ?? pipelineData ?? null;
     const channels = pipeline?.channels ?? [];
     const providers = providersData?.data ?? providersData ?? [];
+    const fragments = fragmentsData?.data ?? [];
 
     const handleDeleteChannel = useCallback(async (channelId) => {
         if (!confirm('Remove this channel?')) return;
@@ -266,6 +273,7 @@ function PipelineDetail({ slug }) {
                         pipelineSlug={slug}
                         channel={channel}
                         providers={providers}
+                        fragments={fragments}
                         onSaved={handleChannelSaved}
                         onCancel={() => setEditingChannelId(null)}
                     />
@@ -287,6 +295,11 @@ function PipelineDetail({ slug }) {
                                     <span className="text-[10px] text-gray-500">{channel.provider.name}</span>
                                 ) : (
                                     <span className="text-[10px] text-red-400">no provider</span>
+                                )}
+                                {channel.fragment && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-400">
+                                        {channel.fragment.name || channel.fragment.slug}
+                                    </span>
                                 )}
                             </div>
                             {channel.system_prompt && (
@@ -316,6 +329,7 @@ function PipelineDetail({ slug }) {
                     pipelineSlug={slug}
                     channel={null}
                     providers={providers}
+                    fragments={fragments}
                     onSaved={handleChannelSaved}
                     onCancel={() => setShowAddChannel(false)}
                 />
@@ -324,11 +338,12 @@ function PipelineDetail({ slug }) {
     );
 }
 
-function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
+function ChannelForm({ pipelineSlug, channel, providers, fragments = [], onSaved, onCancel }) {
     const [form, setForm] = useState({
         role_label: channel?.role_label || channel?.name || '',
         provider_id: channel?.provider_id || channel?.provider?.id || '',
         system_prompt: channel?.system_prompt || '',
+        prompt_fragment_id: channel?.prompt_fragment_id || channel?.fragment?.id || '',
         trigger: channel?.trigger || 'parallel',
         sort_order: channel?.sort_order ?? 0,
     });
@@ -346,6 +361,7 @@ function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
                 name: form.role_label.trim(),
                 provider_id: form.provider_id || null,
                 system_prompt: form.system_prompt.trim() || null,
+                prompt_fragment_id: form.prompt_fragment_id || null,
                 trigger: form.trigger,
                 sort_order: parseInt(form.sort_order, 10) || 0,
             };
@@ -401,15 +417,30 @@ function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
                 </div>
             </div>
 
-            <div>
-                <label className="block text-[10px] text-gray-400 mb-0.5">System Prompt</label>
-                <textarea
-                    value={form.system_prompt}
-                    onChange={(e) => setForm(f => ({ ...f, system_prompt: e.target.value }))}
-                    placeholder="Optional system prompt for this channel"
-                    rows={2}
-                    className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500 resize-none"
-                />
+            <div className="grid grid-cols-2 gap-2">
+                <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Fragment <span className="text-gray-600">(optional — prepended to system prompt)</span></label>
+                    <select
+                        value={form.prompt_fragment_id}
+                        onChange={(e) => setForm(f => ({ ...f, prompt_fragment_id: e.target.value }))}
+                        className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500"
+                    >
+                        <option value="">-- None --</option>
+                        {fragments.map(f => (
+                            <option key={f.id} value={f.id}>{f.name} ({f.slug})</option>
+                        ))}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">System Prompt</label>
+                    <textarea
+                        value={form.system_prompt}
+                        onChange={(e) => setForm(f => ({ ...f, system_prompt: e.target.value }))}
+                        placeholder="Optional — appended after fragment"
+                        rows={2}
+                        className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500 resize-none"
+                    />
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">

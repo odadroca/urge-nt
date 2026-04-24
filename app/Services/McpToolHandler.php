@@ -410,7 +410,7 @@ class McpToolHandler
             ],
             [
                 'name'        => 'add_channel',
-                'description' => 'Add a channel (LLM slot) to a pipeline. Each channel defines a provider, system prompt, and trigger type (parallel or synthesis).',
+                'description' => 'Add a channel (LLM slot) to a pipeline. Each channel defines a provider, system prompt, and trigger type (parallel or synthesis). Optionally reference a fragment for versioned context (e.g., persona).',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
@@ -418,6 +418,7 @@ class McpToolHandler
                         'role_label'     => ['type' => 'string', 'description' => 'Channel label (e.g. "strengths", "weaknesses", "summary")'],
                         'provider'       => ['type' => 'string', 'description' => 'LLM provider name. Use list_providers to see available.'],
                         'system_prompt'  => ['type' => 'string', 'description' => 'System prompt for this channel'],
+                        'fragment_slug'  => ['type' => 'string', 'description' => 'Fragment slug to use as context (e.g., persona). Resolved at run time and prepended to system_prompt.'],
                         'trigger'        => ['type' => 'string', 'enum' => ['parallel', 'synthesis'], 'description' => 'parallel = runs alongside others, synthesis = runs after all parallel channels complete'],
                         'sort_order'     => ['type' => 'integer', 'description' => 'Order within the pipeline (default 0)'],
                     ],
@@ -434,6 +435,7 @@ class McpToolHandler
                         'role_label'     => ['type' => 'string', 'description' => 'New label'],
                         'provider'       => ['type' => 'string', 'description' => 'New LLM provider name'],
                         'system_prompt'  => ['type' => 'string', 'description' => 'New system prompt'],
+                        'fragment_slug'  => ['type' => 'string', 'description' => 'Fragment slug for context. Set to empty string to clear.'],
                         'trigger'        => ['type' => 'string', 'enum' => ['parallel', 'synthesis'], 'description' => 'New trigger type'],
                         'sort_order'     => ['type' => 'integer', 'description' => 'New sort order'],
                     ],
@@ -1564,7 +1566,7 @@ class McpToolHandler
             return ['error' => 'Pipeline not found.'];
         }
 
-        $pipeline->load(['channels.llmProvider']);
+        $pipeline->load(['channels.llmProvider', 'channels.fragment']);
 
         $parallel = [];
         $synthesis = null;
@@ -1574,6 +1576,7 @@ class McpToolHandler
                 'id'            => $channel->id,
                 'role_label'    => $channel->role_label,
                 'system_prompt' => $channel->system_prompt,
+                'fragment'      => $channel->fragment ? ['slug' => $channel->fragment->slug, 'name' => $channel->fragment->name] : null,
                 'trigger'       => $channel->trigger,
                 'sort_order'    => $channel->sort_order,
                 'provider'      => $channel->llmProvider?->name,
@@ -1730,13 +1733,23 @@ class McpToolHandler
             $providerId = $provider->id;
         }
 
+        $fragmentId = null;
+        if (!empty($args['fragment_slug'])) {
+            $fragment = Prompt::where('slug', $args['fragment_slug'])->where('type', 'fragment')->first();
+            if (!$fragment) {
+                return ['error' => "Fragment '{$args['fragment_slug']}' not found."];
+            }
+            $fragmentId = $fragment->id;
+        }
+
         $channel = PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => $args['role_label'] ?? '',
-            'llm_provider_id' => $providerId,
-            'system_prompt'   => $args['system_prompt'] ?? null,
-            'trigger'         => $args['trigger'] ?? 'parallel',
-            'sort_order'      => $args['sort_order'] ?? 0,
+            'pipeline_id'       => $pipeline->id,
+            'role_label'        => $args['role_label'] ?? '',
+            'llm_provider_id'   => $providerId,
+            'system_prompt'     => $args['system_prompt'] ?? null,
+            'prompt_fragment_id' => $fragmentId,
+            'trigger'           => $args['trigger'] ?? 'parallel',
+            'sort_order'        => $args['sort_order'] ?? 0,
         ]);
 
         return [
@@ -1744,6 +1757,7 @@ class McpToolHandler
             'pipeline_slug'  => $pipeline->slug,
             'role_label'     => $channel->role_label,
             'provider'       => $provider->name ?? null,
+            'fragment'       => $fragment->slug ?? null,
             'trigger'        => $channel->trigger,
             'sort_order'     => $channel->sort_order,
         ];
@@ -1776,16 +1790,29 @@ class McpToolHandler
             $updates['llm_provider_id'] = $provider->id;
         }
 
+        if (isset($args['fragment_slug'])) {
+            if ($args['fragment_slug'] === '') {
+                $updates['prompt_fragment_id'] = null;
+            } else {
+                $fragment = Prompt::where('slug', $args['fragment_slug'])->where('type', 'fragment')->first();
+                if (!$fragment) {
+                    return ['error' => "Fragment '{$args['fragment_slug']}' not found."];
+                }
+                $updates['prompt_fragment_id'] = $fragment->id;
+            }
+        }
+
         if (!empty($updates)) {
             $channel->update($updates);
         }
 
-        $channel->load('llmProvider');
+        $channel->load(['llmProvider', 'fragment']);
 
         return [
             'id'            => $channel->id,
             'role_label'    => $channel->role_label,
             'provider'      => $channel->llmProvider?->name,
+            'fragment'      => $channel->fragment?->slug,
             'trigger'       => $channel->trigger,
             'sort_order'    => $channel->sort_order,
             'system_prompt' => $channel->system_prompt,

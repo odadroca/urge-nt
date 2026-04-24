@@ -26,7 +26,12 @@ class PipelineService
         array $variableValues,
         int $userId,
     ): array {
-        $pipeline->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
+        $pipeline->load([
+            'parallelChannels.llmProvider',
+            'parallelChannels.fragment.activeVersion',
+            'synthesisChannel.llmProvider',
+            'synthesisChannel.fragment.activeVersion',
+        ]);
 
         // Render the prompt content
         $renderResult = $this->templateEngine->render(
@@ -47,7 +52,7 @@ class PipelineService
                 continue;
             }
 
-            $systemPrompt = $channel->system_prompt ?? '';
+            $systemPrompt = $this->resolveSystemPrompt($channel);
             $llmResult = $this->dispatchService->dispatchWithSystem($provider, $systemPrompt, $renderedContent);
 
             $result = Result::create([
@@ -85,7 +90,7 @@ class PipelineService
         $synthesisChannel = $pipeline->synthesisChannel;
         if ($synthesisChannel && $synthesisChannel->llmProvider && $synthesisChannel->llmProvider->is_active && !empty($parallelResults)) {
             $synthesisInput = $this->buildSynthesisInput($parallelResults);
-            $systemPrompt = $synthesisChannel->system_prompt ?? '';
+            $systemPrompt = $this->resolveSystemPrompt($synthesisChannel);
 
             $llmResult = $this->dispatchService->dispatchWithSystem(
                 $synthesisChannel->llmProvider,
@@ -118,6 +123,22 @@ class PipelineService
         }
 
         return $resultIds;
+    }
+
+    private function resolveSystemPrompt(\App\Models\PipelineChannel $channel): string
+    {
+        $fragmentContent = '';
+        if ($channel->fragment && $channel->fragment->activeVersion) {
+            $fragmentContent = $channel->fragment->activeVersion->content ?? '';
+        }
+
+        $systemPrompt = $channel->system_prompt ?? '';
+
+        if ($fragmentContent && $systemPrompt) {
+            return $fragmentContent . "\n\n" . $systemPrompt;
+        }
+
+        return $fragmentContent ?: $systemPrompt;
     }
 
     private function buildSynthesisInput(array $parallelResults): string

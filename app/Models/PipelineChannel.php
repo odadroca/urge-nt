@@ -13,6 +13,7 @@ class PipelineChannel extends Model
         'role_label',
         'llm_provider_id',
         'system_prompt',
+        'prompt_fragment_id',
         'trigger',
         'sort_order',
     ];
@@ -29,5 +30,10 @@ class PipelineChannel extends Model
     public function llmProvider()
     {
         return $this->belongsTo(LlmProvider::class);
+    }
+
+    public function fragment()
+    {
+        return $this->belongsTo(Prompt::class, 'prompt_fragment_id');
     }
 }
