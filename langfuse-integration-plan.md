@@ -1,5 +1,10 @@
 # Langfuse Integration for URGE
 
+> Companion to `claude-plugin-import-notes.md` and `contracts-layer-notes.md`.
+> The three together sketch URGE's transition from prompt registry to
+> governance plane for prompt-centric LLM systems (registry + runtime +
+> observability + content imports + policy).
+
 ## Context
 
 URGE is a prompt registry + runtime; Langfuse is an observability platform that
