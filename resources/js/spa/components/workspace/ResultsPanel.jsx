@@ -160,7 +160,7 @@ function ResultCard({ result, onToggleStar, onRate, onDelete }) {
                         onClick={() => onDelete(result.id)}
                         className="text-gray-600 hover:text-red-400 text-sm ml-1"
                     >
-                        \u00d7
+                        &times;
                     </button>
                 </div>
             </div>
