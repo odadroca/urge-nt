@@ -1,136 +1,71 @@
-# URGE v2
+# URGE
 
-Self-hosted prompt registry and version control system.
+**A prompt registry with version control, built for LLMs and the humans who wrangle them.**
 
-## What is URGE?
+URGE gives your prompts a home. Store them, version them, organize them -- then let any LLM pull what it needs via API or MCP. Results come back and get archived automatically. Think of it as Git for prompts, with a built-in results archive.
 
-URGE is a **prompt memory layer** that sits behind any LLM. Instead of URGE calling LLMs, **LLMs call URGE** — pulling prompts, filling variables, resolving includes, and storing results back via API or MCP.
+Self-hosted. SQLite. No cloud dependency. Runs on a single machine.
 
-Two access patterns, one backend:
-- **Humans** manage and curate prompts through a React SPA (Browse, Canvas, Workspace, Settings, Teams)
-- **Machines** (any LLM) consume and contribute to the registry via REST API or MCP server
+## Why?
+
+Prompts are code, but we treat them like throwaway chat messages. They get lost in conversation history, scattered across projects, copy-pasted between tools with no versioning and no way to track what worked.
+
+URGE flips the direction: instead of you pushing prompts to LLMs, **LLMs pull prompts from URGE**. Your prompts live in one place. Every version is preserved. Every result is archived. Any LLM that speaks HTTP or MCP can tap into the registry.
 
 ## Features
 
-- **Prompt versioning** — immutable versions with auto-numbering, pin a specific version or default to latest
-- **Version branching** — non-linear version history with named branches, independent version numbers per branch, create/delete/set-default
-- **Template engine** — `{{variables}}` for substitution, `{{>slug}}` for recursive includes, circular reference detection
-- **React SPA** — Browse, Canvas (graph visualization), Workspace, Settings, and Teams pages with slim icon-rail sidebar and mobile bottom tab bar
-- **3-panel workspace** — editor (text + visual composer modes), version sidebar (with diff viewer), and results panel
-- **Inline autocomplete** — type `{{` for variable suggestions, `{{>` for fragment includes
-- **Visual composer** — drag-and-drop block editor for text, variables, and includes
-- **Version diff** — compare any two versions with color-coded word-level or character-level diff
-- **Live preview** — rendered preview with include resolution and variable fill from defaults
-- **REST API** — full CRUD with Bearer token auth, rate limiting, OpenAPI 3.1 spec
-- **OAuth 2.1** — PKCE (S256), refresh tokens with rotation, scoped tokens, GitHub provider, confidential client support
-- **MCP server** — Streamable HTTP (primary) and stdio (local) transports with 29 tools and 6 resources
-- **Result evaluation** — LLM-powered scoring with 6 configurable dimensions (relevance, completeness, accuracy, clarity, conciseness, human), versioned evaluations, composite scores, auto-evaluate option
-- **Client-side execution** — LLMs can fetch prompts/pipelines from URGE, run them natively (free, no API cost), and store results back
-- **Pipeline management** — create, update, delete pipelines and manage channels via MCP. Channel system prompts support `{{>slug}}` includes for versioned, composable context (personas, output formats)
-- **6 LLM drivers** — OpenAI, Anthropic, Mistral, Gemini, Ollama, OpenRouter
-- **Import/export** — Markdown with YAML frontmatter for prompts and results
-- **Collections** — curated groupings of prompt versions, results, and nested collections (DAG) with ordering and public share links
-- **Categories and tags** — organize prompts with color-coded categories and freeform tags
-- **Result comparison** — compare 2-4 LLM responses side by side
-- **Role-based access** — admin, editor, viewer roles (first user auto-admin)
-- **User namespaces** — private prompts by default, GitHub-style `{username}/{slug}` URLs, visibility scoping across all surfaces
-- **Teams** — create teams, invite members, share prompts collaboratively with team-based access control
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Backend | Laravel 12 / PHP 8.3+ |
-| Frontend | React 19, React Query, @xyflow/react |
-| Styling | Tailwind CSS |
-| Database | SQLite (default, configurable) |
-| Build | Vite 7 |
-| Testing | PHPUnit 11 (385 tests) |
+- **Version control** -- immutable versions with auto-numbering, branching, and diff comparison
+- **Template engine** -- `{{variables}}` for substitution, `{{>slug}}` for includes, recursive resolution
+- **MCP server** -- 29 tools, Streamable HTTP + stdio transports, works with Claude Desktop and Claude.ai out of the box
+- **REST API** -- full CRUD, Bearer token auth, OpenAPI 3.1 spec included
+- **React UI** -- Browse, Pipelines, Teams, Canvas (graph view), Workspace (3-panel editor), and Settings
+- **Workspace editor** -- inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop blocks), version diff viewer (word/char mode), live preview
+- **Result archive** -- every LLM response stored with provider, model, ratings, and notes
+- **Evaluation** -- LLM-powered scoring across 6 dimensions, composite scores, auto-evaluate option
+- **Pipelines** -- run the same prompt through multiple channels with different providers and contexts. Channel system prompts support `{{>slug}}` includes for versioned personas and instructions
+- **OAuth 2.1** -- PKCE, refresh tokens with rotation, scoped tokens, Dynamic Client Registration
+- **Collections** -- curate prompt versions and results into shareable, nestable groups
+- **Teams and namespaces** -- private-by-default prompts with team sharing and `{username}/{slug}` URLs
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+git clone https://github.com/odadroca/urge-nt.git && cd urge-nt
 composer install && npm install
-
-# Environment setup
-cp .env.example .env
-php artisan key:generate
-
-# Database
-touch database/database.sqlite
-php artisan migrate
-
-# (Optional) Load demo data
-php artisan db:seed --class=DemoSeeder
-
-# Build frontend
-npm run build
-
-# Start server
-php artisan serve
-# Visit http://127.0.0.1:8000
+cp .env.example .env && php artisan key:generate
+touch database/database.sqlite && php artisan migrate
+npm run build && php artisan serve
 ```
 
-For development with HMR, queue worker, and log tailing:
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) and register. The first user becomes admin.
 
-```bash
-composer dev
+For development with HMR: `composer dev`
+
+## How It Works
+
+Here is a typical flow -- a human creates a prompt, then an LLM uses it:
+
+```
+1. You create a prompt in the UI          POST /api/v1/prompts
+   "Summarize this PR: {{diff}}"          (or just use the editor)
+
+2. You iterate on it                      Each save creates an immutable version
+   Fix the wording, save again            v1, v2, v3...
+
+3. Claude pulls the prompt via MCP        get_prompt(slug: "summarize-pr")
+   URGE resolves variables + includes     Returns the rendered template
+
+4. Claude sends back the result           store_result(slug: "summarize-pr",
+   URGE archives it with metadata           response_text: "...", model: "opus")
+
+5. You review, rate, compare results      All in the Workspace UI
 ```
 
-Register at `/register` — the first user automatically becomes admin.
-
-## API Overview
-
-All API endpoints are under `/api/v1/` and require Bearer token authentication (except health check).
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/prompts` | List prompts (filter: type, category, tag, search, scope) |
-| POST | `/prompts` | Create prompt (private by default) |
-| GET | `/prompts/{username}/{slug}` | Get prompt with active version |
-| PATCH | `/prompts/{username}/{slug}` | Update prompt metadata |
-| DELETE | `/prompts/{username}/{slug}` | Delete prompt (owner/admin only) |
-| GET | `/prompts/{username}/{slug}/versions` | List versions |
-| POST | `/prompts/{username}/{slug}/versions` | Create version |
-| GET | `/prompts/{username}/{slug}/versions/{n}` | Get specific version |
-| POST | `/prompts/{username}/{slug}/render` | Render template with variables |
-| GET | `/prompts/{username}/{slug}/branches` | List branches |
-| POST | `/prompts/{username}/{slug}/branches` | Create branch |
-| GET | `/prompts/{username}/{slug}/results` | List results |
-| POST | `/prompts/{username}/{slug}/results` | Store result |
-| POST | `/prompts/{username}/{slug}/share` | Share with team |
-| DELETE | `/prompts/{username}/{slug}/share/{team}` | Unshare from team |
-| GET | `/results/{id}` | Get single result |
-| PATCH | `/results/{id}` | Update rating/starred/notes |
-| POST | `/results/{id}/evaluate` | Evaluate result with LLM scoring |
-| GET | `/results/{id}/evaluations` | List evaluations for a result |
-| GET | `/results/{id}/evaluations/latest` | Get latest evaluation |
-| GET | `/results/{id}/evaluations/{version}` | Get specific evaluation version |
-| GET | `/results/starred` | List starred results across all prompts |
-| GET | `/teams` | List user's teams |
-| POST | `/teams` | Create team |
-| GET | `/teams/{slug}` | Get team details |
-| PATCH | `/teams/{slug}` | Update team |
-| DELETE | `/teams/{slug}` | Delete team |
-| POST | `/teams/{slug}/members` | Add member |
-| DELETE | `/teams/{slug}/members/{user}` | Remove member |
-| POST | `/teams/{slug}/leave` | Leave team |
-| GET | `/collections` | List collections |
-| POST | `/collections` | Create collection |
-| GET | `/collections/{slug}` | Get collection (recursive nesting) |
-| POST | `/collections/{slug}/items` | Add item (prompt_version, result, or collection) |
-
-Full spec available at [`public/openapi.json`](public/openapi.json), importable as a CustomGPT Action.
+The prompt lives in URGE. The LLM never needs to remember it. You can swap models, compare outputs, and track what worked -- all in one place.
 
 ## MCP Integration
 
-URGE exposes an MCP server (protocol version 2025-06-18) with two transports. Both share the same tool dispatch layer.
-
-**Verified MCP clients:** Claude.ai, Claude Desktop (OAuth via Dynamic Client Registration), Mistral Le Chat (OAuth via pre-registered confidential client), Claude Code (stdio, no auth).
-
-**Claude.ai / Claude Desktop** (OAuth — just provide the URL, auth is automatic via Dynamic Client Registration):
+URGE works as a remote MCP server. Claude Desktop and Claude.ai connect via OAuth automatically:
 
 ```json
 {
@@ -142,18 +77,7 @@ URGE exposes an MCP server (protocol version 2025-06-18) with two transports. Bo
 }
 ```
 
-**Mistral Le Chat** (OAuth via pre-registered confidential client):
-
-First create the client on your URGE instance:
-```bash
-php artisan oauth:create-client "Le Chat" \
-  --redirect="https://callback.mistral.ai/v1/integrations_auth/oauth2_callback" \
-  --confidential
-```
-
-Then in Le Chat, add URGE as an MCP integration with the generated `client_id` and `client_secret`. Le Chat discovers endpoints via `/.well-known/openid-configuration`.
-
-**stdio transport** (for local dev — Claude Code on the same machine):
+For local development with Claude Code (stdio, no auth):
 
 ```json
 {
@@ -161,75 +85,34 @@ Then in Le Chat, add URGE as an MCP integration with the generated `client_id` a
     "urge": {
       "command": "php",
       "args": ["artisan", "urge:mcp-server", "--user=1"],
-      "cwd": "/path/to/urge-v2"
+      "cwd": "/path/to/urge"
     }
   }
 }
 ```
 
-Session state is managed via the `Mcp-Session-Id` header (set by the server on first response).
+29 tools cover prompts, results, evaluation, pipelines, branches, and teams. See the [MCP client setup guide](documentation/mcp-clients.md) for complete configuration details including Mistral Le Chat.
 
-**Tools (29):**
-- Prompt: `create_prompt`, `get_prompt`, `list_prompts`, `render_prompt`, `save_version`, `delete_prompt`
-- Results: `store_result`, `get_results`, `update_result`, `delete_result`
-- Evaluation: `evaluate_result`, `store_evaluation`, `get_evaluation_prompt`, `get_evaluations`
-- Pipeline: `list_pipelines`, `get_pipeline`, `run_pipeline`, `create_pipeline`, `update_pipeline`, `delete_pipeline`
-- Channels: `add_channel`, `update_channel`, `remove_channel`
-- Providers: `list_providers`, `run_prompt`
-- Branches: `list_branches`, `create_branch`
-- Teams: `list_teams`, `share_prompt`
+## Tech Stack
 
-**Resources:** `urge://prompts`, `urge://prompts/{username}/{slug}`, `urge://prompts/{username}/{slug}/v/{n}`, `urge://prompts/{username}/{slug}/branches`, `urge://prompts/{username}/{slug}/branches/{branch}`, `urge://teams`
-
-See [`documentation/mcp-clients.md`](documentation/mcp-clients.md) for complete setup guides (Claude, Le Chat, stdio) and [`documentation/claude-skill.md`](documentation/claude-skill.md) for API usage examples.
-
-## Authentication
-
-Triple-auth cascade: Sanctum sessions (SPA) → OAuth 2.1 tokens → API keys (`urge_` prefix).
-
-**OAuth 2.1:**
-- PKCE with S256 (required for public clients, optional for confidential)
-- Confidential client support with `client_secret` (for Mistral Le Chat and similar)
-- Dynamic Client Registration (RFC 7591) for Claude Desktop / Claude.ai
-- GitHub as external identity provider
-- Scopes: `mcp:read`, `mcp:write`, `mcp:admin` (enforced on OAuth tokens; API keys have full access)
-
-**OAuth endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET/POST /oauth/authorize` | Consent page |
-| `POST /oauth/token` | Code exchange (accepts `code_verifier` or `client_secret`) |
-| `POST /oauth/register` | Dynamic Client Registration (RFC 7591) |
-| `GET /oauth/github` | GitHub OAuth redirect |
-| `GET /oauth/github/callback` | GitHub OAuth callback |
-
-**Discovery endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /.well-known/oauth-protected-resource` | RFC 9728 — protected resource metadata |
-| `GET /.well-known/oauth-authorization-server` | RFC 8414 — authorization server metadata |
-| `GET /.well-known/openid-configuration` | OIDC Discovery (required by Mistral Le Chat) |
-
-## Testing
-
-```bash
-php artisan test    # 385 tests
-```
-
-## Artisan Commands
-
-| Command | Description |
-|---------|-------------|
-| `php artisan urge:mcp-server` | Start stdio MCP server |
-| `php artisan urge:import-v1 {path}` | Migrate data from URGE v1 SQLite database |
-| `php artisan oauth:create-client {name}` | Create pre-registered OAuth client (supports `--redirect`, `--confidential`) |
-| `php artisan urge:seed-evaluation` | Create default evaluation prompt, pipeline, and settings |
+| | |
+|---|---|
+| Backend | Laravel 12 / PHP 8.3+ |
+| Frontend | React 19, React Query, @xyflow/react, Tailwind CSS |
+| Database | SQLite |
+| Build | Vite 7 |
+| Tests | 385 passing (PHPUnit 11) |
 
 ## Documentation
 
-- [`documentation/architecture.md`](documentation/architecture.md) — Data model, integration architecture, component hierarchy
-- [`documentation/install.md`](documentation/install.md) — Installation and deployment guide
-- [`documentation/mcp-clients.md`](documentation/mcp-clients.md) — MCP client setup guide (Claude, Mistral Le Chat, stdio)
-- [`documentation/claude-skill.md`](documentation/claude-skill.md) — API reference for LLM integration
-- [`public/openapi.json`](public/openapi.json) — OpenAPI 3.1 specification
-- [`docs/legacy/`](docs/legacy/) — Historical design specs and migration plans
+| | |
+|---|---|
+| [Installation Guide](documentation/install.md) | Detailed setup and deployment |
+| [Architecture](documentation/architecture.md) | Data model, services, component hierarchy |
+| [MCP Client Setup](documentation/mcp-clients.md) | Claude Desktop, Claude.ai, Mistral Le Chat, stdio |
+| [API Reference (Claude Skill)](documentation/claude-skill.md) | API usage examples for LLM integration |
+| [OpenAPI Spec](public/openapi.json) | Full API spec, importable as a CustomGPT Action |
+
+## License
+
+[MIT](LICENSE)
