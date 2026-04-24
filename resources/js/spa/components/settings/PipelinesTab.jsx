@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listPipelines, createPipeline, getPipeline, updatePipeline, deletePipeline, addChannel, updateChannel, removeChannel } from '../../api/pipelines.js';
 import { listProviders } from '../../api/providers.js';
+import AutocompleteDropdown from '../workspace/AutocompleteDropdown.jsx';
+import useAutocomplete from '../../hooks/useAutocomplete.js';
 
 export default function PipelinesTab() {
     const queryClient = useQueryClient();
@@ -334,6 +336,8 @@ function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const systemPromptRef = useRef(null);
+    const autocomplete = useAutocomplete(systemPromptRef);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -401,15 +405,28 @@ function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
                 </div>
             </div>
 
-            <div>
-                <label className="block text-[10px] text-gray-400 mb-0.5">System Prompt <span className="text-gray-600">(supports {'{{>slug}}'} includes)</span></label>
+            <div className="relative">
+                <label className="block text-[10px] text-gray-400 mb-0.5">System Prompt <span className="text-gray-600">(type {'{{>'} for fragment suggestions)</span></label>
                 <textarea
+                    ref={systemPromptRef}
                     value={form.system_prompt}
                     onChange={(e) => setForm(f => ({ ...f, system_prompt: e.target.value }))}
-                    placeholder="Optional system prompt. Use {{>fragment-slug}} to include versioned fragments."
-                    rows={2}
-                    className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500 resize-none"
+                    onInput={autocomplete.handleInput}
+                    onKeyDown={(e) => { if (autocomplete.handleKeyDown(e)) return; }}
+                    onBlur={() => { setTimeout(() => autocomplete.dismiss(), 150); }}
+                    placeholder="Optional system prompt. Type {{> to include versioned fragments."
+                    rows={3}
+                    className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs font-mono rounded px-2 py-1.5 outline-none focus:border-indigo-500 resize-none"
                 />
+                {autocomplete.isOpen && (
+                    <AutocompleteDropdown
+                        items={autocomplete.filteredItems}
+                        selectedIndex={autocomplete.selectedIndex}
+                        position={autocomplete.position}
+                        triggerType={autocomplete.triggerType}
+                        onSelect={autocomplete.insertItem}
+                    />
+                )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
