@@ -92,7 +92,7 @@ class PromptController extends ApiController
             'derived_from_prompt_id' => $derivedFromId,
         ]);
 
-        return $this->success($prompt->load('category'), 201);
+        return $this->success($prompt->load('category', 'creator:id,name,slug'), 201);
     }
 
     public function show(Request $request, string $username, string $promptSlug): JsonResponse
