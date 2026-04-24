@@ -316,7 +316,6 @@ function PipelineDetail({ slug }) {
                     pipelineSlug={slug}
                     channel={null}
                     providers={providers}
-                    fragments={fragments}
                     onSaved={handleChannelSaved}
                     onCancel={() => setShowAddChannel(false)}
                 />
