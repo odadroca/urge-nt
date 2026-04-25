@@ -135,3 +135,11 @@ sketch the next phase of URGE's positioning.
 - Should contracts be versioned like prompts? An audit trail of "this contract was active when violation X happened" is needed. Probably yes — soft-delete + version on edit.
 - Does importing a plugin auto-create a recommended contract for it? Probably yes — derived from declared `model` + estimated channel count + safety multiplier.
 - What's the relationship between contracts and OAuth scopes (`mcp:read`, `mcp:write`, `mcp:admin`)? Scopes gate API surface; contracts gate execution within that surface. Compose, don't replace.
+
+## Future direction (parked, not in scope)
+
+The pattern (registry + runtime + observability + content imports + policy)
+generalizes to other agentic orchestrators — CrewAI, LangGraph, AutoGen,
+OpenAI Swarm, OpenCode/OpenHands, etc. Defer until integration #2 has a
+concrete user asking for it; abstractions extracted from two real cases beat
+abstractions invented from one.
