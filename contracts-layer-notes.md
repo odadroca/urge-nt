@@ -2,9 +2,11 @@
 
 > Status: thinking note, not a scoped plan. Captured for later iteration.
 > Companion to `langfuse-integration-plan.md`, `claude-plugin-import-notes.md`,
-> and `orchestrator-comparison-notes.md`. The four together sketch URGE's
-> transition from prompt registry to governance plane for prompt-centric LLM
-> systems, and its positioning relative to established agentic orchestrators.
+> `orchestrator-comparison-notes.md`, and `narrated-observability-notes.md`.
+> The five together sketch URGE's transition from prompt registry to governance
+> plane for prompt-centric LLM systems, its positioning relative to established
+> agentic orchestrators, and the narrated-vs-measured observability framing for
+> mode-2-pure-form runs.
 
 ## The idea
 

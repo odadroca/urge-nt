@@ -1,10 +1,12 @@
 # Langfuse Integration for URGE
 
 > Companion to `claude-plugin-import-notes.md`, `contracts-layer-notes.md`,
-> and `orchestrator-comparison-notes.md`. The four together sketch URGE's
-> transition from prompt registry to governance plane for prompt-centric LLM
-> systems (registry + runtime + observability + content imports + policy),
-> and its positioning relative to established agentic orchestrators.
+> `orchestrator-comparison-notes.md`, and `narrated-observability-notes.md`.
+> The five together sketch URGE's transition from prompt registry to
+> governance plane for prompt-centric LLM systems (registry + runtime +
+> observability + content imports + policy), its positioning relative to
+> established agentic orchestrators, and the narrated-vs-measured
+> observability framing for mode-2-pure-form runs.
 
 ## Context
 

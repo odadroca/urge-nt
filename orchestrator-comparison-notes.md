@@ -2,9 +2,10 @@
 
 > Status: comparative analysis + actionable scope implications. Not a plan,
 > but contains concrete decisions that shape the plugin-import MVP.
-> Companion to `langfuse-integration-plan.md`,
-> `claude-plugin-import-notes.md`, and `contracts-layer-notes.md`.
-> The four together sketch URGE's positioning and the next phase of work.
+> Companion to `langfuse-integration-plan.md`, `claude-plugin-import-notes.md`,
+> `contracts-layer-notes.md`, and `narrated-observability-notes.md`.
+> The five together sketch URGE's positioning, the next phase of work, and
+> the narrated-vs-measured observability framing for mode-2-pure-form runs.
 
 ## Why this note exists
 
