@@ -1,10 +1,11 @@
 # Claude Plugin Import — Design Notes
 
 > Status: thinking note, not a scoped plan. Captured for later iteration.
-> Companion to `langfuse-integration-plan.md` and `contracts-layer-notes.md`.
-> The three together sketch URGE's transition from prompt registry to
-> governance plane for prompt-centric LLM systems (registry + runtime +
-> observability + content imports + policy).
+> Companion to `langfuse-integration-plan.md`, `contracts-layer-notes.md`,
+> and `orchestrator-comparison-notes.md`. The four together sketch URGE's
+> transition from prompt registry to governance plane for prompt-centric LLM
+> systems (registry + runtime + observability + content imports + policy),
+> and its positioning relative to established agentic orchestrators.
 
 ## The idea
 
