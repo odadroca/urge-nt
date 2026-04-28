@@ -19,7 +19,7 @@ return [
 
     // OAuth 2.1
     'oauth' => [
-        'token_ttl'         => (int) env('OAUTH_TOKEN_TTL', 3600),
+        'token_ttl'         => (int) env('OAUTH_TOKEN_TTL', 2592000), // 30 days (Claude doesn't use refresh tokens)
         'refresh_token_ttl' => (int) env('OAUTH_REFRESH_TOKEN_TTL', 2592000), // 30 days
         'code_ttl'          => 600,
         'scopes'            => ['mcp:read', 'mcp:write', 'mcp:admin'],
