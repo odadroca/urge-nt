@@ -98,11 +98,11 @@ class PipelineRunIdTest extends TestCase
             $mock,
         );
 
-        $resultIds = $service->run($template, $this->version, [], $this->user->id);
+        $runResult = $service->run($template, $this->version, [], $this->user->id);
 
-        $this->assertCount(2, $resultIds);
+        $this->assertCount(2, $runResult['result_ids']);
 
-        $results = Result::whereIn('id', $resultIds)->get();
+        $results = Result::whereIn('id', $runResult['result_ids'])->get();
         $runIds = $results->pluck('pipeline_run_id')->unique();
 
         // All results share the same pipeline_run_id
@@ -137,11 +137,11 @@ class PipelineRunIdTest extends TestCase
             $mock,
         );
 
-        $firstRunIds = $service->run($template, $this->version, [], $this->user->id);
-        $secondRunIds = $service->run($template, $this->version, [], $this->user->id);
+        $firstRunResult = $service->run($template, $this->version, [], $this->user->id);
+        $secondRunResult = $service->run($template, $this->version, [], $this->user->id);
 
-        $firstRunId = Result::find($firstRunIds[0])->pipeline_run_id;
-        $secondRunId = Result::find($secondRunIds[0])->pipeline_run_id;
+        $firstRunId = Result::find($firstRunResult['result_ids'][0])->pipeline_run_id;
+        $secondRunId = Result::find($secondRunResult['result_ids'][0])->pipeline_run_id;
 
         $this->assertNotEquals($firstRunId, $secondRunId);
     }

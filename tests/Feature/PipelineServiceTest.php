@@ -90,11 +90,12 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, ['name' => 'World'], $this->user->id);
+        $runResult = $service->run($pipeline, $this->version, ['name' => 'World'], $this->user->id);
 
-        $this->assertCount(2, $resultIds);
+        $this->assertCount(2, $runResult['result_ids']);
+        $this->assertEmpty($runResult['pending_client_channels']);
 
-        $results = Result::whereIn('id', $resultIds)->get();
+        $results = Result::whereIn('id', $runResult['result_ids'])->get();
         $this->assertEquals('Analyst', $results[0]->role_label);
         $this->assertEquals('Critic', $results[1]->role_label);
         $this->assertEquals($pipeline->id, $results[0]->pipeline_id);
@@ -128,7 +129,6 @@ class PipelineServiceTest extends TestCase
                 if ($callCount === 1) {
                     return LlmResult::success('Parallel output', 'gpt-4', 100, 10, 20);
                 }
-                // Second call is synthesis — verify it gets the formatted input
                 $this->assertStringContains('[ANALYST]', $content);
                 $this->assertStringContains('Parallel output', $content);
                 $this->assertEquals('Combine the results.', $systemPrompt);
@@ -140,22 +140,24 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
 
-        $this->assertCount(2, $resultIds);
+        $this->assertCount(2, $runResult['result_ids']);
+        $this->assertEmpty($runResult['pending_client_channels']);
 
-        $synthesisResult = Result::find($resultIds[1]);
+        $synthesisResult = Result::find($runResult['result_ids'][1]);
         $this->assertEquals('Synthesizer', $synthesisResult->role_label);
         $this->assertEquals('Synthesized response', $synthesisResult->response_text);
     }
 
-    public function test_skip_channels_with_no_provider(): void
+    public function test_channel_with_no_provider_is_pending_client(): void
     {
-        $pipeline = Pipeline::create(['name' => 'Skip Test', 'created_by' => $this->user->id]);
+        $pipeline = Pipeline::create(['name' => 'Client Test', 'created_by' => $this->user->id]);
         PipelineChannel::create([
             'pipeline_id' => $pipeline->id,
-            'role_label' => 'No Provider',
+            'role_label' => 'Local Worker',
             'llm_provider_id' => null,
+            'system_prompt' => 'Run me locally.',
             'trigger' => 'parallel',
             'sort_order' => 0,
         ]);
@@ -168,12 +170,19 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
 
-        $this->assertEmpty($resultIds);
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertCount(1, $runResult['pending_client_channels']);
+
+        $pending = $runResult['pending_client_channels'][0];
+        $this->assertEquals('Local Worker', $pending['role_label']);
+        $this->assertEquals('parallel', $pending['trigger']);
+        $this->assertEquals('Run me locally.', $pending['system_prompt']);
+        $this->assertStringContains('Hello world', $pending['user_prompt']);
     }
 
-    public function test_skip_channels_with_inactive_provider(): void
+    public function test_channel_with_inactive_provider_is_pending_client(): void
     {
         $inactiveProvider = LlmProvider::create([
             'name' => 'Inactive',
@@ -200,12 +209,93 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
 
-        $this->assertEmpty($resultIds);
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertCount(1, $runResult['pending_client_channels']);
+        $this->assertEquals('Inactive Channel', $runResult['pending_client_channels'][0]['role_label']);
     }
 
-    public function test_synthesis_skipped_when_no_parallel_results(): void
+    public function test_synthesis_pending_client_gets_prebuilt_input_when_parallels_are_server(): void
+    {
+        $pipeline = Pipeline::create(['name' => 'Mixed', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Analyst',
+            'llm_provider_id' => $this->provider->id,
+            'trigger' => 'parallel',
+            'sort_order' => 0,
+        ]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Synthesizer',
+            'llm_provider_id' => null,
+            'system_prompt' => 'Combine results.',
+            'trigger' => 'synthesis',
+            'sort_order' => 99,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturn(LlmResult::success('Analyst result', 'gpt-4', 100, 10, 20));
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertCount(1, $runResult['result_ids']);
+        $this->assertCount(1, $runResult['pending_client_channels']);
+
+        $synthPending = $runResult['pending_client_channels'][0];
+        $this->assertEquals('Synthesizer', $synthPending['role_label']);
+        $this->assertEquals('synthesis', $synthPending['trigger']);
+        $this->assertNotNull($synthPending['user_prompt']);
+        $this->assertStringContains('[ANALYST]', $synthPending['user_prompt']);
+        $this->assertStringContains('Analyst result', $synthPending['user_prompt']);
+    }
+
+    public function test_synthesis_pending_client_user_prompt_null_when_all_parallels_client(): void
+    {
+        $pipeline = Pipeline::create(['name' => 'All client', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Worker',
+            'llm_provider_id' => null,
+            'trigger' => 'parallel',
+            'sort_order' => 0,
+        ]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Synthesizer',
+            'llm_provider_id' => null,
+            'trigger' => 'synthesis',
+            'sort_order' => 99,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldNotReceive('dispatchWithSystem');
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertCount(2, $runResult['pending_client_channels']);
+
+        $synthPending = collect($runResult['pending_client_channels'])
+            ->firstWhere('trigger', 'synthesis');
+        $this->assertNotNull($synthPending);
+        $this->assertNull($synthPending['user_prompt']);
+    }
+
+    public function test_synthesis_skipped_when_no_parallel_results_and_synthesis_is_server(): void
     {
         $pipeline = Pipeline::create(['name' => 'No Parallel', 'created_by' => $this->user->id]);
         PipelineChannel::create([
@@ -224,9 +314,10 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
 
-        $this->assertEmpty($resultIds);
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertEmpty($runResult['pending_client_channels']);
     }
 
     public function test_failed_parallel_result_excluded_from_synthesis_input(): void
@@ -266,7 +357,6 @@ class PipelineServiceTest extends TestCase
                 if ($callCount === 2) {
                     return LlmResult::failure('API error', 'gpt-4', 50);
                 }
-                // Synthesis call — only successful results should be included
                 $this->assertStringContains('[SUCCEEDER]', $content);
                 $this->assertStringContains('Good result', $content);
                 $this->assertStringNotContains('FAILER', $content);
@@ -278,15 +368,14 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, [], $this->user->id);
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
 
-        // 2 parallel + 1 synthesis = 3 results
-        $this->assertCount(3, $resultIds);
+        $this->assertCount(3, $runResult['result_ids']);
+        $this->assertEmpty($runResult['pending_client_channels']);
     }
 
     public function test_variables_are_rendered_in_content(): void
     {
-        // Create a version with a variable for this specific test
         $varVersion = PromptVersion::create([
             'prompt_id' => $this->prompt->id,
             'content' => 'Hello {{name}}',
@@ -316,16 +405,13 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $varVersion, ['name' => 'World'], $this->user->id);
+        $runResult = $service->run($pipeline, $varVersion, ['name' => 'World'], $this->user->id);
 
-        $this->assertCount(1, $resultIds);
-        $result = Result::find($resultIds[0]);
+        $this->assertCount(1, $runResult['result_ids']);
+        $result = Result::find($runResult['result_ids'][0]);
         $this->assertEquals(['name' => 'World'], $result->variables_used);
     }
 
-    /**
-     * Helper: PHPUnit's assertStringContainsString with a shorter name.
-     */
     private function assertStringContains(string $needle, string $haystack): void
     {
         $this->assertStringContainsString($needle, $haystack);
