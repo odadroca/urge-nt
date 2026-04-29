@@ -7,7 +7,17 @@
 </head>
 <body>
     <style>
-        .scalar-app { --scalar-background-1: #0f172a; }
+        .scalar-app {
+            --scalar-background-1: #0f172a;
+            --scalar-background-2: #1e293b;
+            --scalar-background-3: #334155;
+        }
+        .scalar-app .section-flare,
+        .scalar-app [class*="bg-gradient"],
+        .scalar-app [style*="background-image"] {
+            background-image: none !important;
+        }
+        body { background: #0f172a; }
     </style>
     <script
         id="api-reference"
