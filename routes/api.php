@@ -44,6 +44,7 @@ Route::prefix('v1')->group(function () {
         Route::get('prompts/{username}/{promptSlug}/versions', [VersionController::class, 'index']);
         Route::post('prompts/{username}/{promptSlug}/versions', [VersionController::class, 'store']);
         Route::get('prompts/{username}/{promptSlug}/versions/{version}', [VersionController::class, 'show']);
+        Route::get('prompts/{username}/{promptSlug}/versions/{version}/download', [VersionController::class, 'download']);
         Route::patch('prompts/{username}/{promptSlug}/versions/{version}/archive', [VersionController::class, 'archive']);
 
         // Branches (namespaced)
@@ -63,6 +64,7 @@ Route::prefix('v1')->group(function () {
         // Results (standalone)
         Route::get('results/starred', [ResultController::class, 'starred']);
         Route::get('results/{result}', [ResultController::class, 'show']);
+        Route::get('results/{result}/download', [ResultController::class, 'download']);
         Route::patch('results/{result}', [ResultController::class, 'update']);
         Route::delete('results/{result}', [ResultController::class, 'destroy']);
 

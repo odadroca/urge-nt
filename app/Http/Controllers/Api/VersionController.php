@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Services\ImportExportService;
 use App\Services\VersioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VersionController extends ApiController
 {
@@ -50,6 +52,22 @@ class VersionController extends ApiController
             ->firstOrFail();
 
         return $this->success($promptVersion);
+    }
+
+    public function download(Request $request, string $username, string $promptSlug, int $version, ImportExportService $service): StreamedResponse
+    {
+        $prompt = $this->resolvePrompt($username, $promptSlug, $request);
+
+        $promptVersion = $prompt->versions()
+            ->where('version_number', $version)
+            ->firstOrFail();
+
+        $content = $service->exportPromptVersion($promptVersion);
+        $filename = "{$prompt->slug}-v{$version}.md";
+
+        return response()->streamDownload(fn () => print($content), $filename, [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
+        ]);
     }
 
     public function archive(Request $request, string $username, string $promptSlug, int $version): JsonResponse

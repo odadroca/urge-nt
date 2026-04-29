@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { listResults, updateResult, deleteResult } from '../../api/results.js';
 import ManualResultForm from './ManualResultForm.jsx';
+import useCopyToClipboard from '../../hooks/useCopyToClipboard.js';
 
 export default function ResultsPanel({ prompt, username, slug, currentVersionId, currentVersionNumber, showRunPanel, onToggleRunPanel }) {
     const queryClient = useQueryClient();
@@ -133,6 +134,7 @@ export default function ResultsPanel({ prompt, username, slug, currentVersionId,
 
 function ResultCard({ result, onToggleStar, onRate, onDelete }) {
     const [expanded, setExpanded] = useState(false);
+    const { copied, copy } = useCopyToClipboard();
     const preview = result.response_text || '';
     const isLong = preview.length > 300;
     const displayText = expanded ? preview : preview.slice(0, 300);
@@ -156,6 +158,20 @@ function ResultCard({ result, onToggleStar, onRate, onDelete }) {
                     >
                         {result.starred ? '\u2605' : '\u2606'}
                     </button>
+                    <button
+                        onClick={() => copy(result.response_text || '')}
+                        title="Copy response"
+                        className={`text-[10px] ml-1 ${copied ? 'text-indigo-400' : 'text-gray-600 hover:text-indigo-400'}`}
+                    >
+                        {copied ? 'Copied' : 'Copy'}
+                    </button>
+                    <a
+                        href={`/api/v1/results/${result.id}/download`}
+                        title="Download as .md"
+                        className="text-gray-600 hover:text-indigo-400 text-[10px] ml-1"
+                    >
+                        Download
+                    </a>
                     <button
                         onClick={() => onDelete(result.id)}
                         className="text-gray-600 hover:text-red-400 text-sm ml-1"

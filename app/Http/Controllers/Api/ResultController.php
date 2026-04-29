@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Prompt;
 use App\Models\Result;
+use App\Services\ImportExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ResultController extends ApiController
 {
@@ -102,6 +105,28 @@ class ResultController extends ApiController
     {
         $result->load(['prompt', 'promptVersion']);
         return $this->success($result);
+    }
+
+    public function download(Request $request, Result $result, ImportExportService $service): StreamedResponse
+    {
+        $result->load(['prompt.creator', 'promptVersion']);
+
+        $user = $request->user();
+        if ($user) {
+            $canSee = Prompt::visibleTo($user)->where('id', $result->prompt_id)->exists();
+            if (!$canSee) {
+                abort(404);
+            }
+        }
+
+        $content = $service->exportResult($result);
+        $version = $result->promptVersion?->version_number ?? 0;
+        $slug = $result->prompt->slug ?? 'result';
+        $filename = "{$slug}-v{$version}-{$result->id}.md";
+
+        return response()->streamDownload(fn () => print($content), $filename, [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
+        ]);
     }
 
     public function update(Request $request, Result $result): JsonResponse
