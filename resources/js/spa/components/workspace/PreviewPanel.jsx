@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { renderPrompt } from '../../api/render.js';
 import useDebounce from '../../hooks/useDebounce.js';
+import useCopyToClipboard from '../../hooks/useCopyToClipboard.js';
 
 export default function PreviewPanel({ username, slug, versionNumber, variables = [] }) {
     const [variableValues, setVariableValues] = useState({});
     const [rendered, setRendered] = useState('');
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
+    const { copied, copy } = useCopyToClipboard();
 
     // Reset variable values when variables change
     useEffect(() => {
@@ -69,7 +71,16 @@ export default function PreviewPanel({ username, slug, versionNumber, variables 
             )}
 
             {/* Rendered output */}
-            <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex-1 overflow-y-auto p-3 relative">
+                {!loading && !error && rendered && (
+                    <button
+                        onClick={() => copy(rendered)}
+                        title="Copy rendered output"
+                        className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 z-10"
+                    >
+                        {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                )}
                 {loading && (
                     <div className="flex justify-center py-4">
                         <div className="animate-spin h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full" />

@@ -80,4 +80,81 @@ class VersionApiTest extends TestCase
 
         $response->assertStatus(404);
     }
+
+    public function test_download_version_as_markdown(): void
+    {
+        app(VersioningService::class)->createVersion(
+            $this->prompt,
+            ['content' => 'Hello {{name}}', 'commit_message' => 'first'],
+            $this->user
+        );
+
+        $response = $this->get(
+            "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/versions/1/download",
+            $this->headers
+        );
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'text/markdown; charset=UTF-8');
+        $response->assertHeader(
+            'Content-Disposition',
+            "attachment; filename={$this->prompt->slug}-v1.md"
+        );
+
+        $body = $response->streamedContent();
+        $this->assertStringStartsWith("---\n", $body);
+        $this->assertStringContainsString('prompt: ' . $this->prompt->slug, $body);
+        $this->assertStringContainsString('owner: ' . $this->user->slug, $body);
+        $this->assertStringContainsString('version: 1', $body);
+        $this->assertStringContainsString('Hello {{name}}', $body);
+    }
+
+    public function test_download_nonexistent_version_returns_404(): void
+    {
+        $response = $this->get(
+            "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/versions/999/download",
+            $this->headers
+        );
+
+        $response->assertStatus(404);
+    }
+
+    public function test_download_version_of_other_users_private_prompt_returns_404(): void
+    {
+        // $this->user is the first user created → admin (sees everything).
+        // Create two non-admin users so we can test cross-user visibility.
+        $owner = User::create([
+            'name' => 'Owner',
+            'email' => 'owner@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'editor',
+        ]);
+        $stranger = User::create([
+            'name' => 'Stranger',
+            'email' => 'stranger@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'editor',
+        ]);
+        $strangerKey = app(ApiKeyService::class)->generateKey($stranger, 'Stranger Key');
+        $strangerHeaders = ['Authorization' => "Bearer {$strangerKey['key']}"];
+
+        $ownerPrompt = Prompt::create([
+            'name' => 'Owner Private Prompt',
+            'type' => 'prompt',
+            'created_by' => $owner->id,
+            'visibility' => 'private',
+        ]);
+        app(VersioningService::class)->createVersion(
+            $ownerPrompt,
+            ['content' => 'secret'],
+            $owner
+        );
+
+        $response = $this->get(
+            "/api/v1/prompts/{$owner->slug}/{$ownerPrompt->slug}/versions/1/download",
+            $strangerHeaders
+        );
+
+        $response->assertStatus(404);
+    }
 }

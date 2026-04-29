@@ -116,6 +116,83 @@ class ResultApiTest extends TestCase
             ->assertJsonPath('data.notes', 'Great result');
     }
 
+    public function test_download_result_as_markdown(): void
+    {
+        $version = $this->prompt->versions()->first();
+        $result = Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $version->id,
+            'source' => 'api',
+            'provider_name' => 'OpenAI',
+            'model_name' => 'gpt-4',
+            'response_text' => 'Downloadable response',
+            'rating' => 4,
+            'starred' => true,
+            'created_by' => $this->user->id,
+        ]);
+
+        $response = $this->get("/api/v1/results/{$result->id}/download", $this->headers);
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'text/markdown; charset=UTF-8');
+        $response->assertHeader(
+            'Content-Disposition',
+            "attachment; filename={$this->prompt->slug}-v1-{$result->id}.md"
+        );
+
+        $body = $response->streamedContent();
+        $this->assertStringStartsWith("---\n", $body);
+        $this->assertStringContainsString('prompt: ' . $this->prompt->slug, $body);
+        $this->assertStringContainsString('owner: ' . $this->user->slug, $body);
+        $this->assertStringContainsString('provider: OpenAI', $body);
+        $this->assertStringContainsString('model: gpt-4', $body);
+        $this->assertStringContainsString('starred: true', $body);
+        $this->assertStringContainsString('Downloadable response', $body);
+    }
+
+    public function test_download_result_of_other_users_private_prompt_returns_404(): void
+    {
+        // $this->user is the first user created → admin (sees everything).
+        // Create two non-admin users so we can test cross-user visibility.
+        $owner = User::create([
+            'name' => 'Owner',
+            'email' => 'owner@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'editor',
+        ]);
+        $stranger = User::create([
+            'name' => 'Stranger',
+            'email' => 'stranger@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'editor',
+        ]);
+        $strangerKey = app(ApiKeyService::class)->generateKey($stranger, 'Stranger Key');
+        $strangerHeaders = ['Authorization' => "Bearer {$strangerKey['key']}"];
+
+        $ownerPrompt = Prompt::create([
+            'name' => 'Owner Private Prompt',
+            'type' => 'prompt',
+            'created_by' => $owner->id,
+            'visibility' => 'private',
+        ]);
+        $version = app(VersioningService::class)->createVersion(
+            $ownerPrompt,
+            ['content' => 'secret'],
+            $owner
+        );
+        $otherResult = Result::create([
+            'prompt_id' => $ownerPrompt->id,
+            'prompt_version_id' => $version->id,
+            'source' => 'api',
+            'response_text' => 'Should not be visible',
+            'created_by' => $owner->id,
+        ]);
+
+        $response = $this->get("/api/v1/results/{$otherResult->id}/download", $strangerHeaders);
+
+        $response->assertStatus(404);
+    }
+
     public function test_filter_results_by_starred(): void
     {
         $version = $this->prompt->versions()->first();

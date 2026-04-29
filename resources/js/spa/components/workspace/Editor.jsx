@@ -125,6 +125,15 @@ export default function Editor({ prompt, version, username, slug, onVersionCreat
                     >
                         Preview
                     </button>
+                    {version && (
+                        <a
+                            href={`/api/v1/prompts/${username}/${slug}/versions/${version.version_number}/download`}
+                            title="Download as .md"
+                            className="text-xs px-2 py-0.5 rounded text-gray-400 hover:text-gray-200 hover:bg-gray-700"
+                        >
+                            Download
+                        </a>
+                    )}
                 </div>
             </div>
 
