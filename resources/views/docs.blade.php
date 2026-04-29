@@ -7,17 +7,20 @@
 </head>
 <body>
     <style>
-        .scalar-app {
+        .dark-mode .scalar-app,
+        .scalar-app.dark-mode {
             --scalar-background-1: #0f172a;
             --scalar-background-2: #1e293b;
             --scalar-background-3: #334155;
         }
-        .scalar-app .section-flare,
-        .scalar-app [class*="bg-gradient"],
-        .scalar-app [style*="background-image"] {
+        .dark-mode .section-flare,
+        .dark-mode [class*="bg-gradient"],
+        .dark-mode [style*="background-image"],
+        .scalar-app.dark-mode .section-flare,
+        .scalar-app.dark-mode [class*="bg-gradient"],
+        .scalar-app.dark-mode [style*="background-image"] {
             background-image: none !important;
         }
-        body { background: #0f172a; }
     </style>
     <script
         id="api-reference"
