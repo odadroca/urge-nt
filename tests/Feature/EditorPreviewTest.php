@@ -229,12 +229,20 @@ class EditorPreviewTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $response = $this->postJson(
+        // Strict mode rejects missing variables
+        $strictResponse = $this->postJson(
             "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
             [],
             $this->headers
         );
+        $strictResponse->assertStatus(422);
 
+        // Lenient mode shows missing variables
+        $response = $this->postJson(
+            "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}/render",
+            ['strict' => false],
+            $this->headers
+        );
         $response->assertStatus(200);
 
         $data = $response->json('data');

@@ -27,7 +27,10 @@ class TemplateEngine
      *
      * @return array{rendered: string, variables_used: string[], variables_missing: string[], includes_resolved: string[]}
      */
-    public function render(string $content, array $variables, ?array $metadata = null, ?User $user = null): array
+    /**
+     * @param bool $strict When true, throws if required variables are missing (no value provided, no default in metadata)
+     */
+    public function render(string $content, array $variables, ?array $metadata = null, ?User $user = null, bool $strict = false): array
     {
         $includesResolved = [];
         $resolvedContent = $this->resolveIncludes($content, [], $includesResolved, $user);
@@ -61,6 +64,11 @@ class TemplateEngine
             $missing[] = $name;
             return $matches[0];
         }, $resolvedContent);
+
+        if ($strict && !empty($missing)) {
+            $missingList = implode(', ', array_unique($missing));
+            throw new \InvalidArgumentException("Missing required variables: {$missingList}. Provide values or set defaults in variable metadata.");
+        }
 
         return [
             'rendered'           => $rendered,

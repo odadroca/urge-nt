@@ -190,7 +190,7 @@ class McpToolHandler
             ],
             [
                 'name'        => 'render_prompt',
-                'description' => 'Render a prompt template with variable substitution and include resolution. This is the standard way to execute prompts: call render_prompt to get the final text, execute it yourself (natively), then call store_result to save your response back to URGE.',
+                'description' => 'Render a prompt template with variable substitution and include resolution. Returns an error if required variables are missing (provide values or set defaults in variable metadata). This is the standard way to execute prompts: call render_prompt to get the final text, execute it yourself (natively), then call store_result to save your response back to URGE.',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
@@ -868,14 +868,19 @@ class McpToolHandler
             return ['error' => "Provider '{$providerName}' not found or inactive. Available: {$available}"];
         }
 
-        // Render template with variables
+        // Render template with variables (strict: reject if required vars missing)
         $variables = $args['variables'] ?? [];
-        $renderResult = $this->templateEngine->render(
-            $version->content,
-            $variables,
-            $version->variable_metadata,
-            $user,
-        );
+        try {
+            $renderResult = $this->templateEngine->render(
+                $version->content,
+                $variables,
+                $version->variable_metadata,
+                $user,
+                strict: true,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return ['error' => $e->getMessage()];
+        }
         $renderedContent = $renderResult['rendered'];
 
         // Dispatch to LLM
@@ -1222,7 +1227,11 @@ class McpToolHandler
 
         $variables = $args['variables'] ?? [];
 
-        return $this->templateEngine->render($version->content, $variables, $version->variable_metadata, $user);
+        try {
+            return $this->templateEngine->render($version->content, $variables, $version->variable_metadata, $user, strict: true);
+        } catch (\InvalidArgumentException $e) {
+            return ['error' => $e->getMessage()];
+        }
     }
 
     private function saveVersion(array $args, ?User $user): array

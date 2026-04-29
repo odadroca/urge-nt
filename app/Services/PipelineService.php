@@ -28,11 +28,13 @@ class PipelineService
     ): array {
         $pipeline->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
 
-        // Render the prompt content
+        // Render the prompt content (strict: reject if required vars missing)
         $renderResult = $this->templateEngine->render(
             $version->content,
             $variableValues,
             $version->variable_metadata,
+            null,
+            strict: true,
         );
         $renderedContent = $renderResult['rendered'];
 

@@ -43,7 +43,7 @@ class PipelineServiceTest extends TestCase
 
         $this->version = PromptVersion::create([
             'prompt_id' => $this->prompt->id,
-            'content' => 'Hello {{name}}',
+            'content' => 'Hello world, analyze this prompt.',
             'version_number' => 1,
             'created_by' => $this->user->id,
         ]);
@@ -286,6 +286,14 @@ class PipelineServiceTest extends TestCase
 
     public function test_variables_are_rendered_in_content(): void
     {
+        // Create a version with a variable for this specific test
+        $varVersion = PromptVersion::create([
+            'prompt_id' => $this->prompt->id,
+            'content' => 'Hello {{name}}',
+            'version_number' => 2,
+            'created_by' => $this->user->id,
+        ]);
+
         $pipeline = Pipeline::create(['name' => 'Var Test', 'created_by' => $this->user->id]);
         PipelineChannel::create([
             'pipeline_id' => $pipeline->id,
@@ -308,7 +316,7 @@ class PipelineServiceTest extends TestCase
             $mockDispatch,
         );
 
-        $resultIds = $service->run($pipeline, $this->version, ['name' => 'World'], $this->user->id);
+        $resultIds = $service->run($pipeline, $varVersion, ['name' => 'World'], $this->user->id);
 
         $this->assertCount(1, $resultIds);
         $result = Result::find($resultIds[0]);

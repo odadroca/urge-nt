@@ -33,12 +33,19 @@ class RenderController extends ApiController
         }
 
         $variables = $validated['variables'] ?? [];
-        $result = $this->templateEngine->render(
-            $version->content,
-            $variables,
-            $version->variable_metadata,
-            $request->user()
-        );
+        $strict = $request->boolean('strict', true);
+
+        try {
+            $result = $this->templateEngine->render(
+                $version->content,
+                $variables,
+                $version->variable_metadata,
+                $request->user(),
+                strict: $strict,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return $this->error($e->getMessage(), 422);
+        }
 
         return $this->success([
             'rendered'           => $result['rendered'],

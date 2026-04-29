@@ -46,10 +46,21 @@ class RenderApiTest extends TestCase
             ->assertJsonPath('data.variables_missing', []);
     }
 
-    public function test_render_with_missing_variables(): void
+    public function test_render_with_missing_variables_strict(): void
     {
         $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/render", [
             'variables' => ['name' => 'Claude'],
+        ], $this->headers);
+
+        $response->assertStatus(422)
+            ->assertJsonFragment(['error' => 'Missing required variables: role. Provide values or set defaults in variable metadata.']);
+    }
+
+    public function test_render_with_missing_variables_lenient(): void
+    {
+        $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/render", [
+            'variables' => ['name' => 'Claude'],
+            'strict' => false,
         ], $this->headers);
 
         $response->assertStatus(200)
@@ -66,6 +77,7 @@ class RenderApiTest extends TestCase
         $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/render", [
             'version' => 1,
             'variables' => ['name' => 'Test'],
+            'strict' => false,
         ], $this->headers);
 
         $response->assertStatus(200)
