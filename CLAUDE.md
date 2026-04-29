@@ -16,7 +16,7 @@ URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fil
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
-php artisan test         # 376 tests
+php artisan test         # 391 tests
 php artisan serve        # http://127.0.0.1:8000
 npm run dev              # Vite HMR
 npm run build            # Production
@@ -150,6 +150,7 @@ DELETE /prompts/{username}/{slug}            — delete prompt (owner/admin only
 GET    /prompts/{username}/{slug}/versions   — list versions
 POST   /prompts/{username}/{slug}/versions   — create version
 GET    /prompts/{username}/{slug}/versions/{n} — get specific version
+GET    /prompts/{username}/{slug}/versions/{n}/download — download version as .md (YAML frontmatter + body)
 POST   /prompts/{username}/{slug}/render     — render with variables, return text
 GET    /prompts/{username}/{slug}/branches   — list branches
 POST   /prompts/{username}/{slug}/branches   — create branch
@@ -163,6 +164,7 @@ DELETE /prompts/{username}/{slug}/share/{team} — unshare from team
 GET    /prompts/{slug}                       — legacy redirect to namespaced URL
 GET    /results/starred                      — list starred results across all prompts
 GET    /results/{id}                         — get single result
+GET    /results/{id}/download                — download result as .md (YAML frontmatter + body)
 PATCH  /results/{id}                         — update rating/starred/notes
 DELETE /results/{id}                         — delete result
 POST   /results/{id}/evaluate               — evaluate result with LLM scoring
@@ -224,8 +226,10 @@ resources/js/spa/
 │   │                          # fitView on first render only — viewport stable across state changes
 │   ├── PipelinesPage.jsx      # Pipeline CRUD with channel management (promoted from Settings)
 │   ├── WorkspacePage.jsx      # 3-panel editor (editor, version sidebar, results)
-│   │                          # Editor: text mode (with autocomplete) + visual composer mode, preview toggle
+│   │                          # Editor: text mode (with autocomplete) + visual composer mode, preview toggle, .md download
 │   │                          # VersionSidebar: branch selector, version list, compare mode (diff viewer)
+│   │                          # PreviewPanel: copy rendered output to clipboard
+│   │                          # ResultsPanel: per-result copy + .md download
 │   ├── SettingsPage.jsx       # Tabbed settings (API Keys, Providers, Categories, Evaluation, Users)
 │   ├── TeamsPage.jsx          # Teams list + create
 │   ├── TeamDetailPage.jsx     # Team members + shared prompts management
@@ -344,7 +348,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 386 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 391 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -372,3 +376,4 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **Client-side execution** — LLMs fetch prompts/pipelines, run natively (free), store results back.
 - **OAuth refresh tokens** — 30-day refresh tokens with rotation (single-use, client-bound, scope downscoping only). Clients silently renew sessions.
 - **Workspace editor features** — version diff viewer (word/char mode), inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop block editor with Text|Visual mode toggle).
+- **Markdown download + clipboard copy** — restored the `.md` download buttons that the Livewire→React migration dropped. Two streaming GET endpoints (`/versions/{n}/download`, `/results/{id}/download`) reuse `ImportExportService`. Copy-to-clipboard buttons for the rendered prompt preview and individual results, driven by a shared `useCopyToClipboard` hook.
