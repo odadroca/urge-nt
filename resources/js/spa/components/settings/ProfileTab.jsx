@@ -31,11 +31,17 @@ function ProfileInformationSection({ user }) {
     const [form, setForm] = useState({ name: '', email: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [savedAt, setSavedAt] = useState(0);
+    const [saved, setSaved] = useState(false);
 
     useEffect(() => {
         if (user) setForm({ name: user.name || '', email: user.email || '' });
     }, [user?.id]);
+
+    useEffect(() => {
+        if (!saved) return;
+        const id = setTimeout(() => setSaved(false), 2500);
+        return () => clearTimeout(id);
+    }, [saved]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -45,15 +51,13 @@ function ProfileInformationSection({ user }) {
         try {
             await updateProfile({ name: form.name.trim(), email: form.email.trim() });
             queryClient.invalidateQueries({ queryKey: ['auth'] });
-            setSavedAt(Date.now());
+            setSaved(true);
         } catch (err) {
             setError(extractError(err, 'Could not update profile.'));
         } finally {
             setSaving(false);
         }
     };
-
-    const showSaved = savedAt && Date.now() - savedAt < 2500;
 
     return (
         <section>
@@ -95,7 +99,7 @@ function ProfileInformationSection({ user }) {
                     >
                         {saving ? 'Saving...' : 'Save'}
                     </button>
-                    {showSaved && <p className="text-sm text-green-400">Saved.</p>}
+                    {saved && <p className="text-sm text-green-400">Saved.</p>}
                 </div>
             </form>
         </section>
@@ -106,7 +110,13 @@ function PasswordSection() {
     const [form, setForm] = useState({ current_password: '', password: '', password_confirmation: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [savedAt, setSavedAt] = useState(0);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        if (!saved) return;
+        const id = setTimeout(() => setSaved(false), 2500);
+        return () => clearTimeout(id);
+    }, [saved]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -116,15 +126,13 @@ function PasswordSection() {
         try {
             await updatePassword(form);
             setForm({ current_password: '', password: '', password_confirmation: '' });
-            setSavedAt(Date.now());
+            setSaved(true);
         } catch (err) {
             setError(extractError(err, 'Could not update password.'));
         } finally {
             setSaving(false);
         }
     };
-
-    const showSaved = savedAt && Date.now() - savedAt < 2500;
 
     return (
         <section>
@@ -175,7 +183,7 @@ function PasswordSection() {
                     >
                         {saving ? 'Updating...' : 'Update Password'}
                     </button>
-                    {showSaved && <p className="text-sm text-green-400">Password updated.</p>}
+                    {saved && <p className="text-sm text-green-400">Password updated.</p>}
                 </div>
             </form>
         </section>
