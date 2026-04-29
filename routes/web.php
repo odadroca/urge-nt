@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect('/app/browse'));
 
+// API documentation (public, no auth)
+Route::get('/docs', fn () => view('docs'));
+
 // Public share routes (no auth required)
 Route::get('/share/{token}', [ShareController::class, 'show'])
     ->name('share.show')
