@@ -7,25 +7,18 @@
 </head>
 <body>
     <style>
-        .dark-mode .scalar-app,
-        .scalar-app.dark-mode {
-            --scalar-background-1: #0f172a;
-            --scalar-background-2: #1e293b;
-            --scalar-background-3: #334155;
-        }
-        .dark-mode .section-flare,
-        .dark-mode [class*="bg-gradient"],
-        .dark-mode [style*="background-image"],
-        .scalar-app.dark-mode .section-flare,
-        .scalar-app.dark-mode [class*="bg-gradient"],
-        .scalar-app.dark-mode [style*="background-image"] {
-            background-image: none !important;
+        :root {
+            --scalar-background-1: var(--color-slate-900, #0f172a);
+            --scalar-background-2: var(--color-slate-800, #1e293b);
+            --scalar-background-3: var(--color-slate-700, #334155);
+            --scalar-color-1: var(--color-white, #ffffff);
+            --scalar-color-accent: var(--color-indigo-600, #6366f1);
         }
     </style>
     <script
         id="api-reference"
         data-url="/openapi.json"
-        data-configuration='{"theme":"bluePlanet","hideDownloadButton":true}'
+        data-configuration='{"hideDownloadButton":true}'
     ></script>
     <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body>
