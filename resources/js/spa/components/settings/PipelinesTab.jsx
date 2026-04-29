@@ -285,7 +285,11 @@ function PipelineDetail({ slug }) {
                                         {channel.trigger}
                                     </span>
                                 )}
-                                {channel.provider ? (
+                                {channel.execution_mode === 'client' ? (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400" title="No active LLM provider — the LLM client must run this channel locally">
+                                        runs locally
+                                    </span>
+                                ) : channel.provider ? (
                                     <span className="text-[10px] text-gray-500">{channel.provider.name}</span>
                                 ) : (
                                     <span className="text-[10px] text-red-400">no provider</span>

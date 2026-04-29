@@ -1554,14 +1554,18 @@ class McpToolHandler
     private function listPipelines(array $args, ?User $user): array
     {
         return Pipeline::where('is_active', true)
+            ->with(['channels.llmProvider'])
             ->withCount('channels')
             ->orderBy('name')
             ->get()
             ->map(fn ($t) => [
-                'slug'           => $t->slug,
-                'name'           => $t->name,
-                'description'    => $t->description,
-                'channels_count' => $t->channels_count,
+                'slug'                => $t->slug,
+                'name'                => $t->name,
+                'description'         => $t->description,
+                'channels_count'      => $t->channels_count,
+                'has_client_channels' => $t->channels->contains(
+                    fn ($c) => $c->execution_mode === 'client'
+                ),
             ])
             ->toArray();
     }
@@ -1578,15 +1582,22 @@ class McpToolHandler
         $parallel = [];
         $synthesis = null;
 
+        $hasClient = false;
         foreach ($pipeline->channels as $channel) {
+            $mode = $channel->execution_mode;
+            if ($mode === 'client') {
+                $hasClient = true;
+            }
+
             $channelData = [
-                'id'            => $channel->id,
-                'role_label'    => $channel->role_label,
-                'system_prompt' => $channel->system_prompt,
-                'trigger'       => $channel->trigger,
-                'sort_order'    => $channel->sort_order,
-                'provider'      => $channel->llmProvider?->name,
-                'model'         => $channel->llmProvider?->model,
+                'id'             => $channel->id,
+                'role_label'     => $channel->role_label,
+                'system_prompt'  => $channel->system_prompt,
+                'trigger'        => $channel->trigger,
+                'sort_order'     => $channel->sort_order,
+                'provider'       => $channel->llmProvider?->name,
+                'model'          => $channel->llmProvider?->model,
+                'execution_mode' => $mode,
             ];
 
             if ($channel->trigger === 'synthesis') {
@@ -1596,14 +1607,19 @@ class McpToolHandler
             }
         }
 
+        $instructions = $hasClient
+            ? 'This pipeline has channels marked execution_mode="client" — they have no active LLM provider configured on the server, so YOU must run them locally. For each client channel: use its system_prompt as context, run it against the prompt content, and call store_result with the response. For execution_mode="server" channels you can call run_pipeline and the server will dispatch them.'
+            : 'All channels are execution_mode="server". Call run_pipeline to have the server dispatch them, or run them yourself for free and call store_result for each output.';
+
         return [
-            'slug'        => $pipeline->slug,
-            'name'        => $pipeline->name,
-            'description' => $pipeline->description,
-            'is_active'   => $pipeline->is_active,
-            'parallel_channels' => $parallel,
-            'synthesis_channel' => $synthesis,
-            'instructions' => 'To run this pipeline yourself: 1) For each parallel channel, use its system_prompt as context and run the prompt content. 2) Call store_result for each channel output. 3) If synthesis exists, combine all parallel results and run synthesis. 4) Call store_result for synthesis output.',
+            'slug'                => $pipeline->slug,
+            'name'                => $pipeline->name,
+            'description'         => $pipeline->description,
+            'is_active'           => $pipeline->is_active,
+            'parallel_channels'   => $parallel,
+            'synthesis_channel'   => $synthesis,
+            'has_client_channels' => $hasClient,
+            'instructions'        => $instructions,
         ];
     }
 
@@ -1636,14 +1652,23 @@ class McpToolHandler
             return ['error' => 'Version not found.'];
         }
 
-        $resultIds = $this->pipelineService->run(
+        $runResult = $this->pipelineService->run(
             $pipeline,
             $version,
             $args['variables'] ?? [],
             $user->id,
         );
 
-        return ['result_ids' => $resultIds];
+        $response = [
+            'result_ids'              => $runResult['result_ids'],
+            'pending_client_channels' => $runResult['pending_client_channels'],
+        ];
+
+        if (!empty($runResult['pending_client_channels'])) {
+            $response['instructions'] = 'Some channels could not be dispatched server-side because no active LLM provider is configured. For each entry in pending_client_channels: run user_prompt against system_prompt locally, then call store_result with role_label and the response_text. For synthesis channels with user_prompt=null, call get_results for this prompt+version to gather parallel outputs and build the synthesis input yourself.';
+        }
+
+        return $response;
     }
 
     private function createPipelineTool(array $args, ?User $user): array

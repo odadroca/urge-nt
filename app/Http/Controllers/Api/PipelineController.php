@@ -43,7 +43,43 @@ class PipelineController extends ApiController
     {
         $pipeline->load(['channels.llmProvider']);
 
-        return $this->success($pipeline);
+        $hasClient = false;
+        $channels = $pipeline->channels->map(function (PipelineChannel $channel) use (&$hasClient) {
+            $mode = $channel->execution_mode;
+            if ($mode === 'client') {
+                $hasClient = true;
+            }
+
+            return [
+                'id'              => $channel->id,
+                'pipeline_id'     => $channel->pipeline_id,
+                'role_label'      => $channel->role_label,
+                'system_prompt'   => $channel->system_prompt,
+                'trigger'         => $channel->trigger,
+                'sort_order'      => $channel->sort_order,
+                'llm_provider_id' => $channel->llm_provider_id,
+                'provider'        => $channel->llmProvider ? [
+                    'id'        => $channel->llmProvider->id,
+                    'name'      => $channel->llmProvider->name,
+                    'model'     => $channel->llmProvider->model,
+                    'is_active' => $channel->llmProvider->is_active,
+                ] : null,
+                'execution_mode'  => $mode,
+            ];
+        })->all();
+
+        return $this->success([
+            'id'                  => $pipeline->id,
+            'name'                => $pipeline->name,
+            'slug'                => $pipeline->slug,
+            'description'         => $pipeline->description,
+            'is_active'           => $pipeline->is_active,
+            'created_by'          => $pipeline->created_by,
+            'created_at'          => $pipeline->created_at,
+            'updated_at'          => $pipeline->updated_at,
+            'channels'            => $channels,
+            'has_client_channels' => $hasClient,
+        ]);
     }
 
     public function update(Request $request, Pipeline $pipeline): JsonResponse
@@ -152,13 +188,13 @@ class PipelineController extends ApiController
             return $this->error('Version not found.', 404);
         }
 
-        $resultIds = $service->run(
+        $runResult = $service->run(
             $pipeline,
             $version,
             $validated['variables'] ?? [],
             $request->user()->id,
         );
 
-        return $this->success(['result_ids' => $resultIds]);
+        return $this->success($runResult);
     }
 }

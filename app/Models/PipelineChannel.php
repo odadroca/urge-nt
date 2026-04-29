@@ -36,4 +36,18 @@ class PipelineChannel extends Model
     {
         return $this->belongsTo(Prompt::class, 'prompt_fragment_id');
     }
+
+    /**
+     * "server" if a configured + active LLM provider can dispatch this channel.
+     * "client" if the caller (the LLM client) must run this channel locally
+     * because no provider is configured or the configured provider is inactive.
+     */
+    public function getExecutionModeAttribute(): string
+    {
+        if (!$this->llm_provider_id) {
+            return 'client';
+        }
+        $provider = $this->llmProvider;
+        return $provider && $provider->is_active ? 'server' : 'client';
+    }
 }
