@@ -243,6 +243,9 @@ Post-login redirect: `/app/browse`
 React SPA (at /app/*, BrowserRouter):
 /app/browse, /app/pipelines, /app/teams, /app/teams/:slug, /app/canvas, /app/workspace/:username/:slug, /app/settings
 
+Public:
+/docs — interactive API documentation (Scalar, no auth)
+
 Legacy redirects (all redirect to /app/* equivalents):
 /settings, /teams, /teams/{slug}, /prompts/{username}/{slug}, /browse, /dashboard
 
@@ -274,6 +277,7 @@ Namespaces: Prompts are private by default. Shared via teams. Visibility scope: 
 - `{{variable_name}}` — variable placeholder
 - `{{>slug}}` — include another prompt's active version content
 - Works in: prompt content, pipeline channel system prompts
+- Strict validation: rendering rejects missing required variables (no value, no default). API render supports `?strict=false` for preview.
 - Max depth: `URGE_MAX_INCLUDE_DEPTH` env (default 10)
 
 ### Key Patterns
@@ -340,7 +344,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 385 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 386 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
