@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\GraphController;
 use App\Http\Controllers\Api\LlmProviderController;
 use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromptController;
 use App\Http\Controllers\Api\RenderController;
 use App\Http\Controllers\Api\ResultController;
@@ -29,6 +30,11 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('auth/user', [AuthController::class, 'user']);
+
+        // Current-user profile (SPA self-service)
+        Route::patch('profile', [ProfileController::class, 'update']);
+        Route::put('profile/password', [ProfileController::class, 'updatePassword']);
+        Route::delete('profile', [ProfileController::class, 'destroy']);
     });
 
     Route::middleware('dual.auth')->group(function () {

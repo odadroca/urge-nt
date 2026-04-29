@@ -150,12 +150,13 @@ export default function Sidebar() {
                 {/* User avatar + logout */}
                 {user && (
                     <div className="flex flex-col items-center gap-1 mt-2 pt-2 border-t border-gray-700">
-                        <div
-                            className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-600 text-white text-xs font-semibold"
-                            title={user.name}
+                        <Link
+                            to="/settings?tab=profile"
+                            title={`${user.name} — Profile`}
+                            className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-600 text-white text-xs font-semibold hover:bg-indigo-600 transition-colors"
                         >
                             {userInitial}
-                        </div>
+                        </Link>
                         <button
                             onClick={logout}
                             className="flex items-center justify-center w-10 h-10 rounded-lg text-gray-500 hover:text-red-400 hover:bg-gray-800 transition-colors"

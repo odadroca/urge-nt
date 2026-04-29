@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\InternalApiController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShareController;
 use App\Models\Prompt;
 use App\Models\Team;
@@ -46,9 +45,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/internal/variables', [InternalApiController::class, 'variables'])->name('internal.variables');
     Route::get('/internal/fragments', [InternalApiController::class, 'fragments'])->name('internal.fragments');
 
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Profile is now a tab inside the SPA Settings page.
+    Route::get('/profile', fn () => redirect('/app/settings?tab=profile'))->name('profile.edit');
 
     // OAuth 2.1 authorization (requires login)
     Route::get('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'showAuthorize']);
