@@ -60,6 +60,7 @@ class PipelineService
         $pendingClient = [];
 
         $user = User::find($userId);
+        $hasClientParallel = false;
 
         foreach ($pipeline->parallelChannels as $channel) {
             $systemPrompt = $this->resolveSystemPrompt($channel);
@@ -72,6 +73,7 @@ class PipelineService
             }
 
             if ($channel->execution_mode === 'client') {
+                $hasClientParallel = true;
                 $pendingClient[] = [
                     'channel_id'    => $channel->id,
                     'role_label'    => $channel->role_label,
@@ -135,6 +137,20 @@ class PipelineService
             // surface as pending_client only if the channel is client-mode.
 
             if ($synthesisChannel->execution_mode === 'client') {
+                // If any parallel was client-pending, the LLM doesn't yet have
+                // those outputs — so a server-prebuilt synthesis input would be
+                // missing context. Hand back null and let the caller assemble
+                // the synthesis input itself after running its client parallels.
+                // input_source=result_history overrides this: it doesn't depend
+                // on this run's parallels at all.
+                $clientUserPrompt = $synthesisInput;
+                if (
+                    $synthesisChannel->input_source !== 'result_history'
+                    && $hasClientParallel
+                ) {
+                    $clientUserPrompt = null;
+                }
+
                 $pendingClient[] = [
                     'channel_id'    => $synthesisChannel->id,
                     'role_label'    => $synthesisChannel->role_label,
@@ -142,7 +158,7 @@ class PipelineService
                     'sort_order'    => $synthesisChannel->sort_order,
                     'input_source'  => $synthesisChannel->input_source,
                     'system_prompt' => $systemPrompt,
-                    'user_prompt'   => $synthesisInput,
+                    'user_prompt'   => $clientUserPrompt,
                 ];
             } elseif ($synthesisInput !== null && $synthesisInput !== '') {
                 $provider = $synthesisChannel->llmProvider;

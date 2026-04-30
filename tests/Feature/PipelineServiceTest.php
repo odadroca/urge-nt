@@ -258,6 +258,126 @@ class PipelineServiceTest extends TestCase
         $this->assertStringContains('Analyst result', $synthPending['user_prompt']);
     }
 
+    public function test_synthesis_pending_client_user_prompt_null_when_mixing_server_and_client_parallels(): void
+    {
+        // One server-dispatched parallel (success), one client-pending parallel,
+        // and a client synthesis. Prebuilding the synthesis input from only the
+        // server result would silently drop the client parallel's output once
+        // the caller runs it — return null and let the caller assemble.
+        $inactive = LlmProvider::create([
+            'name' => 'Inactive',
+            'driver' => 'openai',
+            'model' => 'gpt-4',
+            'api_key' => 'test-key',
+            'is_active' => false,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'Mixed parallels', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'ServerSide',
+            'llm_provider_id' => $this->provider->id,
+            'trigger' => 'parallel',
+            'sort_order' => 0,
+        ]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'ClientSide',
+            'llm_provider_id' => $inactive->id,
+            'trigger' => 'parallel',
+            'sort_order' => 1,
+        ]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Synthesizer',
+            'llm_provider_id' => null,
+            'system_prompt' => 'Combine.',
+            'trigger' => 'synthesis',
+            'sort_order' => 99,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturn(LlmResult::success('server output', 'gpt-4', 100, 10, 20));
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertCount(1, $runResult['result_ids']);
+        $this->assertCount(2, $runResult['pending_client_channels']);
+
+        $synthPending = collect($runResult['pending_client_channels'])
+            ->firstWhere('trigger', 'synthesis');
+        $this->assertNotNull($synthPending);
+        $this->assertNull(
+            $synthPending['user_prompt'],
+            'Synthesis user_prompt should be null when any parallel is client-pending; otherwise the caller would synthesize on incomplete context.'
+        );
+    }
+
+    public function test_synthesis_pending_client_with_result_history_input_unaffected_by_client_parallels(): void
+    {
+        // result_history synthesis ignores this run's parallels, so a mixed
+        // client/server parallel set should NOT cause user_prompt to go null.
+        Result::create([
+            'prompt_id'         => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source'            => 'api',
+            'response_text'     => 'historical answer',
+            'created_by'        => $this->user->id,
+        ]);
+
+        $inactive = LlmProvider::create([
+            'name' => 'Inactive2',
+            'driver' => 'openai',
+            'model' => 'gpt-4',
+            'api_key' => 'test-key',
+            'is_active' => false,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'History+mixed', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'ClientParallel',
+            'llm_provider_id' => $inactive->id,
+            'trigger' => 'parallel',
+            'sort_order' => 0,
+        ]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'HistorySynth',
+            'llm_provider_id' => null,
+            'input_source' => 'result_history',
+            'input_filters' => [],
+            'trigger' => 'synthesis',
+            'sort_order' => 99,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldNotReceive('dispatchWithSystem');
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $synthPending = collect($runResult['pending_client_channels'])
+            ->firstWhere('trigger', 'synthesis');
+        $this->assertNotNull($synthPending);
+        $this->assertNotNull(
+            $synthPending['user_prompt'],
+            'result_history synthesis is independent of this run\'s parallels — should still get its prebuilt history input.'
+        );
+        $this->assertStringContains('historical answer', $synthPending['user_prompt']);
+    }
+
     public function test_synthesis_pending_client_user_prompt_null_when_all_parallels_client(): void
     {
         $pipeline = Pipeline::create(['name' => 'All client', 'created_by' => $this->user->id]);
