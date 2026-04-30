@@ -274,7 +274,12 @@ class PipelineService
             });
         }
 
-        $limit = min((int) ($filters['limit'] ?? 50), 100);
+        // Normalize limit: invalid input (≤0, non-numeric, or missing) falls back
+        // to the default 50, not 0 (would skip the channel) or a negative value
+        // (SQLite treats LIMIT -1 as unbounded — pulls the entire history).
+        $rawLimit = $filters['limit'] ?? null;
+        $limit = (is_numeric($rawLimit) && (int) $rawLimit > 0) ? (int) $rawLimit : 50;
+        $limit = min($limit, 100);
 
         $results = $query->orderByDesc('created_at')
             ->limit($limit)

@@ -708,6 +708,141 @@ class PipelineServiceTest extends TestCase
         $this->assertEmpty($runResult['pending_client_channels']);
     }
 
+    /**
+     * @testWith [0]
+     *           [-1]
+     *           ["abc"]
+     */
+    public function test_result_history_limit_falls_back_to_default_when_invalid($invalidLimit): void
+    {
+        // Seed 60 results — more than the safe default of 50, fewer than the cap.
+        for ($i = 0; $i < 60; $i++) {
+            Result::create([
+                'prompt_id'         => $this->prompt->id,
+                'prompt_version_id' => $this->version->id,
+                'source'            => 'api',
+                'response_text'     => "result $i",
+                'created_by'        => $this->user->id,
+            ]);
+        }
+
+        $pipeline = Pipeline::create(['name' => 'Bad limit', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => ['limit' => $invalidLimit],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('OK', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        // Channel should run (not be skipped) and use the default 50 — not 0 (skip)
+        // and not -1 (which on SQLite would dump the entire 60-row history).
+        $this->assertCount(1, $runResult['result_ids']);
+        $entryCount = substr_count($captured, "\n\n---\n\n") + 1;
+        $this->assertEquals(50, $entryCount, 'Expected default limit of 50 entries');
+    }
+
+    public function test_result_history_limit_capped_at_100(): void
+    {
+        for ($i = 0; $i < 110; $i++) {
+            Result::create([
+                'prompt_id'         => $this->prompt->id,
+                'prompt_version_id' => $this->version->id,
+                'source'            => 'api',
+                'response_text'     => "r$i",
+                'created_by'        => $this->user->id,
+            ]);
+        }
+
+        $pipeline = Pipeline::create(['name' => 'Cap', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => ['limit' => 500],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('OK', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+        $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $entryCount = substr_count($captured, "\n\n---\n\n") + 1;
+        $this->assertEquals(100, $entryCount, 'Expected limit cap of 100');
+    }
+
+    public function test_result_history_respects_explicit_valid_limit(): void
+    {
+        for ($i = 0; $i < 20; $i++) {
+            Result::create([
+                'prompt_id'         => $this->prompt->id,
+                'prompt_version_id' => $this->version->id,
+                'source'            => 'api',
+                'response_text'     => "r$i",
+                'created_by'        => $this->user->id,
+            ]);
+        }
+
+        $pipeline = Pipeline::create(['name' => 'Explicit', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => ['limit' => 5],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('OK', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+        $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $entryCount = substr_count($captured, "\n\n---\n\n") + 1;
+        $this->assertEquals(5, $entryCount);
+    }
+
     public function test_run_source_is_stamped_on_every_result(): void
     {
         $pipeline = Pipeline::create(['name' => 'Scheduled', 'created_by' => $this->user->id]);
