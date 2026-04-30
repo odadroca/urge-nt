@@ -294,6 +294,11 @@ function PipelineDetail({ slug }) {
                                 ) : (
                                     <span className="text-[10px] text-red-400">no provider</span>
                                 )}
+                                {channel.input_source === 'result_history' && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-400" title="Reads past Results as input (trend / drift analysis)">
+                                        ← history
+                                    </span>
+                                )}
                             </div>
                             {channel.system_prompt && (
                                 <p className="text-[10px] text-gray-500 truncate">{channel.system_prompt}</p>
@@ -331,10 +336,15 @@ function PipelineDetail({ slug }) {
 }
 
 function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
+    const initialFilters = channel?.input_filters || {};
     const [form, setForm] = useState({
         role_label: channel?.role_label || channel?.name || '',
-        provider_id: channel?.provider_id || channel?.provider?.id || '',
+        llm_provider_id: channel?.llm_provider_id || channel?.provider?.id || '',
         system_prompt: channel?.system_prompt || '',
+        input_source: channel?.input_source || 'prompt',
+        filter_since: initialFilters.since || '',
+        filter_limit: initialFilters.limit ?? '',
+        filter_run_source: initialFilters.run_source || '',
         trigger: channel?.trigger || 'parallel',
         sort_order: channel?.sort_order ?? 0,
     });
@@ -349,11 +359,23 @@ function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
         setSaving(true);
         setError('');
         try {
+            const filters = {};
+            if (form.input_source === 'result_history') {
+                if (form.filter_since.trim()) filters.since = form.filter_since.trim();
+                if (form.filter_limit !== '' && form.filter_limit !== null) {
+                    const n = parseInt(form.filter_limit, 10);
+                    if (!Number.isNaN(n) && n > 0) filters.limit = n;
+                }
+                if (form.filter_run_source) filters.run_source = form.filter_run_source;
+            }
+
             const payload = {
                 role_label: form.role_label.trim(),
                 name: form.role_label.trim(),
-                provider_id: form.provider_id || null,
+                llm_provider_id: form.llm_provider_id ? parseInt(form.llm_provider_id, 10) : null,
                 system_prompt: form.system_prompt.trim() || null,
+                input_source: form.input_source,
+                input_filters: form.input_source === 'result_history' && Object.keys(filters).length > 0 ? filters : null,
                 trigger: form.trigger,
                 sort_order: parseInt(form.sort_order, 10) || 0,
             };
@@ -397,17 +419,81 @@ function ChannelForm({ pipelineSlug, channel, providers, onSaved, onCancel }) {
                 <div>
                     <label className="block text-[10px] text-gray-400 mb-0.5">Provider</label>
                     <select
-                        value={form.provider_id}
-                        onChange={(e) => setForm(f => ({ ...f, provider_id: e.target.value }))}
+                        value={form.llm_provider_id}
+                        onChange={(e) => setForm(f => ({ ...f, llm_provider_id: e.target.value }))}
                         className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1.5 outline-none focus:border-indigo-500"
                     >
-                        <option value="">-- Select Provider --</option>
+                        <option value="">-- None (runs locally) --</option>
                         {providers.map(p => (
                             <option key={p.id} value={p.id}>{p.name}{p.model ? ` (${p.model})` : ''}</option>
                         ))}
                     </select>
                 </div>
             </div>
+
+            <div>
+                <label className="block text-[10px] text-gray-400 mb-0.5">Input Source</label>
+                <div className="flex gap-3 text-xs text-gray-300">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                            type="radio"
+                            name="input_source"
+                            checked={form.input_source === 'prompt'}
+                            onChange={() => setForm(f => ({ ...f, input_source: 'prompt' }))}
+                            className="text-indigo-600"
+                        />
+                        Current prompt
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer" title="Channel reads past Results matching the filters below instead of the rendered prompt — for trend / drift analysis pipelines.">
+                        <input
+                            type="radio"
+                            name="input_source"
+                            checked={form.input_source === 'result_history'}
+                            onChange={() => setForm(f => ({ ...f, input_source: 'result_history' }))}
+                            className="text-indigo-600"
+                        />
+                        Result history
+                    </label>
+                </div>
+            </div>
+
+            {form.input_source === 'result_history' && (
+                <div className="grid grid-cols-3 gap-2 bg-gray-800/40 border border-gray-700 rounded p-2">
+                    <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5" title="ISO 8601 duration, e.g. P30D for last 30 days">Since (e.g. P30D)</label>
+                        <input
+                            value={form.filter_since}
+                            onChange={(e) => setForm(f => ({ ...f, filter_since: e.target.value }))}
+                            placeholder="P30D"
+                            className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 outline-none focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Limit (max 100)</label>
+                        <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={form.filter_limit}
+                            onChange={(e) => setForm(f => ({ ...f, filter_limit: e.target.value }))}
+                            placeholder="50"
+                            className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 outline-none focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Run source</label>
+                        <select
+                            value={form.filter_run_source}
+                            onChange={(e) => setForm(f => ({ ...f, filter_run_source: e.target.value }))}
+                            className="w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1 outline-none focus:border-indigo-500"
+                        >
+                            <option value="">any</option>
+                            <option value="manual">manual only</option>
+                            <option value="scheduled">scheduled only</option>
+                        </select>
+                    </div>
+                </div>
+            )}
 
             <div className="relative">
                 <label className="block text-[10px] text-gray-400 mb-0.5">System Prompt <span className="text-gray-600">(type {'{{>'} for fragment suggestions)</span></label>

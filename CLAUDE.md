@@ -16,7 +16,7 @@ URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fil
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
-php artisan test         # 403 tests
+php artisan test         # 410 tests
 php artisan serve        # http://127.0.0.1:8000
 npm run dev              # Vite HMR
 npm run build            # Production
@@ -348,7 +348,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 403 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 410 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -377,4 +377,5 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **OAuth refresh tokens** — 30-day refresh tokens with rotation (single-use, client-bound, scope downscoping only). Clients silently renew sessions.
 - **Workspace editor features** — version diff viewer (word/char mode), inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop block editor with Text|Visual mode toggle).
 - **Markdown download + clipboard copy** — restored the `.md` download buttons that the Livewire→React migration dropped. Two streaming GET endpoints (`/versions/{n}/download`, `/results/{id}/download`) reuse `ImportExportService`. Copy-to-clipboard buttons for the rendered prompt preview and individual results, driven by a shared `useCopyToClipboard` hook.
-- **Time-series scaffolding (Phase 1)** — `Result.run_source` column (`manual|scheduled`, nullable) tags results by cadence, distinct from the protocol `source` enum. `store_result` (MCP), `POST /results` (API), and `run-pipeline` (both) accept `run_source`. `get_results` and `GET /results` filter by it. Workspace results panel shows a `scheduled` pill on tagged results and has a "Scheduled" filter checkbox. Forward-compatible with the upcoming analytical pipeline (Phase 2) and internal scheduler (Phase 3) — see `docs/scheduling.md` for cron / MCP recipes.
+- **Time-series scaffolding (Phase 1)** — `Result.run_source` column (`manual|scheduled`, nullable) tags results by cadence, distinct from the protocol `source` enum. `store_result` (MCP), `POST /results` (API), and `run-pipeline` (both) accept `run_source`. `get_results` and `GET /results` filter by it. Workspace results panel shows a `scheduled` pill on tagged results and has a "Scheduled" filter checkbox. See `docs/scheduling.md` for cron / MCP recipes.
+- **Analytical pipelines (Phase 2)** — pipeline channels can declare `input_source: result_history` with `input_filters` (since/limit/run_source) so the channel sees a serialized batch of past Results instead of the rendered prompt. Visibility-enforced (only Results from prompts visible to the running user). Server- and client-mode (PR #17) both honour the new input source. ChannelForm in PipelinesTab gets an Input Source toggle + filter row when `result_history` is selected. Each historical channel shows an emerald `← history` pill in the channel list.

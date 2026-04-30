@@ -13,13 +13,16 @@ class PipelineChannel extends Model
         'role_label',
         'llm_provider_id',
         'system_prompt',
+        'input_source',
+        'input_filters',
         'prompt_fragment_id',
         'trigger',
         'sort_order',
     ];
 
     protected $casts = [
-        'sort_order' => 'integer',
+        'sort_order'    => 'integer',
+        'input_filters' => 'array',
     ];
 
     public function pipeline()

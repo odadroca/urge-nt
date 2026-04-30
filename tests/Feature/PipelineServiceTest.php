@@ -374,6 +374,340 @@ class PipelineServiceTest extends TestCase
         $this->assertEmpty($runResult['pending_client_channels']);
     }
 
+    public function test_result_history_channel_serializes_recent_results(): void
+    {
+        Result::create([
+            'prompt_id'         => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source'            => 'api',
+            'response_text'     => 'old answer',
+            'provider_name'     => 'OpenAI',
+            'model_name'        => 'gpt-4',
+            'created_by'        => $this->user->id,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'Trend', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Analyst',
+            'llm_provider_id' => $this->provider->id,
+            'system_prompt'   => 'Analyze this history.',
+            'input_source'    => 'result_history',
+            'input_filters'   => [],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('Trend report', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertCount(1, $runResult['result_ids']);
+        $this->assertNotNull($captured);
+        $this->assertStringContains('old answer', $captured);
+        $this->assertStringContains('OpenAI · gpt-4', $captured);
+    }
+
+    public function test_result_history_channel_respects_since_window(): void
+    {
+        // Old result outside the window
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'response_text' => 'ancient',
+            'created_by' => $this->user->id,
+        ])->forceFill(['created_at' => now()->subDays(60), 'updated_at' => now()->subDays(60)])->save();
+
+        // Recent result inside the window
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'response_text' => 'recent',
+            'created_by' => $this->user->id,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'Window', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Recent',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => ['since' => 'P30D'],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('OK', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+        $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertStringContains('recent', $captured);
+        $this->assertStringNotContains('ancient', $captured);
+    }
+
+    public function test_result_history_channel_respects_run_source_filter(): void
+    {
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'run_source' => 'manual',
+            'response_text' => 'ad-hoc',
+            'created_by' => $this->user->id,
+        ]);
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'run_source' => 'scheduled',
+            'response_text' => 'cron-output',
+            'created_by' => $this->user->id,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'Scheduled-only', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => ['run_source' => 'scheduled'],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('OK', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+        $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertStringContains('cron-output', $captured);
+        $this->assertStringNotContains('ad-hoc', $captured);
+    }
+
+    public function test_result_history_channel_skipped_when_no_results_match(): void
+    {
+        $pipeline = Pipeline::create(['name' => 'Empty', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => [],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldNotReceive('dispatchWithSystem');
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertEmpty($runResult['pending_client_channels']);
+    }
+
+    public function test_result_history_pending_client_when_no_provider(): void
+    {
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'response_text' => 'historical answer',
+            'created_by' => $this->user->id,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'Client analytical', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => null,
+            'input_source'    => 'result_history',
+            'input_filters'   => [],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldNotReceive('dispatchWithSystem');
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertCount(1, $runResult['pending_client_channels']);
+        $pending = $runResult['pending_client_channels'][0];
+        $this->assertEquals('result_history', $pending['input_source']);
+        $this->assertStringContains('historical answer', $pending['user_prompt']);
+    }
+
+    public function test_result_history_excludes_failures_by_default(): void
+    {
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'status' => 'success',
+            'response_text' => 'good run',
+            'created_by' => $this->user->id,
+        ]);
+        Result::create([
+            'prompt_id' => $this->prompt->id,
+            'prompt_version_id' => $this->version->id,
+            'source' => 'api',
+            'status' => 'error',
+            'response_text' => 'bad run',
+            'error_message' => 'API timeout',
+            'created_by' => $this->user->id,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'No failures', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Trend',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => [],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $captured = null;
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
+                $captured = $content;
+                return LlmResult::success('OK', 'gpt-4', 100);
+            });
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+        $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertStringContains('good run', $captured);
+        $this->assertStringNotContains('bad run', $captured);
+    }
+
+    public function test_result_history_respects_visibility(): void
+    {
+        // A second user creates a private prompt with results
+        $other = User::create([
+            'name' => 'Other',
+            'email' => 'other@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'editor',
+        ]);
+        $otherPrompt = Prompt::create([
+            'name' => 'Hidden',
+            'type' => 'prompt',
+            'created_by' => $other->id,
+            'visibility' => 'private',
+        ]);
+        $otherVersion = PromptVersion::create([
+            'prompt_id' => $otherPrompt->id,
+            'content' => 'x',
+            'version_number' => 1,
+            'created_by' => $other->id,
+        ]);
+        Result::create([
+            'prompt_id' => $otherPrompt->id,
+            'prompt_version_id' => $otherVersion->id,
+            'source' => 'api',
+            'response_text' => 'private secret',
+            'created_by' => $other->id,
+        ]);
+
+        // Non-admin user tries to read other's history via input_filters
+        $reader = User::create([
+            'name' => 'Reader',
+            'email' => 'reader@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'editor',
+        ]);
+        $readerPrompt = Prompt::create([
+            'name' => 'Reader Prompt',
+            'type' => 'prompt',
+            'created_by' => $reader->id,
+        ]);
+        $readerVersion = PromptVersion::create([
+            'prompt_id' => $readerPrompt->id,
+            'content' => 'y',
+            'version_number' => 1,
+            'created_by' => $reader->id,
+        ]);
+
+        $pipeline = Pipeline::create(['name' => 'Sneaky', 'created_by' => $reader->id]);
+        PipelineChannel::create([
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => 'Peeker',
+            'llm_provider_id' => $this->provider->id,
+            'input_source'    => 'result_history',
+            'input_filters'   => ['prompt_slug' => $otherPrompt->slug, 'owner' => $other->slug],
+            'trigger'         => 'parallel',
+            'sort_order'      => 0,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldNotReceive('dispatchWithSystem');
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $readerVersion, [], $reader->id);
+
+        // Non-visible target → channel resolves to no input → skipped
+        $this->assertEmpty($runResult['result_ids']);
+        $this->assertEmpty($runResult['pending_client_channels']);
+    }
+
     public function test_run_source_is_stamped_on_every_result(): void
     {
         $pipeline = Pipeline::create(['name' => 'Scheduled', 'created_by' => $this->user->id]);
