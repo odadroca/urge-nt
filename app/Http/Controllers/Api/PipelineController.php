@@ -55,6 +55,8 @@ class PipelineController extends ApiController
                 'pipeline_id'     => $channel->pipeline_id,
                 'role_label'      => $channel->role_label,
                 'system_prompt'   => $channel->system_prompt,
+                'input_source'    => $channel->input_source ?? 'prompt',
+                'input_filters'   => $channel->input_filters,
                 'trigger'         => $channel->trigger,
                 'sort_order'      => $channel->sort_order,
                 'llm_provider_id' => $channel->llm_provider_id,
@@ -105,20 +107,24 @@ class PipelineController extends ApiController
     public function addChannel(Request $request, Pipeline $pipeline): JsonResponse
     {
         $validated = $request->validate([
-            'role_label' => 'required|string|max:255',
+            'role_label'      => 'required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
-            'system_prompt' => 'nullable|string',
-            'trigger' => 'required|in:parallel,synthesis',
-            'sort_order' => 'integer|min:0',
+            'system_prompt'   => 'nullable|string',
+            'input_source'    => 'nullable|in:prompt,result_history',
+            'input_filters'   => 'nullable|array',
+            'trigger'         => 'required|in:parallel,synthesis',
+            'sort_order'      => 'integer|min:0',
         ]);
 
         $channel = PipelineChannel::create([
-            'pipeline_id' => $pipeline->id,
-            'role_label' => $validated['role_label'],
+            'pipeline_id'     => $pipeline->id,
+            'role_label'      => $validated['role_label'],
             'llm_provider_id' => $validated['llm_provider_id'] ?? null,
-            'system_prompt' => $validated['system_prompt'] ?? null,
-            'trigger' => $validated['trigger'],
-            'sort_order' => $validated['sort_order'] ?? 0,
+            'system_prompt'   => $validated['system_prompt'] ?? null,
+            'input_source'    => $validated['input_source'] ?? 'prompt',
+            'input_filters'   => $validated['input_filters'] ?? null,
+            'trigger'         => $validated['trigger'],
+            'sort_order'      => $validated['sort_order'] ?? 0,
         ]);
 
         return $this->success($channel, 201);
@@ -131,11 +137,13 @@ class PipelineController extends ApiController
         }
 
         $validated = $request->validate([
-            'role_label' => 'sometimes|required|string|max:255',
+            'role_label'      => 'sometimes|required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
-            'system_prompt' => 'nullable|string',
-            'trigger' => 'sometimes|required|in:parallel,synthesis',
-            'sort_order' => 'sometimes|integer|min:0',
+            'system_prompt'   => 'nullable|string',
+            'input_source'    => 'sometimes|in:prompt,result_history',
+            'input_filters'   => 'nullable|array',
+            'trigger'         => 'sometimes|required|in:parallel,synthesis',
+            'sort_order'      => 'sometimes|integer|min:0',
         ]);
 
         $channel->update($validated);

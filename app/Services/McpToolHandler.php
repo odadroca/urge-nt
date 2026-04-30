@@ -413,7 +413,7 @@ class McpToolHandler
             ],
             [
                 'name'        => 'add_channel',
-                'description' => 'Add a channel (LLM slot) to a pipeline. Each channel defines a provider, system prompt, and trigger type (parallel or synthesis). The system_prompt supports {{>slug}} includes — reference any fragment or prompt by slug for versioned, reusable context.',
+                'description' => 'Add a channel (LLM slot) to a pipeline. Each channel defines a provider, system prompt, and trigger type (parallel or synthesis). The system_prompt supports {{>slug}} includes — reference any fragment or prompt by slug for versioned, reusable context. By default a channel\'s user_prompt is the rendered prompt content; set input_source="result_history" to feed the channel a serialized batch of past Results instead (for trend / drift analysis pipelines).',
                 'inputSchema' => [
                     'type'       => 'object',
                     'properties' => [
@@ -421,6 +421,8 @@ class McpToolHandler
                         'role_label'     => ['type' => 'string', 'description' => 'Channel label (e.g. "strengths", "weaknesses", "summary")'],
                         'provider'       => ['type' => 'string', 'description' => 'LLM provider name. Use list_providers to see available.'],
                         'system_prompt'  => ['type' => 'string', 'description' => 'System prompt for this channel. Supports {{>slug}} includes for versioned fragments/prompts.'],
+                        'input_source'   => ['type' => 'string', 'enum' => ['prompt', 'result_history'], 'description' => 'What the channel sees as user_prompt. "prompt" (default) = rendered prompt content. "result_history" = serialized batch of past Results matching input_filters.'],
+                        'input_filters'  => ['type' => 'object', 'description' => 'When input_source=result_history, controls which Results are pulled. Keys: prompt_slug (defaults to the prompt being run), owner, since (ISO 8601 duration like "P30D"), limit (capped 100, default 50), run_source ("manual"|"scheduled"), include_failures (bool, default false).'],
                         'trigger'        => ['type' => 'string', 'enum' => ['parallel', 'synthesis'], 'description' => 'parallel = runs alongside others, synthesis = runs after all parallel channels complete'],
                         'sort_order'     => ['type' => 'integer', 'description' => 'Order within the pipeline (default 0)'],
                     ],
@@ -437,6 +439,8 @@ class McpToolHandler
                         'role_label'     => ['type' => 'string', 'description' => 'New label'],
                         'provider'       => ['type' => 'string', 'description' => 'New LLM provider name'],
                         'system_prompt'  => ['type' => 'string', 'description' => 'New system prompt. Supports {{>slug}} includes.'],
+                        'input_source'   => ['type' => 'string', 'enum' => ['prompt', 'result_history'], 'description' => 'New input source. See add_channel for semantics.'],
+                        'input_filters'  => ['type' => 'object', 'description' => 'New filters when input_source=result_history. See add_channel.'],
                         'trigger'        => ['type' => 'string', 'enum' => ['parallel', 'synthesis'], 'description' => 'New trigger type'],
                         'sort_order'     => ['type' => 'integer', 'description' => 'New sort order'],
                     ],
@@ -1606,6 +1610,8 @@ class McpToolHandler
                 'id'             => $channel->id,
                 'role_label'     => $channel->role_label,
                 'system_prompt'  => $channel->system_prompt,
+                'input_source'   => $channel->input_source ?? 'prompt',
+                'input_filters'  => $channel->input_filters,
                 'trigger'        => $channel->trigger,
                 'sort_order'     => $channel->sort_order,
                 'provider'       => $channel->llmProvider?->name,
@@ -1783,11 +1789,18 @@ class McpToolHandler
             $providerId = $provider->id;
         }
 
+        $inputSource = $args['input_source'] ?? 'prompt';
+        if (!in_array($inputSource, ['prompt', 'result_history'], true)) {
+            return ['error' => 'input_source must be "prompt" or "result_history".'];
+        }
+
         $channel = PipelineChannel::create([
             'pipeline_id'     => $pipeline->id,
             'role_label'      => $args['role_label'] ?? '',
             'llm_provider_id' => $providerId,
             'system_prompt'   => $args['system_prompt'] ?? null,
+            'input_source'    => $inputSource,
+            'input_filters'   => $args['input_filters'] ?? null,
             'trigger'         => $args['trigger'] ?? 'parallel',
             'sort_order'      => $args['sort_order'] ?? 0,
         ]);
@@ -1797,6 +1810,8 @@ class McpToolHandler
             'pipeline_slug'  => $pipeline->slug,
             'role_label'     => $channel->role_label,
             'provider'       => $provider->name ?? null,
+            'input_source'   => $channel->input_source,
+            'input_filters'  => $channel->input_filters,
             'trigger'        => $channel->trigger,
             'sort_order'     => $channel->sort_order,
         ];
@@ -1819,6 +1834,16 @@ class McpToolHandler
         if (isset($args['trigger'])) $updates['trigger'] = $args['trigger'];
         if (isset($args['sort_order'])) $updates['sort_order'] = $args['sort_order'];
 
+        if (isset($args['input_source'])) {
+            if (!in_array($args['input_source'], ['prompt', 'result_history'], true)) {
+                return ['error' => 'input_source must be "prompt" or "result_history".'];
+            }
+            $updates['input_source'] = $args['input_source'];
+        }
+        if (array_key_exists('input_filters', $args)) {
+            $updates['input_filters'] = $args['input_filters'];
+        }
+
         if (!empty($args['provider'])) {
             $provider = LlmProvider::where('name', 'like', $args['provider'])
                 ->where('is_active', true)
@@ -1839,6 +1864,8 @@ class McpToolHandler
             'id'            => $channel->id,
             'role_label'    => $channel->role_label,
             'provider'      => $channel->llmProvider?->name,
+            'input_source'  => $channel->input_source,
+            'input_filters' => $channel->input_filters,
             'trigger'       => $channel->trigger,
             'sort_order'    => $channel->sort_order,
             'system_prompt' => $channel->system_prompt,
