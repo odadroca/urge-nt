@@ -165,6 +165,7 @@ class PipelineController extends ApiController
             'template_slug' => 'required|string',
             'version' => 'nullable|integer',
             'variables' => 'nullable|array',
+            'run_source' => 'nullable|in:manual,scheduled',
         ]);
 
         $pipeline = Pipeline::where('slug', $validated['template_slug'])
@@ -193,6 +194,7 @@ class PipelineController extends ApiController
             $version,
             $validated['variables'] ?? [],
             $request->user()->id,
+            $validated['run_source'] ?? null,
         );
 
         return $this->success($runResult);

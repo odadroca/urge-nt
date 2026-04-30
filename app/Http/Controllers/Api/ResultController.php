@@ -32,6 +32,10 @@ class ResultController extends ApiController
             $query->where('starred', filter_var($request->input('starred'), FILTER_VALIDATE_BOOLEAN));
         }
 
+        if ($runSource = $request->input('run_source')) {
+            $query->where('run_source', $runSource);
+        }
+
         $query->orderByDesc('created_at');
 
         return $this->paginated($query, $request);
@@ -45,6 +49,7 @@ class ResultController extends ApiController
             'version'          => 'required|integer|min:1',
             'response_text'    => 'required|string',
             'source'           => 'in:api,manual,import,mcp',
+            'run_source'       => 'nullable|in:manual,scheduled',
             'provider_name'    => 'nullable|string|max:100',
             'model_name'       => 'nullable|string|max:100',
             'notes'            => 'nullable|string',
@@ -65,6 +70,7 @@ class ResultController extends ApiController
             'prompt_id'         => $prompt->id,
             'prompt_version_id' => $promptVersion->id,
             'source'            => $validated['source'] ?? 'api',
+            'run_source'        => $validated['run_source'] ?? null,
             'provider_name'     => $validated['provider_name'] ?? null,
             'model_name'        => $validated['model_name'] ?? null,
             'response_text'     => $validated['response_text'],

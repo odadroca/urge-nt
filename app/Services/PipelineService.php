@@ -34,6 +34,7 @@ class PipelineService
         PromptVersion $version,
         array $variableValues,
         int $userId,
+        ?string $runSource = null,
     ): array {
         $pipeline->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
 
@@ -75,6 +76,7 @@ class PipelineService
                 'prompt_id'         => $version->prompt_id,
                 'prompt_version_id' => $version->id,
                 'source'            => 'api',
+                'run_source'        => $runSource,
                 'role_label'        => $channel->role_label,
                 'pipeline_id'       => $pipeline->id,
                 'pipeline_run_id'   => $runId,
@@ -135,6 +137,7 @@ class PipelineService
                     'prompt_id'         => $version->prompt_id,
                     'prompt_version_id' => $version->id,
                     'source'            => 'api',
+                    'run_source'        => $runSource,
                     'role_label'        => $synthesisChannel->role_label,
                     'pipeline_id'       => $pipeline->id,
                     'pipeline_run_id'   => $runId,

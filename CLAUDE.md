@@ -16,7 +16,7 @@ URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fil
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
-php artisan test         # 391 tests
+php artisan test         # 403 tests
 php artisan serve        # http://127.0.0.1:8000
 npm run dev              # Vite HMR
 npm run build            # Production
@@ -53,7 +53,7 @@ Collection → CollectionItem[] (polymorphic: prompt_version|result|collection) 
 - **Prompt** — name, slug (auto-generated, unique per user), type (prompt|fragment), category_id, tags (JSON), visibility (private|shared, default private), pinned_version_id (nullable; NULL = latest is active). Soft deletes.
 - **PromptBranch** — prompt_id, name (slugified, unique per prompt), head_version_id, forked_from_version_id, is_default (exactly one per prompt), created_by. Enables non-linear version history.
 - **PromptVersion** — immutable (LogicException on update). Auto-numbered per prompt (global version_number) and per branch (branch_version_number). Extracts variables/includes on create. Has commit_message, variable_metadata (JSON), branch_id.
-- **Result** — unified response archive. source (api|manual|import|mcp), provider_name (free text), model_name (free text), llm_provider_id (FK, nullable), response_text, rating (1-5), starred (boolean), notes, token counts, duration_ms, import_filename.
+- **Result** — unified response archive. source (api|manual|import|mcp), run_source (manual|scheduled, nullable — cadence tag for periodic runs, see `docs/scheduling.md`), provider_name (free text), model_name (free text), llm_provider_id (FK, nullable), response_text, rating (1-5), starred (boolean), notes, token counts, duration_ms, import_filename.
 - **ResultEvaluation** — result_id, version (auto-incremented per result), scores (JSON with per-dimension scores), composite_score, evaluator_provider, evaluator_model, evaluation_prompt_version_id, evaluated_by.
 - **EvaluationSetting** — user_id, enabled, auto_evaluate, provider_id, dimensions (JSON with dimension names, enabled flags, weights).
 - **Category** — name, slug (auto-generated), color
@@ -348,7 +348,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 391 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 403 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
 
 ### Phase Roadmap
 
@@ -377,3 +377,4 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **OAuth refresh tokens** — 30-day refresh tokens with rotation (single-use, client-bound, scope downscoping only). Clients silently renew sessions.
 - **Workspace editor features** — version diff viewer (word/char mode), inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop block editor with Text|Visual mode toggle).
 - **Markdown download + clipboard copy** — restored the `.md` download buttons that the Livewire→React migration dropped. Two streaming GET endpoints (`/versions/{n}/download`, `/results/{id}/download`) reuse `ImportExportService`. Copy-to-clipboard buttons for the rendered prompt preview and individual results, driven by a shared `useCopyToClipboard` hook.
+- **Time-series scaffolding (Phase 1)** — `Result.run_source` column (`manual|scheduled`, nullable) tags results by cadence, distinct from the protocol `source` enum. `store_result` (MCP), `POST /results` (API), and `run-pipeline` (both) accept `run_source`. `get_results` and `GET /results` filter by it. Workspace results panel shows a `scheduled` pill on tagged results and has a "Scheduled" filter checkbox. Forward-compatible with the upcoming analytical pipeline (Phase 2) and internal scheduler (Phase 3) — see `docs/scheduling.md` for cron / MCP recipes.

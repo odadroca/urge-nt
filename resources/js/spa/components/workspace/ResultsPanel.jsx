@@ -8,13 +8,15 @@ export default function ResultsPanel({ prompt, username, slug, currentVersionId,
     const queryClient = useQueryClient();
     const [sortBy, setSortBy] = useState('newest');
     const [showAllVersions, setShowAllVersions] = useState(false);
+    const [scheduledOnly, setScheduledOnly] = useState(false);
     const [showManualForm, setShowManualForm] = useState(false);
 
     const { data: resultsData, isLoading } = useQuery({
-        queryKey: ['workspace', username, slug, 'results', { sortBy, showAllVersions, currentVersionNumber }],
+        queryKey: ['workspace', username, slug, 'results', { sortBy, showAllVersions, scheduledOnly, currentVersionNumber }],
         queryFn: () => listResults(username, slug, {
             sort: sortBy,
             ...(showAllVersions ? {} : (currentVersionNumber ? { version: currentVersionNumber } : {})),
+            ...(scheduledOnly ? { run_source: 'scheduled' } : {}),
         }),
     });
 
@@ -76,6 +78,15 @@ export default function ResultsPanel({ prompt, username, slug, currentVersionId,
                             className="rounded border-gray-600 bg-gray-900 text-indigo-600"
                         />
                         All versions
+                    </label>
+                    <label className="flex items-center gap-1 text-[10px] text-gray-400" title="Show only results tagged run_source=scheduled (e.g. periodic cron runs)">
+                        <input
+                            type="checkbox"
+                            checked={scheduledOnly}
+                            onChange={(e) => setScheduledOnly(e.target.checked)}
+                            className="rounded border-gray-600 bg-gray-900 text-indigo-600"
+                        />
+                        Scheduled
                     </label>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
@@ -148,6 +159,11 @@ function ResultCard({ result, onToggleStar, onRate, onDelete }) {
                     {result.model_name && (
                         <span className="bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded text-[10px]">
                             {result.model_name}
+                        </span>
+                    )}
+                    {result.run_source === 'scheduled' && (
+                        <span className="bg-indigo-900/40 text-indigo-300 px-1.5 py-0.5 rounded text-[10px]" title="Tagged run_source=scheduled — produced by a periodic run">
+                            scheduled
                         </span>
                     )}
                 </div>
