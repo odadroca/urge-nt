@@ -193,6 +193,63 @@ class ResultApiTest extends TestCase
         $response->assertStatus(404);
     }
 
+    public function test_store_result_accepts_run_source_scheduled(): void
+    {
+        $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/results", [
+            'version'       => 1,
+            'response_text' => 'Daily summary',
+            'run_source'    => 'scheduled',
+        ], $this->headers);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.run_source', 'scheduled');
+
+        $this->assertDatabaseHas('results', [
+            'response_text' => 'Daily summary',
+            'run_source'    => 'scheduled',
+        ]);
+    }
+
+    public function test_store_result_rejects_invalid_run_source(): void
+    {
+        $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/results", [
+            'version'       => 1,
+            'response_text' => 'X',
+            'run_source'    => 'cron',
+        ], $this->headers);
+
+        $response->assertStatus(422)->assertJsonValidationErrors(['run_source']);
+    }
+
+    public function test_filter_results_by_run_source(): void
+    {
+        $version = $this->prompt->versions()->first();
+        Result::create([
+            'prompt_id'         => $this->prompt->id,
+            'prompt_version_id' => $version->id,
+            'source'            => 'api',
+            'run_source'        => 'scheduled',
+            'response_text'     => 'cron run',
+            'created_by'        => $this->user->id,
+        ]);
+        Result::create([
+            'prompt_id'         => $this->prompt->id,
+            'prompt_version_id' => $version->id,
+            'source'            => 'api',
+            'response_text'     => 'one-off',
+            'created_by'        => $this->user->id,
+        ]);
+
+        $response = $this->getJson(
+            "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/results?run_source=scheduled",
+            $this->headers
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.run_source', 'scheduled');
+    }
+
     public function test_filter_results_by_starred(): void
     {
         $version = $this->prompt->versions()->first();

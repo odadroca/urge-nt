@@ -234,6 +234,7 @@ class McpToolHandler
                         'variables_used'   => ['type' => 'object', 'description' => 'Variables used when rendering (key-value pairs)'],
                         'notes'            => ['type' => 'string', 'description' => 'Optional notes (e.g. pipeline channel role_label)'],
                         'branch'           => ['type' => 'string', 'description' => 'Branch name to scope version lookup'],
+                        'run_source'       => ['type' => 'string', 'enum' => ['manual', 'scheduled'], 'description' => 'Tag the result by cadence: "scheduled" for periodic/cron-driven runs, "manual" for ad-hoc. Independent of the protocol the result arrives via — used downstream for time-series filtering.'],
                     ],
                     'required' => ['slug', 'response_text'],
                 ],
@@ -262,6 +263,7 @@ class McpToolHandler
                         'starred' => ['type' => 'boolean', 'description' => 'Filter by starred status'],
                         'limit'   => ['type' => 'integer', 'description' => 'Max results (default 10)'],
                         'branch'  => ['type' => 'string', 'description' => 'Branch name to scope version lookup'],
+                        'run_source' => ['type' => 'string', 'enum' => ['manual', 'scheduled'], 'description' => 'Filter by cadence tag (e.g. only periodic/scheduled results)'],
                     ],
                     'required' => ['slug'],
                 ],
@@ -367,6 +369,7 @@ class McpToolHandler
                         'template_slug' => ['type' => 'string', 'description' => 'Pipeline slug'],
                         'version'       => ['type' => 'integer', 'description' => 'Optional version number (defaults to active version)'],
                         'variables'     => ['type' => 'object', 'description' => 'Key-value pairs for template variables'],
+                        'run_source'    => ['type' => 'string', 'enum' => ['manual', 'scheduled'], 'description' => 'Tag every Result this run produces by cadence: "scheduled" for periodic/cron-driven runs, "manual" for ad-hoc.'],
                     ],
                     'required' => ['slug', 'template_slug'],
                 ],
@@ -1294,10 +1297,16 @@ class McpToolHandler
             return ['error' => 'No version found. Save a version first.'];
         }
 
+        $runSource = $args['run_source'] ?? null;
+        if ($runSource !== null && !in_array($runSource, ['manual', 'scheduled'], true)) {
+            return ['error' => 'run_source must be "manual" or "scheduled".'];
+        }
+
         $result = Result::create([
             'prompt_id'         => $prompt->id,
             'prompt_version_id' => $version->id,
             'source'            => 'mcp',
+            'run_source'        => $runSource,
             'response_text'     => $args['response_text'],
             'provider_name'     => $args['provider'] ?? null,
             'model_name'        => $args['model'] ?? null,
@@ -1353,6 +1362,10 @@ class McpToolHandler
 
         if (isset($args['starred'])) {
             $query->where('starred', $args['starred']);
+        }
+
+        if (!empty($args['run_source']) && in_array($args['run_source'], ['manual', 'scheduled'], true)) {
+            $query->where('run_source', $args['run_source']);
         }
 
         $limit = min($args['limit'] ?? 10, 50);
@@ -1652,11 +1665,17 @@ class McpToolHandler
             return ['error' => 'Version not found.'];
         }
 
+        $runSource = $args['run_source'] ?? null;
+        if ($runSource !== null && !in_array($runSource, ['manual', 'scheduled'], true)) {
+            return ['error' => 'run_source must be "manual" or "scheduled".'];
+        }
+
         $runResult = $this->pipelineService->run(
             $pipeline,
             $version,
             $args['variables'] ?? [],
             $user->id,
+            $runSource,
         );
 
         $response = [

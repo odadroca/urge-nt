@@ -374,6 +374,68 @@ class PipelineServiceTest extends TestCase
         $this->assertEmpty($runResult['pending_client_channels']);
     }
 
+    public function test_run_source_is_stamped_on_every_result(): void
+    {
+        $pipeline = Pipeline::create(['name' => 'Scheduled', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Worker',
+            'llm_provider_id' => $this->provider->id,
+            'trigger' => 'parallel',
+            'sort_order' => 0,
+        ]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Synthesizer',
+            'llm_provider_id' => $this->provider->id,
+            'trigger' => 'synthesis',
+            'sort_order' => 99,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->twice()
+            ->andReturn(LlmResult::success('Out', 'gpt-4', 100, 10, 20));
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id, 'scheduled');
+
+        $this->assertCount(2, $runResult['result_ids']);
+        foreach (Result::whereIn('id', $runResult['result_ids'])->get() as $result) {
+            $this->assertEquals('scheduled', $result->run_source);
+        }
+    }
+
+    public function test_run_source_defaults_to_null_when_not_provided(): void
+    {
+        $pipeline = Pipeline::create(['name' => 'Default', 'created_by' => $this->user->id]);
+        PipelineChannel::create([
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Worker',
+            'llm_provider_id' => $this->provider->id,
+            'trigger' => 'parallel',
+            'sort_order' => 0,
+        ]);
+
+        $mockDispatch = Mockery::mock(LlmDispatchService::class);
+        $mockDispatch->shouldReceive('dispatchWithSystem')
+            ->once()
+            ->andReturn(LlmResult::success('Out', 'gpt-4', 100));
+
+        $service = new PipelineService(
+            app(\App\Services\TemplateEngine::class),
+            $mockDispatch,
+        );
+
+        $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
+
+        $this->assertNull(Result::find($runResult['result_ids'][0])->run_source);
+    }
+
     public function test_variables_are_rendered_in_content(): void
     {
         $varVersion = PromptVersion::create([

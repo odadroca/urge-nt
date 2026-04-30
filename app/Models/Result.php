@@ -10,6 +10,7 @@ class Result extends Model
         'prompt_id',
         'prompt_version_id',
         'source',
+        'run_source',
         'role_label',
         'pipeline_id',
         'pipeline_run_id',
