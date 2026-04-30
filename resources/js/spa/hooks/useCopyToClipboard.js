@@ -1,18 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import useTransientFlag from './useTransientFlag.js';
 
 export default function useCopyToClipboard(resetMs = 1500) {
-    const [copied, setCopied] = useState(false);
+    const { flag: copied, trigger: flashCopied } = useTransientFlag(resetMs);
 
     const copy = useCallback(async (text) => {
         if (!text) return;
         try {
             await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), resetMs);
+            flashCopied();
         } catch (err) {
             console.error('Copy failed:', err);
         }
-    }, [resetMs]);
+    }, [flashCopied]);
 
     return { copied, copy };
 }
