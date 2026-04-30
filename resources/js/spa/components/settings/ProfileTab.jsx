@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import useAuth from '../../hooks/useAuth.js';
+import useTransientFlag from '../../hooks/useTransientFlag.js';
 import { updateProfile, updatePassword, deleteAccount } from '../../api/profile.js';
 
 export default function ProfileTab() {
@@ -31,17 +32,11 @@ function ProfileInformationSection({ user }) {
     const [form, setForm] = useState({ name: '', email: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [saved, setSaved] = useState(false);
+    const { flag: saved, trigger: flashSaved } = useTransientFlag(2500);
 
     useEffect(() => {
         if (user) setForm({ name: user.name || '', email: user.email || '' });
     }, [user?.id]);
-
-    useEffect(() => {
-        if (!saved) return;
-        const id = setTimeout(() => setSaved(false), 2500);
-        return () => clearTimeout(id);
-    }, [saved]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -51,7 +46,7 @@ function ProfileInformationSection({ user }) {
         try {
             await updateProfile({ name: form.name.trim(), email: form.email.trim() });
             queryClient.invalidateQueries({ queryKey: ['auth'] });
-            setSaved(true);
+            flashSaved();
         } catch (err) {
             setError(extractError(err, 'Could not update profile.'));
         } finally {
@@ -110,13 +105,7 @@ function PasswordSection() {
     const [form, setForm] = useState({ current_password: '', password: '', password_confirmation: '' });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    const [saved, setSaved] = useState(false);
-
-    useEffect(() => {
-        if (!saved) return;
-        const id = setTimeout(() => setSaved(false), 2500);
-        return () => clearTimeout(id);
-    }, [saved]);
+    const { flag: saved, trigger: flashSaved } = useTransientFlag(2500);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -126,7 +115,7 @@ function PasswordSection() {
         try {
             await updatePassword(form);
             setForm({ current_password: '', password: '', password_confirmation: '' });
-            setSaved(true);
+            flashSaved();
         } catch (err) {
             setError(extractError(err, 'Could not update password.'));
         } finally {
