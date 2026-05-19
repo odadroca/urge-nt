@@ -126,6 +126,7 @@ later sprints must use these measured values:
 | DEP-02 | Build | Med | Security | `npm audit` (postcss XSS) | Upgrade postcss; verify CSS-output exposure (Sprint 6) |
 | HARNESS-01 | Tooling | Low | DeadEnd | `composer audit` blocked | Re-run with `COMPOSER_ALLOW_SUPERUSER=1` (Sprint 1/6) |
 | DOC-DRIFT-03 | Docs | Low | Drift | refresh-token migration present | Mark `docs/2026-04-23-oauth-refresh-tokens-plan.md` delivered (Sprint 7) |
+| HYGIENE-01 | Repo/Privacy | Med | Security | `git ls-files storage/` — `storage/logs/laravel.log` + 44 compiled views tracked; standard Laravel per-dir `.gitignore` files absent | **Fixed in Sprint 0** (exception to report-only): added ignore rules, untracked log + view cache. Log-in-VCS can leak runtime/PII; verify history in Sprint 6 |
 
 ---
 
