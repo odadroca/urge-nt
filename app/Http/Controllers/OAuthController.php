@@ -24,15 +24,6 @@ class OAuthController
         $codeChallengeMethod = $request->query('code_challenge_method', '');
         $resource = $request->query('resource');
 
-        \Illuminate\Support\Facades\Log::info('OAuth authorize request', [
-            'client_id'    => $clientId,
-            'redirect_uri' => $redirectUri,
-            'state'        => $state,
-            'scope'        => $scope,
-            'has_challenge' => !empty($codeChallenge),
-            'method'       => $codeChallengeMethod,
-        ]);
-
         if (!$clientId || !$redirectUri) {
             return redirect('/')->with('error', 'Invalid OAuth request: missing required parameters.');
         }
@@ -86,8 +77,16 @@ class OAuthController
             'code_challenge_method' => 'nullable|in:S256',
         ]);
 
+        $clientId = $request->input('client_id');
         $redirectUri = $request->input('redirect_uri');
         $state = $request->input('state', '');
+
+        // Re-validate the redirect_uri allowlist on this code-issuing path.
+        // Without this, the GET allowlist check is bypassable by a forged
+        // POST that goes straight to consent submission (AUTH-01).
+        if (!$this->oauthService->validateRedirectUri($clientId, $redirectUri)) {
+            return redirect('/')->with('error', 'Invalid OAuth request: redirect_uri not allowed for this client.');
+        }
 
         if ($request->input('decision') === 'deny') {
             return redirect($this->buildRedirectUrl($redirectUri, [
@@ -99,19 +98,13 @@ class OAuthController
 
         $code = $this->oauthService->generateAuthorizationCode(
             user: $request->user(),
-            clientId: $request->input('client_id'),
+            clientId: $clientId,
             redirectUri: $redirectUri,
             scope: $request->input('scope'),
             codeChallenge: $request->input('code_challenge'),
             codeChallengeMethod: $request->input('code_challenge_method'),
             resource: $request->input('resource'),
         );
-
-        \Illuminate\Support\Facades\Log::info('OAuth authorize redirect', [
-            'redirect_uri' => $redirectUri,
-            'state_in'     => $state,
-            'has_code'     => !empty($code),
-        ]);
 
         return redirect($this->buildRedirectUrl($redirectUri, [
             'code'  => $code,
@@ -276,6 +269,41 @@ class OAuthController
         }
 
         return response()->json($response, 201);
+    }
+
+    /**
+     * RFC 7009 token revocation. Always responds 200 (per spec)
+     * regardless of whether the token existed. Confidential clients
+     * authenticate with client_secret; public clients identify themselves
+     * by client_id only (the token itself is the proof of possession).
+     */
+    public function revoke(Request $request): JsonResponse
+    {
+        $token = $request->input('token', '');
+        $clientId = $request->input('client_id', '');
+        $clientSecret = $request->input('client_secret', '');
+
+        if (!$token || !$clientId) {
+            return response()->json([
+                'error' => 'invalid_request',
+                'error_description' => 'token and client_id are required.',
+            ], 400);
+        }
+
+        $client = $this->oauthService->findClient($clientId);
+        if ($client && $client->client_secret) {
+            if (!hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
+                return response()->json([
+                    'error' => 'invalid_client',
+                    'error_description' => 'Client authentication failed.',
+                ], 401);
+            }
+        }
+
+        $this->oauthService->revokeToken($token, $clientId);
+
+        // RFC 7009 §2.2: always 200, even when the token was not found
+        return response()->json(new \stdClass(), 200);
     }
 
     private function buildRedirectUrl(string $baseUri, array $params): string
