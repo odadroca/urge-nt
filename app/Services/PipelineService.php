@@ -45,11 +45,13 @@ class PipelineService
     ): array {
         $pipeline->load(['parallelChannels.llmProvider', 'synthesisChannel.llmProvider']);
 
+        $user = User::find($userId);
+
         $renderResult = $this->templateEngine->render(
             $version->content,
             $variableValues,
             $version->variable_metadata,
-            null,
+            $user,
             strict: true,
         );
         $renderedContent = $renderResult['rendered'];
@@ -59,11 +61,10 @@ class PipelineService
         $parallelResults = [];
         $pendingClient = [];
 
-        $user = User::find($userId);
         $hasClientParallel = false;
 
         foreach ($pipeline->parallelChannels as $channel) {
-            $systemPrompt = $this->resolveSystemPrompt($channel);
+            $systemPrompt = $this->resolveSystemPrompt($channel, $user);
             $userPrompt = $this->resolveUserPrompt($channel, $renderedContent, $version, $user);
 
             // result_history with no matching results → skip the channel.
@@ -123,7 +124,7 @@ class PipelineService
 
         $synthesisChannel = $pipeline->synthesisChannel;
         if ($synthesisChannel) {
-            $systemPrompt = $this->resolveSystemPrompt($synthesisChannel);
+            $systemPrompt = $this->resolveSystemPrompt($synthesisChannel, $user);
             $synthesisInput = $this->resolveSynthesisInput(
                 $synthesisChannel,
                 $parallelResults,
@@ -317,7 +318,7 @@ class PipelineService
         return implode("\n\n---\n\n", $sections);
     }
 
-    private function resolveSystemPrompt(PipelineChannel $channel): string
+    private function resolveSystemPrompt(PipelineChannel $channel, ?User $user): string
     {
         $systemPrompt = $channel->system_prompt ?? '';
 
@@ -325,7 +326,9 @@ class PipelineService
             return '';
         }
 
-        $result = $this->templateEngine->render($systemPrompt, [], null);
+        // Pass the invoking user so fragment includes inside channel
+        // system prompts respect that user's visibility (TPL-02).
+        $result = $this->templateEngine->render($systemPrompt, [], null, $user);
 
         return $result['rendered'];
     }

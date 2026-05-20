@@ -1,7 +1,14 @@
 <?php
 
 return [
-    'max_include_depth'  => (int) env('URGE_MAX_INCLUDE_DEPTH', 10),
+    // Template rendering safety budgets (PB-3 / TPL-04)
+    'max_include_depth'      => (int) env('URGE_MAX_INCLUDE_DEPTH', 10),
+    // Total number of include expansions allowed in a single render —
+    // bounds sibling-fanout amplification (Nⁿ / "billion laughs").
+    'max_include_expansions' => (int) env('URGE_MAX_INCLUDE_EXPANSIONS', 500),
+    // Total rendered output size budget in bytes.
+    'max_render_bytes'       => (int) env('URGE_MAX_RENDER_BYTES', 5 * 1024 * 1024),
+
     'curl_ssl_verify'    => env('CURL_SSL_VERIFY', true),
 
     // API Key settings

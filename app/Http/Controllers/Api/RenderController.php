@@ -44,6 +44,10 @@ class RenderController extends ApiController
                 strict: $strict,
             );
         } catch (\InvalidArgumentException $e) {
+            // Non-scalar variable value, missing required variable (strict).
+            return $this->error($e->getMessage(), 422);
+        } catch (\RuntimeException $e) {
+            // Include depth/budget/size guard or circular include (TPL-04).
             return $this->error($e->getMessage(), 422);
         }
 
