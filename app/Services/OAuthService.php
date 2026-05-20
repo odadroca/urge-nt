@@ -7,6 +7,7 @@ use App\Models\OAuthAuthorizationCode;
 use App\Models\OAuthClient;
 use App\Models\OAuthRefreshToken;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class OAuthService
@@ -37,6 +38,13 @@ class OAuthService
         return $code;
     }
 
+    /**
+     * Exchange an authorization code for tokens. Atomic: a row-locked
+     * lookup + delete ensures one-and-only-one consumption across
+     * concurrent requests (AUTH-08). PKCE is required whenever the
+     * code was bound to a challenge, even for confidential clients
+     * (AUTH-05).
+     */
     public function exchangeCode(
         string $code,
         string $codeVerifier,
@@ -44,113 +52,169 @@ class OAuthService
         string $redirectUri,
         string $clientSecret = '',
     ): ?OAuthAccessToken {
-        $authCode = OAuthAuthorizationCode::where('code', hash('sha256', $code))
-            ->where('client_id', $clientId)
-            ->where('redirect_uri', $redirectUri)
-            ->first();
+        return DB::transaction(function () use ($code, $codeVerifier, $clientId, $redirectUri, $clientSecret) {
+            $authCode = OAuthAuthorizationCode::where('code', hash('sha256', $code))
+                ->where('client_id', $clientId)
+                ->where('redirect_uri', $redirectUri)
+                ->lockForUpdate()
+                ->first();
 
-        if (!$authCode || $authCode->isExpired()) {
-            return null;
-        }
-
-        // Authenticate client: PKCE (public) or client_secret (confidential)
-        $client = $this->findClient($clientId);
-        if ($client && $client->client_secret) {
-            // Confidential client — validate secret
-            if (!hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
+            if (!$authCode || $authCode->isExpired()) {
                 return null;
             }
-        } elseif ($codeVerifier) {
-            // Public client — validate PKCE
-            if (!$this->validatePkce($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method)) {
+
+            $client = $this->findClient($clientId);
+            $clientIsConfidential = $client && $client->client_secret;
+
+            // Confidential clients must present the correct secret
+            if ($clientIsConfidential) {
+                if (!hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
+                    return null;
+                }
+            }
+
+            // PKCE: if the code was bound to a challenge, the verifier MUST
+            // match — regardless of client confidentiality (AUTH-05).
+            if ($authCode->code_challenge !== '') {
+                if ($codeVerifier === '' || !$this->validatePkce($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method)) {
+                    return null;
+                }
+            } elseif (!$clientIsConfidential) {
+                // Public client without a challenge — refuse (no auth proof at all)
                 return null;
             }
-        } else {
-            return null;
-        }
 
-        $rawToken = Str::random(64);
-        $token = OAuthAccessToken::create([
-            'token'      => hash('sha256', $rawToken),
-            'user_id'    => $authCode->user_id,
-            'client_id'  => $authCode->client_id,
-            'scope'      => $authCode->scope,
-            'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
-        ]);
+            // Single-use: delete the code before issuing tokens
+            $authCode->delete();
 
-        $rawRefreshToken = Str::random(64);
-        OAuthRefreshToken::create([
-            'token'           => hash('sha256', $rawRefreshToken),
-            'user_id'         => $authCode->user_id,
-            'client_id'       => $authCode->client_id,
-            'scope'           => $authCode->scope,
-            'access_token_id' => $token->id,
-            'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
-        ]);
+            $rawToken = Str::random(64);
+            $token = OAuthAccessToken::create([
+                'token'      => hash('sha256', $rawToken),
+                'user_id'    => $authCode->user_id,
+                'client_id'  => $authCode->client_id,
+                'scope'      => $authCode->scope,
+                'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
+            ]);
 
-        $authCode->delete();
+            $rawRefreshToken = Str::random(64);
+            OAuthRefreshToken::create([
+                'token'           => hash('sha256', $rawRefreshToken),
+                'user_id'         => $authCode->user_id,
+                'client_id'       => $authCode->client_id,
+                'scope'           => $authCode->scope,
+                'access_token_id' => $token->id,
+                'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
+            ]);
 
-        $token->raw_token = $rawToken;
-        $token->raw_refresh_token = $rawRefreshToken;
+            $token->raw_token = $rawToken;
+            $token->raw_refresh_token = $rawRefreshToken;
 
-        return $token;
+            return $token;
+        });
     }
 
+    /**
+     * Refresh-token rotation. Atomic: row-locked single-use enforcement
+     * (AUTH-07).
+     */
     public function refreshToken(
         string $rawRefreshToken,
         string $clientId,
         ?string $requestedScope = null,
     ): ?OAuthAccessToken {
-        $refreshToken = OAuthRefreshToken::where('token', hash('sha256', $rawRefreshToken))->first();
+        return DB::transaction(function () use ($rawRefreshToken, $clientId, $requestedScope) {
+            $refreshToken = OAuthRefreshToken::where('token', hash('sha256', $rawRefreshToken))
+                ->lockForUpdate()
+                ->first();
 
-        if (!$refreshToken || $refreshToken->isExpired()) {
-            return null;
-        }
-
-        if ($refreshToken->client_id !== $clientId) {
-            return null;
-        }
-
-        $scope = $refreshToken->scope;
-
-        if ($requestedScope !== null && $requestedScope !== '') {
-            $grantedScopes = explode(' ', $refreshToken->scope);
-            $requestedParts = explode(' ', $requestedScope);
-            foreach ($requestedParts as $s) {
-                if (!in_array($s, $grantedScopes)) {
-                    return null;
-                }
+            if (!$refreshToken || $refreshToken->isExpired()) {
+                return null;
             }
-            $scope = $requestedScope;
-        }
 
-        $rawToken = Str::random(64);
-        $newAccessToken = OAuthAccessToken::create([
-            'token'      => hash('sha256', $rawToken),
-            'user_id'    => $refreshToken->user_id,
-            'client_id'  => $refreshToken->client_id,
-            'scope'      => $scope,
-            'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
-        ]);
+            if ($refreshToken->client_id !== $clientId) {
+                return null;
+            }
 
-        $rawNewRefreshToken = Str::random(64);
-        OAuthRefreshToken::create([
-            'token'           => hash('sha256', $rawNewRefreshToken),
-            'user_id'         => $refreshToken->user_id,
-            'client_id'       => $refreshToken->client_id,
-            'scope'           => $scope,
-            'access_token_id' => $newAccessToken->id,
-            'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
-        ]);
+            $scope = $refreshToken->scope;
 
-        // Clean up old tokens
-        OAuthAccessToken::where('id', $refreshToken->access_token_id)->delete();
-        $refreshToken->delete();
+            if ($requestedScope !== null && $requestedScope !== '') {
+                $grantedScopes = explode(' ', $refreshToken->scope);
+                $requestedParts = explode(' ', $requestedScope);
+                foreach ($requestedParts as $s) {
+                    if (!in_array($s, $grantedScopes)) {
+                        return null;
+                    }
+                }
+                $scope = $requestedScope;
+            }
 
-        $newAccessToken->raw_token = $rawToken;
-        $newAccessToken->raw_refresh_token = $rawNewRefreshToken;
+            // Delete old tokens BEFORE issuing new ones — single-use guarantee
+            // is the lockForUpdate + immediate delete inside the transaction
+            OAuthAccessToken::where('id', $refreshToken->access_token_id)->delete();
+            $refreshToken->delete();
 
-        return $newAccessToken;
+            $rawToken = Str::random(64);
+            $newAccessToken = OAuthAccessToken::create([
+                'token'      => hash('sha256', $rawToken),
+                'user_id'    => $refreshToken->user_id,
+                'client_id'  => $refreshToken->client_id,
+                'scope'      => $scope,
+                'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
+            ]);
+
+            $rawNewRefreshToken = Str::random(64);
+            OAuthRefreshToken::create([
+                'token'           => hash('sha256', $rawNewRefreshToken),
+                'user_id'         => $refreshToken->user_id,
+                'client_id'       => $refreshToken->client_id,
+                'scope'           => $scope,
+                'access_token_id' => $newAccessToken->id,
+                'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
+            ]);
+
+            $newAccessToken->raw_token = $rawToken;
+            $newAccessToken->raw_refresh_token = $rawNewRefreshToken;
+
+            return $newAccessToken;
+        });
+    }
+
+    /**
+     * RFC 7009 token revocation. Accepts either an access token or a
+     * refresh token; revokes the matching token and its sibling (the
+     * other half of the same grant). Returns true if anything was
+     * revoked; spec says the endpoint should respond 200 either way,
+     * but the caller may want to log misses.
+     */
+    public function revokeToken(string $rawToken, string $clientId): bool
+    {
+        $hash = hash('sha256', $rawToken);
+
+        return DB::transaction(function () use ($hash, $clientId) {
+            // Access token?
+            $access = OAuthAccessToken::where('token', $hash)
+                ->where('client_id', $clientId)
+                ->lockForUpdate()
+                ->first();
+            if ($access) {
+                OAuthRefreshToken::where('access_token_id', $access->id)->delete();
+                $access->delete();
+                return true;
+            }
+
+            // Refresh token?
+            $refresh = OAuthRefreshToken::where('token', $hash)
+                ->where('client_id', $clientId)
+                ->lockForUpdate()
+                ->first();
+            if ($refresh) {
+                OAuthAccessToken::where('id', $refresh->access_token_id)->delete();
+                $refresh->delete();
+                return true;
+            }
+
+            return false;
+        });
     }
 
     public function findByToken(string $rawToken): ?OAuthAccessToken
@@ -191,50 +255,38 @@ class OAuthService
         return true;
     }
 
-    public function fetchClientMetadata(string $clientId): ?array
-    {
-        if (!filter_var($clientId, FILTER_VALIDATE_URL)) {
-            return null;
-        }
-
-        try {
-            $response = \Illuminate\Support\Facades\Http::timeout(5)->get($clientId);
-            if ($response->successful()) {
-                $data = $response->json();
-                if (isset($data['redirect_uris']) && is_array($data['redirect_uris'])) {
-                    return $data;
-                }
-            }
-        } catch (\Exception $e) {
-            // Client metadata not fetchable
-        }
-
-        return null;
-    }
-
     public function findClient(string $clientId): ?OAuthClient
     {
         return OAuthClient::where('client_id', $clientId)->first();
     }
 
+    /**
+     * Validate that the redirect_uri is allowed for the given client.
+     *
+     * Order:
+     *  1. Registered client — exact match against client.redirect_uris.
+     *  2. Loopback host — accepted only outside production (AUTH-11);
+     *     dev convenience for non-registered clients.
+     *
+     * The URL-as-client_id metadata fetch path was removed in PB-2
+     * (AUTH-06: blind SSRF surface — server-side outbound HTTP to
+     * attacker-chosen URL with 5s timeout, no scheme/host allowlist).
+     */
     public function validateRedirectUri(string $clientId, string $redirectUri): bool
     {
-        // 1. Check registered client (DB lookup)
         $client = $this->findClient($clientId);
         if ($client) {
-            return in_array($redirectUri, $client->redirect_uris);
+            return in_array($redirectUri, $client->redirect_uris, true);
         }
 
-        // 2. Fetch client metadata from URL (existing logic)
-        $metadata = $this->fetchClientMetadata($clientId);
-        if ($metadata && isset($metadata['redirect_uris'])) {
-            return in_array($redirectUri, $metadata['redirect_uris']);
+        // Non-production loopback fallback for development clients
+        if (!app()->environment('production')) {
+            $parsed = parse_url($redirectUri);
+            $host = $parsed['host'] ?? '';
+
+            return in_array($host, ['localhost', '127.0.0.1', '[::1]'], true);
         }
 
-        // 3. Allow localhost/loopback (existing fallback)
-        $parsed = parse_url($redirectUri);
-        $host = $parsed['host'] ?? '';
-
-        return in_array($host, ['localhost', '127.0.0.1', '[::1]']);
+        return false;
     }
 }

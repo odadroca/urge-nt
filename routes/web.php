@@ -64,10 +64,15 @@ Route::middleware(App\Http\Middleware\OAuthCors::class)->group(function () {
     Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
     Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
     Route::get('/.well-known/openid-configuration', [App\Http\Controllers\WellKnownController::class, 'openIdConfiguration']);
-    Route::post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
-    Route::post('/oauth/register', [App\Http\Controllers\OAuthController::class, 'register']);
+
+    // CSRF-exempt per OAuth spec; throttled per AUTH-02 (was: unthrottled).
+    Route::middleware('throttle:20,1')->post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
+    Route::middleware('throttle:5,1')->post('/oauth/register', [App\Http\Controllers\OAuthController::class, 'register']);
+    Route::middleware('throttle:20,1')->post('/oauth/revoke', [App\Http\Controllers\OAuthController::class, 'revoke']);
+
     Route::options('/oauth/token', fn () => response('', 204));
     Route::options('/oauth/register', fn () => response('', 204));
+    Route::options('/oauth/revoke', fn () => response('', 204));
 });
 
 require __DIR__.'/auth.php';

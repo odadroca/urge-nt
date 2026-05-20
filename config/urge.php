@@ -19,7 +19,9 @@ return [
 
     // OAuth 2.1
     'oauth' => [
-        'token_ttl'         => (int) env('OAUTH_TOKEN_TTL', 2592000), // 30 days (Claude doesn't use refresh tokens)
+        // Access tokens are bearer credentials; keep them short-lived and
+        // rely on refresh-token rotation for long sessions (AUTH-10).
+        'token_ttl'         => (int) env('OAUTH_TOKEN_TTL', 3600), // 1 hour
         'refresh_token_ttl' => (int) env('OAUTH_REFRESH_TOKEN_TTL', 2592000), // 30 days
         'code_ttl'          => 600,
         'scopes'            => ['mcp:read', 'mcp:write', 'mcp:admin'],
