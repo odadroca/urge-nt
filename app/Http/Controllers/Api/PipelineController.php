@@ -7,18 +7,25 @@ use App\Models\PipelineChannel;
 use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Models\User;
+use App\Services\AuthorizationService;
 use App\Services\PipelineService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PipelineController extends ApiController
 {
+    use ResolvesPrompts;
+
     public function index(Request $request): JsonResponse
     {
-        $pipelines = Pipeline::where('is_active', true)
-            ->withCount('channels')
-            ->orderBy('name')
-            ->get();
+        $user = $request->user();
+        $query = Pipeline::where('is_active', true)->withCount('channels');
+
+        if (!$user->isAdmin()) {
+            $query->where('created_by', $user->id);
+        }
+
+        $pipelines = $query->orderBy('name')->get();
 
         return $this->success($pipelines);
     }
@@ -39,8 +46,10 @@ class PipelineController extends ApiController
         return $this->success($pipeline, 201);
     }
 
-    public function show(Pipeline $pipeline): JsonResponse
+    public function show(Request $request, Pipeline $pipeline): JsonResponse
     {
+        $this->authorizePipeline($request, $pipeline, 'view');
+
         $pipeline->load(['channels.llmProvider']);
 
         $hasClient = false;
@@ -86,6 +95,8 @@ class PipelineController extends ApiController
 
     public function update(Request $request, Pipeline $pipeline): JsonResponse
     {
+        $this->authorizePipeline($request, $pipeline, 'update');
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
@@ -97,8 +108,10 @@ class PipelineController extends ApiController
         return $this->success($pipeline->fresh());
     }
 
-    public function destroy(Pipeline $pipeline): JsonResponse
+    public function destroy(Request $request, Pipeline $pipeline): JsonResponse
     {
+        $this->authorizePipeline($request, $pipeline, 'delete');
+
         $pipeline->delete();
 
         return $this->success(['message' => 'Pipeline deleted.']);
@@ -106,6 +119,8 @@ class PipelineController extends ApiController
 
     public function addChannel(Request $request, Pipeline $pipeline): JsonResponse
     {
+        $this->authorizePipeline($request, $pipeline, 'manageChannels');
+
         $validated = $request->validate([
             'role_label'      => 'required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
@@ -132,6 +147,8 @@ class PipelineController extends ApiController
 
     public function updateChannel(Request $request, Pipeline $pipeline, PipelineChannel $channel): JsonResponse
     {
+        $this->authorizePipeline($request, $pipeline, 'manageChannels');
+
         if ($channel->pipeline_id !== $pipeline->id) {
             return $this->error('Channel does not belong to this pipeline.', 404);
         }
@@ -151,8 +168,10 @@ class PipelineController extends ApiController
         return $this->success($channel->fresh());
     }
 
-    public function removeChannel(Pipeline $pipeline, PipelineChannel $channel): JsonResponse
+    public function removeChannel(Request $request, Pipeline $pipeline, PipelineChannel $channel): JsonResponse
     {
+        $this->authorizePipeline($request, $pipeline, 'manageChannels');
+
         if ($channel->pipeline_id !== $pipeline->id) {
             return $this->error('Channel does not belong to this pipeline.', 404);
         }
@@ -164,10 +183,7 @@ class PipelineController extends ApiController
 
     public function runPipeline(Request $request, string $username, string $promptSlug, PipelineService $service): JsonResponse
     {
-        $owner = User::where('slug', $username)->firstOrFail();
-        $prompt = Prompt::where('created_by', $owner->id)
-            ->where('slug', $promptSlug)
-            ->firstOrFail();
+        $prompt = $this->resolvePrompt($username, $promptSlug, $request);
 
         $validated = $request->validate([
             'template_slug' => 'required|string',
@@ -183,6 +199,8 @@ class PipelineController extends ApiController
         if (!$pipeline) {
             return $this->error('Pipeline not found or inactive.', 404);
         }
+
+        $this->authorizePipeline($request, $pipeline, 'run');
 
         $version = null;
         if (!empty($validated['version'])) {
@@ -206,5 +224,17 @@ class PipelineController extends ApiController
         );
 
         return $this->success($runResult);
+    }
+
+    private function authorizePipeline(Request $request, Pipeline $pipeline, string $ability): void
+    {
+        $user = $request->user();
+        if (!$user->can($ability, $pipeline)) {
+            $code = $ability === 'view' ? 404 : 403;
+            $message = $code === 404
+                ? 'Pipeline not found.'
+                : "You do not have permission to {$ability} this pipeline.";
+            abort($code, $message);
+        }
     }
 }

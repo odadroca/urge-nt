@@ -4,33 +4,40 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Prompt;
 use App\Models\User;
+use App\Services\AuthorizationService;
+use Illuminate\Http\Request;
 
 trait ResolvesPrompts
 {
-    protected function resolvePrompt(string $username, string $promptSlug, ?\Illuminate\Http\Request $request = null): Prompt
+    /**
+     * Resolve a prompt by (username, slug), enforce visibility AND the
+     * caller's API-key prompt-scope. Always fails closed: aborts 404 if
+     * the prompt is not visible to the authenticated user, 403 if the
+     * caller's API key is restricted and this prompt is not in scope.
+     */
+    protected function resolvePrompt(string $username, string $promptSlug, Request $request): Prompt
     {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
         $owner = User::where('slug', $username)->firstOrFail();
         $prompt = Prompt::where('created_by', $owner->id)
             ->where('slug', $promptSlug)
             ->firstOrFail();
 
-        // Check visibility if request has an authenticated user
-        if ($request && $request->user()) {
-            $canSee = Prompt::visibleTo($request->user())
-                ->where('id', $prompt->id)
-                ->exists();
-            if (!$canSee) {
-                abort(404);
-            }
+        if (!AuthorizationService::userCanSeePrompt($user, $prompt)) {
+            abort(404);
         }
+
+        AuthorizationService::enforceApiKeyScope($request, $prompt);
 
         return $prompt;
     }
 
-    protected function authorizeOwnership(Prompt $prompt, \Illuminate\Http\Request $request): void
+    protected function authorizeOwnership(Prompt $prompt, Request $request): void
     {
         $user = $request->user();
-        if ($prompt->created_by !== $user->id && !$user->isAdmin()) {
+        if (!AuthorizationService::userOwnsPrompt($user, $prompt)) {
             abort(403, 'Only the prompt owner can perform this action.');
         }
     }

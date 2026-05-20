@@ -101,16 +101,6 @@ class McpController
     }
 
     /**
-     * GET /api/v1/mcp — Server-initiated messages (not implemented).
-     */
-    public function stream(): Response
-    {
-        return response('', 405)->withHeaders([
-            'Allow' => 'POST, DELETE',
-        ]);
-    }
-
-    /**
      * DELETE /api/v1/mcp — Terminate session.
      */
     public function destroy(Request $request): Response

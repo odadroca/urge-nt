@@ -98,7 +98,6 @@ class PromptController extends ApiController
     public function show(Request $request, string $username, string $promptSlug): JsonResponse
     {
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
-        $this->authorizePromptAccess($prompt, $request);
 
         $prompt->load(['category', 'activeVersion', 'creator']);
         $prompt->loadCount(['versions', 'results']);
@@ -109,7 +108,6 @@ class PromptController extends ApiController
     public function update(Request $request, string $username, string $promptSlug): JsonResponse
     {
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
-        $this->authorizePromptAccess($prompt, $request);
         $this->authorizeOwnership($prompt, $request);
 
         $validated = $request->validate([
@@ -131,7 +129,6 @@ class PromptController extends ApiController
     public function destroy(Request $request, string $username, string $promptSlug): JsonResponse
     {
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
-        $this->authorizePromptAccess($prompt, $request);
         $this->authorizeOwnership($prompt, $request);
 
         $prompt->delete();
@@ -139,35 +136,6 @@ class PromptController extends ApiController
         return $this->success(['message' => 'Prompt deleted.']);
     }
 
-    public function legacyRedirect(Request $request, string $slug): JsonResponse
-    {
-        // Prefer current user's prompt, then fall back to oldest
-        $user = $request->user();
-        $prompt = null;
-
-        if ($user) {
-            $prompt = Prompt::where('slug', $slug)
-                ->where('created_by', $user->id)
-                ->first();
-        }
-
-        if (!$prompt) {
-            $prompt = Prompt::where('slug', $slug)
-                ->orderBy('created_at', 'asc')
-                ->first();
-        }
-
-        if (!$prompt) {
-            abort(404);
-        }
-
-        $prompt->load('creator');
-        $ownerSlug = $prompt->creator->slug;
-
-        return response()->json([
-            'redirect' => "/api/v1/prompts/{$ownerSlug}/{$prompt->slug}",
-        ], 301);
-    }
 
     public function share(Request $request, string $username, string $promptSlug): JsonResponse
     {
@@ -240,7 +208,6 @@ class PromptController extends ApiController
     public function run(Request $request, string $username, string $promptSlug, TemplateEngine $templateEngine, LlmDispatchService $dispatchService): JsonResponse
     {
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
-        $this->authorizePromptAccess($prompt, $request);
 
         $validated = $request->validate([
             'version_number' => 'nullable|integer',
@@ -305,13 +272,4 @@ class PromptController extends ApiController
         return $this->success($results, 201);
     }
 
-    private function authorizePromptAccess(Prompt $prompt, Request $request): void
-    {
-        $apiKey = $request->attributes->get('api_key');
-        if ($apiKey && $apiKey->prompts()->exists()) {
-            if (!$apiKey->prompts()->where('prompts.id', $prompt->id)->exists()) {
-                abort(403, 'API key does not have access to this prompt.');
-            }
-        }
-    }
 }
