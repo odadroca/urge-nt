@@ -11,10 +11,11 @@ Route::get('/', fn () => redirect('/app/browse'));
 // API documentation (public, no auth)
 Route::get('/docs', fn () => view('docs'));
 
-// Public share routes (no auth required)
+// Public share routes (no auth required) — throttled per IP (TPL-06)
 Route::get('/share/{token}', [ShareController::class, 'show'])
     ->name('share.show')
-    ->where('token', '[a-f0-9]{64}');
+    ->where('token', '[a-f0-9]{64}')
+    ->middleware('throttle:30,1');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/browse', fn () => redirect('/app/browse'))->name('browse');

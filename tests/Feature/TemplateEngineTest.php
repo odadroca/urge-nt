@@ -66,7 +66,14 @@ class TemplateEngineTest extends TestCase
             'content' => 'You are a helpful assistant.',
         ], $user);
 
-        $result = $this->engine->render('{{>system-context}} Now help with {{topic}}.', ['topic' => 'math']);
+        // PB-3: includes only resolve when a user is supplied (no more
+        // null-user global fallback — was TPL-01/TPL-02).
+        $result = $this->engine->render(
+            '{{>system-context}} Now help with {{topic}}.',
+            ['topic' => 'math'],
+            null,
+            $user,
+        );
         $this->assertEquals('You are a helpful assistant. Now help with math.', $result['rendered']);
         $this->assertContains('system-context', $result['includes_resolved']);
     }
@@ -88,6 +95,6 @@ class TemplateEngineTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Circular include');
-        $this->engine->render('{{>a}}', []);
+        $this->engine->render('{{>a}}', [], null, $user);
     }
 }

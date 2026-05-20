@@ -210,8 +210,9 @@ class EditorPreviewTest extends TestCase
             $this->headers
         );
 
-        // Circular includes throw RuntimeException which becomes a 500 error
-        $response->assertStatus(500);
+        // Circular includes throw RuntimeException; PB-3 catches that in
+        // RenderController and surfaces as 422 (input was bad, not a server bug).
+        $response->assertStatus(422);
     }
 
     public function test_preview_shows_missing_variables(): void

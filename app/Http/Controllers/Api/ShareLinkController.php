@@ -45,14 +45,17 @@ class ShareLinkController extends ApiController
 
         $validated = $request->validate([
             'label'      => 'nullable|string|max:255',
-            'expires_in' => 'nullable|string|in:1h,24h,7d,30d',
+            // expires_in is now required (TPL-06) — previously null meant
+            // "never expires", giving a public link with no off-switch
+            // beyond explicit revoke.
+            'expires_in' => 'required|string|in:1h,24h,7d,30d',
         ]);
 
         $link = $this->service->createLink(
             $collection,
             $request->user(),
             $validated['label'] ?? null,
-            $validated['expires_in'] ?? null,
+            $validated['expires_in'],
         );
 
         return $this->success([

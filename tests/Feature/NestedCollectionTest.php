@@ -393,7 +393,8 @@ class NestedCollectionTest extends TestCase
         ]);
 
         $shareService = app(ShareLinkService::class);
-        $link = $shareService->createLink($parent, $this->user);
+        // PB-3: explicit expiry now required
+        $link = $shareService->createLink($parent, $this->user, null, '1h');
 
         $response = $this->get("/share/{$link->token}");
 
