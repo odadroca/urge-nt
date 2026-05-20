@@ -22,6 +22,7 @@ class ApiKeyService
             'user_id'     => $user->id,
             'key_hash'    => $hash,
             'key_preview' => $preview,
+            'is_active'   => true,
         ]);
 
         if (!empty($promptIds)) {

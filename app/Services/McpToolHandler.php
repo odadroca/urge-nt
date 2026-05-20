@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\LlmProvider;
 use App\Models\Pipeline;
+use App\Models\PipelineChannel;
 use App\Models\Prompt;
 use App\Models\PromptBranch;
 use App\Models\PromptVersion;
@@ -1402,12 +1403,11 @@ class McpToolHandler
             return ['error' => 'Result not found.'];
         }
 
-        // Verify user can see the parent prompt
-        if ($result->prompt_id) {
-            $canSee = Prompt::visibleTo($user)->where('id', $result->prompt_id)->exists();
-            if (!$canSee) {
-                return ['error' => 'Result not found.'];
-            }
+        if (!AuthorizationService::userCanSeeResult($user, $result)) {
+            return ['error' => 'Result not found.'];
+        }
+        if (!AuthorizationService::userCanMutateResult($user, $result)) {
+            return ['error' => 'You do not have permission to update this result.'];
         }
 
         $updates = [];
@@ -1448,12 +1448,11 @@ class McpToolHandler
             return ['error' => 'Result not found.'];
         }
 
-        // Verify user can see the parent prompt
-        if ($result->prompt_id) {
-            $canSee = Prompt::visibleTo($user)->where('id', $result->prompt_id)->exists();
-            if (!$canSee) {
-                return ['error' => 'Result not found.'];
-            }
+        if (!AuthorizationService::userCanSeeResult($user, $result)) {
+            return ['error' => 'Result not found.'];
+        }
+        if (!AuthorizationService::userCanMutateResult($user, $result)) {
+            return ['error' => 'You do not have permission to delete this result.'];
         }
 
         $result->delete();
@@ -1661,6 +1660,10 @@ class McpToolHandler
             return ['error' => 'Pipeline not found or inactive.'];
         }
 
+        if (!AuthorizationService::userOwnsPipeline($user, $pipeline)) {
+            return ['error' => 'Only the pipeline owner can run this pipeline.'];
+        }
+
         if (!empty($args['version'])) {
             $version = $prompt->versions()->where('version_number', $args['version'])->first();
         } else {
@@ -1733,6 +1736,10 @@ class McpToolHandler
             return ['error' => 'Pipeline not found.'];
         }
 
+        if (!AuthorizationService::userOwnsPipeline($user, $pipeline)) {
+            return ['error' => 'Only the pipeline owner can update this pipeline.'];
+        }
+
         $updates = [];
         if (isset($args['name'])) $updates['name'] = $args['name'];
         if (isset($args['description'])) $updates['description'] = $args['description'];
@@ -1762,6 +1769,10 @@ class McpToolHandler
             return ['error' => 'Pipeline not found.'];
         }
 
+        if (!AuthorizationService::userOwnsPipeline($user, $pipeline)) {
+            return ['error' => 'Only the pipeline owner can delete this pipeline.'];
+        }
+
         $pipeline->delete();
 
         return ['message' => "Pipeline '{$pipeline->name}' deleted."];
@@ -1776,6 +1787,10 @@ class McpToolHandler
         $pipeline = Pipeline::where('slug', $args['pipeline_slug'] ?? '')->first();
         if (!$pipeline) {
             return ['error' => 'Pipeline not found.'];
+        }
+
+        if (!AuthorizationService::userOwnsPipeline($user, $pipeline)) {
+            return ['error' => 'Only the pipeline owner can add channels to this pipeline.'];
         }
 
         $providerId = null;
@@ -1823,9 +1838,13 @@ class McpToolHandler
             return ['error' => 'Authentication required.'];
         }
 
-        $channel = PipelineChannel::find($args['channel_id'] ?? 0);
+        $channel = PipelineChannel::with('pipeline')->find($args['channel_id'] ?? 0);
         if (!$channel) {
             return ['error' => 'Channel not found.'];
+        }
+
+        if (!$channel->pipeline || !AuthorizationService::userOwnsPipeline($user, $channel->pipeline)) {
+            return ['error' => 'Only the pipeline owner can update channels on this pipeline.'];
         }
 
         $updates = [];
@@ -1878,9 +1897,13 @@ class McpToolHandler
             return ['error' => 'Authentication required.'];
         }
 
-        $channel = PipelineChannel::find($args['channel_id'] ?? 0);
+        $channel = PipelineChannel::with('pipeline')->find($args['channel_id'] ?? 0);
         if (!$channel) {
             return ['error' => 'Channel not found.'];
+        }
+
+        if (!$channel->pipeline || !AuthorizationService::userOwnsPipeline($user, $channel->pipeline)) {
+            return ['error' => 'Only the pipeline owner can remove channels from this pipeline.'];
         }
 
         $label = $channel->role_label;
@@ -1895,6 +1918,10 @@ class McpToolHandler
 
         $prompt = $this->resolvePrompt($args['slug'] ?? '', $args['owner'] ?? null, $user);
         if (!$prompt) return ['error' => 'Prompt not found.'];
+
+        if (!$this->verifyOwnership($prompt, $user)) {
+            return ['error' => 'Only the prompt owner can pin versions on this prompt.'];
+        }
 
         $versionId = $args['version_id'] ?? null;
 
@@ -1917,6 +1944,10 @@ class McpToolHandler
 
         $prompt = $this->resolvePrompt($args['slug'] ?? '', $args['owner'] ?? null, $user);
         if (!$prompt) return ['error' => 'Prompt not found.'];
+
+        if (!$this->verifyOwnership($prompt, $user)) {
+            return ['error' => 'Only the prompt owner can archive versions on this prompt.'];
+        }
 
         $version = $prompt->versions()->where('version_number', $args['version'])->first();
         if (!$version) return ['error' => 'Version not found.'];

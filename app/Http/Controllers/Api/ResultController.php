@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Prompt;
 use App\Models\Result;
+use App\Services\AuthorizationService;
 use App\Services\ImportExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,9 @@ class ResultController extends ApiController
     public function store(Request $request, string $username, string $promptSlug): JsonResponse
     {
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
+        if (! $request->user()->can('writeResult', $prompt)) {
+            abort(403, 'You do not have permission to write results on this prompt.');
+        }
 
         $validated = $request->validate([
             'version'          => 'required|integer|min:1',
@@ -100,30 +104,28 @@ class ResultController extends ApiController
         return $this->paginated($query, $request);
     }
 
-    public function destroy(Result $result): JsonResponse
+    public function destroy(Request $request, Result $result): JsonResponse
     {
+        $this->authorizeResultAccess($request, $result, 'delete');
+
         $result->delete();
 
         return $this->success(['message' => 'Result deleted.']);
     }
 
-    public function show(Result $result): JsonResponse
+    public function show(Request $request, Result $result): JsonResponse
     {
+        $this->authorizeResultAccess($request, $result, 'view');
+
         $result->load(['prompt', 'promptVersion']);
         return $this->success($result);
     }
 
     public function download(Request $request, Result $result, ImportExportService $service): StreamedResponse
     {
-        $result->load(['prompt.creator', 'promptVersion']);
+        $this->authorizeResultAccess($request, $result, 'view');
 
-        $user = $request->user();
-        if ($user) {
-            $canSee = Prompt::visibleTo($user)->where('id', $result->prompt_id)->exists();
-            if (!$canSee) {
-                abort(404);
-            }
-        }
+        $result->load(['prompt.creator', 'promptVersion']);
 
         $content = $service->exportResult($result);
         $version = $result->promptVersion?->version_number ?? 0;
@@ -137,6 +139,8 @@ class ResultController extends ApiController
 
     public function update(Request $request, Result $result): JsonResponse
     {
+        $this->authorizeResultAccess($request, $result, 'update');
+
         $validated = $request->validate([
             'rating'  => 'nullable|integer|min:1|max:5',
             'starred' => 'nullable|boolean',
@@ -146,5 +150,29 @@ class ResultController extends ApiController
         $result->update($validated);
 
         return $this->success($result->fresh());
+    }
+
+    /**
+     * Returns 404 (not 403) for the view path so as not to confirm
+     * existence to a guessing caller; 403 for write paths where the
+     * caller is known to see the resource but not mutate it.
+     */
+    private function authorizeResultAccess(Request $request, Result $result, string $ability): void
+    {
+        $user = $request->user();
+        $result->loadMissing('prompt');
+
+        if (!AuthorizationService::userCanSeeResult($user, $result)) {
+            abort(404);
+        }
+
+        // API-key prompt scope on the result's prompt
+        if ($result->prompt) {
+            AuthorizationService::enforceApiKeyScope($request, $result->prompt);
+        }
+
+        if ($ability !== 'view' && !$user->can($ability, $result)) {
+            abort(403, "You do not have permission to {$ability} this result.");
+        }
     }
 }

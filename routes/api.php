@@ -80,9 +80,6 @@ Route::prefix('v1')->group(function () {
         Route::get('results/{result}/evaluations/latest', [EvaluationController::class, 'latest']);
         Route::get('results/{result}/evaluations/{version}', [EvaluationController::class, 'show']);
 
-        // Legacy redirect (single slug without slash)
-        Route::get('prompts/{slug}', [PromptController::class, 'legacyRedirect'])->where('slug', '[^/]+');
-
         // Sharing
         Route::post('prompts/{username}/{promptSlug}/share', [PromptController::class, 'share']);
         Route::delete('prompts/{username}/{promptSlug}/share/{team}', [PromptController::class, 'unshare']);
@@ -117,12 +114,14 @@ Route::prefix('v1')->group(function () {
         Route::delete('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'removeChannel']);
         Route::post('prompts/{username}/{promptSlug}/run-pipeline', [PipelineController::class, 'runPipeline']);
 
-        // LLM Providers
+        // LLM Providers (read is non-admin so the SPA can pick a provider; mutations are admin-only)
         Route::get('providers', [LlmProviderController::class, 'index']);
-        Route::post('providers', [LlmProviderController::class, 'store']);
-        Route::patch('providers/{id}', [LlmProviderController::class, 'update']);
-        Route::delete('providers/{id}', [LlmProviderController::class, 'destroy']);
-        Route::post('providers/{id}/test', [LlmProviderController::class, 'test']);
+        Route::middleware('role:admin')->group(function () {
+            Route::post('providers', [LlmProviderController::class, 'store']);
+            Route::patch('providers/{id}', [LlmProviderController::class, 'update']);
+            Route::delete('providers/{id}', [LlmProviderController::class, 'destroy']);
+            Route::post('providers/{id}/test', [LlmProviderController::class, 'test']);
+        });
 
         // Run prompt with LLM
         Route::post('prompts/{username}/{promptSlug}/run', [PromptController::class, 'run']);
@@ -148,11 +147,13 @@ Route::prefix('v1')->group(function () {
         Route::get('evaluation-settings', [EvaluationSettingsController::class, 'show']);
         Route::patch('evaluation-settings', [EvaluationSettingsController::class, 'update']);
 
-        // Users (admin)
-        Route::get('users', [UserController::class, 'index']);
-        Route::post('users', [UserController::class, 'store']);
-        Route::patch('users/{id}', [UserController::class, 'update']);
-        Route::delete('users/{id}', [UserController::class, 'destroy']);
+        // Users (admin-only)
+        Route::middleware('role:admin')->group(function () {
+            Route::get('users', [UserController::class, 'index']);
+            Route::post('users', [UserController::class, 'store']);
+            Route::patch('users/{id}', [UserController::class, 'update']);
+            Route::delete('users/{id}', [UserController::class, 'destroy']);
+        });
 
         // Graph
         Route::get('graph/nodes', [GraphController::class, 'nodes']);
@@ -164,7 +165,6 @@ Route::prefix('v1')->group(function () {
 
     // MCP — auth handled internally for OAuth 2.1 discovery flow
     Route::post('mcp', [McpController::class, 'handle']);
-    Route::get('mcp', [McpController::class, 'stream']);
     Route::delete('mcp', [McpController::class, 'destroy']);
 });
 

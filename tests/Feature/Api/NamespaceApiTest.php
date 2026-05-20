@@ -128,14 +128,15 @@ class NamespaceApiTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_api_legacy_slug_redirect(): void
+    public function test_api_legacy_slug_route_removed(): void
     {
+        // Pre-namespacing single-slug fallback was removed in PB-1
+        // (audit finding DEAD-03 — it leaked cross-tenant owner_slug).
         $prompt = Prompt::create(['name' => 'Legacy Test', 'type' => 'prompt', 'created_by' => $this->user->id]);
 
         $response = $this->getJson("/api/v1/prompts/{$prompt->slug}", $this->userHeaders);
 
-        $response->assertStatus(301)
-            ->assertJsonPath('redirect', "/api/v1/prompts/{$this->user->slug}/{$prompt->slug}");
+        $response->assertStatus(404);
     }
 
     public function test_api_share_prompt(): void
