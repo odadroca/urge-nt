@@ -14,10 +14,15 @@ class NamespaceApiTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $user;
+
     private User $otherUser;
+
     private array $userHeaders;
+
     private array $otherHeaders;
+
     private array $adminHeaders;
 
     protected function setUp(): void

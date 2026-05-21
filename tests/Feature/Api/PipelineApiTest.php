@@ -14,7 +14,9 @@ class PipelineApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private string $apiKey;
+
     private array $headers;
 
     protected function setUp(): void

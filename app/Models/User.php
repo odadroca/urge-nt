@@ -64,7 +64,7 @@ class User extends Authenticatable
                 $slug = $base;
                 $counter = 1;
                 while (static::where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . $counter++;
+                    $slug = $base.'-'.$counter++;
                 }
                 $user->slug = $slug;
             }

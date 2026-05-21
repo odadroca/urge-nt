@@ -14,7 +14,9 @@ class VersionApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private array $headers;
 
     protected function setUp(): void
@@ -103,8 +105,8 @@ class VersionApiTest extends TestCase
 
         $body = $response->streamedContent();
         $this->assertStringStartsWith("---\n", $body);
-        $this->assertStringContainsString('prompt: ' . $this->prompt->slug, $body);
-        $this->assertStringContainsString('owner: ' . $this->user->slug, $body);
+        $this->assertStringContainsString('prompt: '.$this->prompt->slug, $body);
+        $this->assertStringContainsString('owner: '.$this->user->slug, $body);
         $this->assertStringContainsString('version: 1', $body);
         $this->assertStringContainsString('Hello {{name}}', $body);
     }

@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 class Category extends Model
 {
     use SoftDeletes;
+
     protected $fillable = ['name', 'slug', 'color'];
 
     protected static function booted(): void
@@ -19,7 +20,7 @@ class Category extends Model
                 $slug = $base;
                 $counter = 1;
                 while (static::where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . $counter++;
+                    $slug = $base.'-'.$counter++;
                 }
                 $category->slug = $slug;
             }

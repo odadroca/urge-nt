@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Prompt;
-use App\Models\PromptBranch;
-use App\Models\PromptVersion;
 use App\Services\VersioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,7 +34,7 @@ class BranchController extends ApiController
         ]);
 
         $fromVersion = null;
-        if (!empty($validated['from_version'])) {
+        if (! empty($validated['from_version'])) {
             $fromVersion = $prompt->versions()
                 ->where('version_number', $validated['from_version'])
                 ->firstOrFail();

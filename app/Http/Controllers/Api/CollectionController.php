@@ -19,7 +19,7 @@ class CollectionController extends ApiController
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -31,14 +31,14 @@ class CollectionController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
         ]);
 
         $collection = Collection::create([
-            'title'       => $validated['title'],
+            'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
-            'created_by'  => $request->user()->id,
+            'created_by' => $request->user()->id,
         ]);
 
         return $this->success($collection, 201);
@@ -71,46 +71,46 @@ class CollectionController extends ApiController
         }]);
 
         return [
-            'id'          => $collection->id,
-            'title'       => $collection->title,
-            'slug'        => $collection->slug,
+            'id' => $collection->id,
+            'title' => $collection->title,
+            'slug' => $collection->slug,
             'description' => $collection->description,
-            'created_at'  => $collection->created_at,
-            'updated_at'  => $collection->updated_at,
-            'items'       => $collection->items->map(function ($item) use ($remainingDepth) {
+            'created_at' => $collection->created_at,
+            'updated_at' => $collection->updated_at,
+            'items' => $collection->items->map(function ($item) use ($remainingDepth) {
                 $resolved = $item->item;
                 $entry = [
-                    'id'         => $item->id,
+                    'id' => $item->id,
                     'sort_order' => $item->sort_order,
-                    'item_type'  => $item->item_type,
-                    'item_id'    => $item->item_id,
-                    'notes'      => $item->notes,
+                    'item_type' => $item->item_type,
+                    'item_id' => $item->item_id,
+                    'notes' => $item->notes,
                 ];
 
                 if ($item->item_type === 'prompt_version' && $resolved) {
-                    $entry['prompt_name']    = $resolved->prompt->name ?? null;
-                    $entry['prompt_slug']    = $resolved->prompt->slug ?? null;
-                    $entry['prompt_owner']   = $resolved->prompt->creator->slug ?? null;
+                    $entry['prompt_name'] = $resolved->prompt->name ?? null;
+                    $entry['prompt_slug'] = $resolved->prompt->slug ?? null;
+                    $entry['prompt_owner'] = $resolved->prompt->creator->slug ?? null;
                     $entry['version_number'] = $resolved->version_number;
-                    $entry['content']        = $resolved->content;
-                    $entry['variables']      = $resolved->variables;
+                    $entry['content'] = $resolved->content;
+                    $entry['variables'] = $resolved->variables;
                     $entry['commit_message'] = $resolved->commit_message;
                 } elseif ($item->item_type === 'result' && $resolved) {
-                    $entry['prompt_name']    = $resolved->prompt->name ?? null;
-                    $entry['prompt_slug']    = $resolved->prompt->slug ?? null;
-                    $entry['prompt_owner']   = $resolved->prompt->creator->slug ?? null;
+                    $entry['prompt_name'] = $resolved->prompt->name ?? null;
+                    $entry['prompt_slug'] = $resolved->prompt->slug ?? null;
+                    $entry['prompt_owner'] = $resolved->prompt->creator->slug ?? null;
                     $entry['version_number'] = $resolved->promptVersion->version_number ?? null;
-                    $entry['provider_name']  = $resolved->provider_name;
-                    $entry['model_name']     = $resolved->model_name;
-                    $entry['response_text']  = $resolved->response_text;
-                    $entry['rating']         = $resolved->rating;
-                    $entry['starred']        = $resolved->starred;
-                    $entry['input_tokens']   = $resolved->input_tokens;
-                    $entry['output_tokens']  = $resolved->output_tokens;
-                    $entry['duration_ms']    = $resolved->duration_ms;
+                    $entry['provider_name'] = $resolved->provider_name;
+                    $entry['model_name'] = $resolved->model_name;
+                    $entry['response_text'] = $resolved->response_text;
+                    $entry['rating'] = $resolved->rating;
+                    $entry['starred'] = $resolved->starred;
+                    $entry['input_tokens'] = $resolved->input_tokens;
+                    $entry['output_tokens'] = $resolved->output_tokens;
+                    $entry['duration_ms'] = $resolved->duration_ms;
                 } elseif ($item->item_type === 'collection' && $resolved) {
                     $entry['title'] = $resolved->title;
-                    $entry['slug']  = $resolved->slug;
+                    $entry['slug'] = $resolved->slug;
                     if ($remainingDepth > 1) {
                         $entry['children'] = $this->buildCollectionData($resolved, $remainingDepth - 1)['items'];
                     } else {
@@ -130,7 +130,7 @@ class CollectionController extends ApiController
         }
 
         $validated = $request->validate([
-            'title'       => 'sometimes|required|string|max:255',
+            'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
         ]);
 
@@ -173,18 +173,18 @@ class CollectionController extends ApiController
 
         $validated = $request->validate([
             'item_type' => 'required|string|in:prompt_version,result,collection',
-            'item_id'   => 'required|integer',
-            'notes'     => 'nullable|string',
+            'item_id' => 'required|integer',
+            'notes' => 'nullable|string',
         ]);
 
         // Verify the referenced item exists
         $exists = match ($validated['item_type']) {
             'prompt_version' => PromptVersion::where('id', $validated['item_id'])->exists(),
-            'result'         => Result::where('id', $validated['item_id'])->exists(),
-            'collection'     => Collection::where('id', $validated['item_id'])->exists(),
+            'result' => Result::where('id', $validated['item_id'])->exists(),
+            'collection' => Collection::where('id', $validated['item_id'])->exists(),
         };
 
-        if (!$exists) {
+        if (! $exists) {
             return $this->error('Referenced item not found.', 404);
         }
 
@@ -214,10 +214,10 @@ class CollectionController extends ApiController
 
         $item = CollectionItem::create([
             'collection_id' => $collection->id,
-            'item_type'     => $validated['item_type'],
-            'item_id'       => $validated['item_id'],
-            'sort_order'    => $maxSort + 1,
-            'notes'         => $validated['notes'] ?? null,
+            'item_type' => $validated['item_type'],
+            'item_id' => $validated['item_id'],
+            'sort_order' => $maxSort + 1,
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         return $this->success($item, 201);

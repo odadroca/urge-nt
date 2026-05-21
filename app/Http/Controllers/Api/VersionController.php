@@ -29,8 +29,8 @@ class VersionController extends ApiController
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
 
         $validated = $request->validate([
-            'content'           => 'required|string',
-            'commit_message'    => 'nullable|string|max:500',
+            'content' => 'required|string',
+            'commit_message' => 'nullable|string|max:500',
             'variable_metadata' => 'nullable|array',
         ]);
 
@@ -65,7 +65,7 @@ class VersionController extends ApiController
         $content = $service->exportPromptVersion($promptVersion);
         $filename = "{$prompt->slug}-v{$version}.md";
 
-        return response()->streamDownload(fn () => print($content), $filename, [
+        return response()->streamDownload(fn () => print ($content), $filename, [
             'Content-Type' => 'text/markdown; charset=UTF-8',
         ]);
     }
@@ -80,11 +80,13 @@ class VersionController extends ApiController
         if ($promptVersion->archived_at) {
             $promptVersion->archived_at = null;
             $promptVersion->save();
+
             return $this->success(['message' => "Version {$version} unarchived.", 'archived' => false]);
         }
 
         $promptVersion->archived_at = now();
         $promptVersion->save();
+
         return $this->success(['message' => "Version {$version} archived.", 'archived' => true]);
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\ApiKey;
-use App\Models\Prompt;
 use App\Services\ApiKeyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,8 +23,8 @@ class ApiKeyController extends ApiController
     public function store(Request $request, ApiKeyService $service): JsonResponse
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'prompt_ids'  => 'nullable|array',
+            'name' => 'required|string|max:255',
+            'prompt_ids' => 'nullable|array',
             'prompt_ids.*' => 'integer|exists:prompts,id',
         ]);
 
@@ -36,7 +35,7 @@ class ApiKeyController extends ApiController
         );
 
         return $this->success([
-            'key'   => $result['key'],
+            'key' => $result['key'],
             'model' => $result['model']->load('prompts:id,name,slug'),
         ], 201);
     }

@@ -56,7 +56,7 @@ class BrowseEnhancedTest extends TestCase
         $this->assertTrue($names->contains('Other Prompt'));
 
         // With category filter
-        $response = $this->actingAs($this->user)->getJson('/api/v1/prompts?category_id=' . $cat->id);
+        $response = $this->actingAs($this->user)->getJson('/api/v1/prompts?category_id='.$cat->id);
         $response->assertOk();
         $names = collect($response->json('data'))->pluck('name');
         $this->assertTrue($names->contains('Marketing Prompt'));
@@ -169,7 +169,7 @@ class BrowseEnhancedTest extends TestCase
         $this->assertNotNull($prompt);
         // The API returns prompt data — verify the prompt exists and results can be queried
         $resultsResponse = $this->actingAs($this->user)->getJson(
-            '/api/v1/prompts/' . $this->user->slug . '/' . $prompt['slug'] . '/results'
+            '/api/v1/prompts/'.$this->user->slug.'/'.$prompt['slug'].'/results'
         );
         $resultsResponse->assertOk();
         $this->assertCount(2, $resultsResponse->json('data'));

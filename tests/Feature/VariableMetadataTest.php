@@ -145,7 +145,7 @@ class VariableMetadataTest extends TestCase
 
         // Process like Editor.php does
         foreach ($metadata as $varName => &$meta) {
-            if (!empty($meta['options_csv'])) {
+            if (! empty($meta['options_csv'])) {
                 $meta['options'] = array_values(array_filter(
                     array_map('trim', explode(',', $meta['options_csv']))
                 ));

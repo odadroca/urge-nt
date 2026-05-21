@@ -6,7 +6,6 @@ use App\Models\LlmProvider;
 use App\Models\Prompt;
 use App\Models\Result;
 use App\Models\Team;
-use App\Models\User;
 use App\Services\LlmDispatchService;
 use App\Services\TemplateEngine;
 use Illuminate\Http\JsonResponse;
@@ -51,7 +50,7 @@ class PromptController extends ApiController
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -63,18 +62,18 @@ class PromptController extends ApiController
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'type'        => 'in:prompt,fragment',
+            'name' => 'required|string|max:255',
+            'type' => 'in:prompt,fragment',
             'description' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
-            'tags'        => 'nullable|array',
-            'tags.*'      => 'string|max:50',
-            'visibility'  => 'nullable|in:private,shared',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:50',
+            'visibility' => 'nullable|in:private,shared',
             'derived_from' => 'nullable|string',
         ]);
 
         $derivedFromId = null;
-        if (!empty($validated['derived_from'])) {
+        if (! empty($validated['derived_from'])) {
             $sourcePrompt = Prompt::where('slug', $validated['derived_from'])->first();
             if ($sourcePrompt) {
                 $derivedFromId = $sourcePrompt->id;
@@ -82,13 +81,13 @@ class PromptController extends ApiController
         }
 
         $prompt = Prompt::create([
-            'name'        => $validated['name'],
-            'type'        => $validated['type'] ?? 'prompt',
+            'name' => $validated['name'],
+            'type' => $validated['type'] ?? 'prompt',
             'description' => $validated['description'] ?? null,
             'category_id' => $validated['category_id'] ?? null,
-            'tags'        => $validated['tags'] ?? null,
-            'visibility'  => $validated['visibility'] ?? 'private',
-            'created_by'  => $request->user()->id,
+            'tags' => $validated['tags'] ?? null,
+            'visibility' => $validated['visibility'] ?? 'private',
+            'created_by' => $request->user()->id,
             'derived_from_prompt_id' => $derivedFromId,
         ]);
 
@@ -111,13 +110,13 @@ class PromptController extends ApiController
         $this->authorizeOwnership($prompt, $request);
 
         $validated = $request->validate([
-            'name'        => 'sometimes|required|string|max:255',
-            'type'        => 'sometimes|in:prompt,fragment',
+            'name' => 'sometimes|required|string|max:255',
+            'type' => 'sometimes|in:prompt,fragment',
             'description' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
-            'tags'        => 'nullable|array',
-            'tags.*'      => 'string|max:50',
-            'visibility'  => 'nullable|in:private,shared',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:50',
+            'visibility' => 'nullable|in:private,shared',
             'derived_from_prompt_id' => 'nullable|integer|exists:prompts,id',
         ]);
 
@@ -136,25 +135,24 @@ class PromptController extends ApiController
         return $this->success(['message' => 'Prompt deleted.']);
     }
 
-
     public function share(Request $request, string $username, string $promptSlug): JsonResponse
     {
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
         $this->authorizeOwnership($prompt, $request);
 
         $validated = $request->validate([
-            'team_id'   => 'required_without:team_slug|nullable|exists:teams,id',
+            'team_id' => 'required_without:team_slug|nullable|exists:teams,id',
             'team_slug' => 'required_without:team_id|nullable|string',
         ]);
 
-        if (!empty($validated['team_id'])) {
+        if (! empty($validated['team_id'])) {
             $team = Team::findOrFail($validated['team_id']);
         } else {
             $team = Team::where('slug', $validated['team_slug'])->firstOrFail();
         }
 
         // Attach team if not already attached
-        if (!$prompt->teams()->where('teams.id', $team->id)->exists()) {
+        if (! $prompt->teams()->where('teams.id', $team->id)->exists()) {
             $prompt->teams()->attach($team->id);
         }
 
@@ -192,7 +190,7 @@ class PromptController extends ApiController
 
         if ($versionId) {
             $version = $prompt->versions()->where('id', $versionId)->first();
-            if (!$version) {
+            if (! $version) {
                 return $this->error('Version not found.', 404);
             }
         }
@@ -211,22 +209,22 @@ class PromptController extends ApiController
 
         $validated = $request->validate([
             'version_number' => 'nullable|integer',
-            'provider_ids'   => 'required|array|min:1',
+            'provider_ids' => 'required|array|min:1',
             'provider_ids.*' => 'integer',
-            'variables'      => 'nullable|array',
+            'variables' => 'nullable|array',
         ]);
 
         // Resolve version
         $version = null;
-        if (!empty($validated['version_number'])) {
+        if (! empty($validated['version_number'])) {
             $version = $prompt->versions()->where('version_number', $validated['version_number'])->first();
-            if (!$version) {
+            if (! $version) {
                 return $this->error('Version not found.', 404);
             }
         }
         $version = $version ?? $prompt->activeVersion;
 
-        if (!$version) {
+        if (! $version) {
             return $this->error('No version found. Save a version first.', 404);
         }
 
@@ -244,32 +242,31 @@ class PromptController extends ApiController
         $results = [];
         foreach ($validated['provider_ids'] as $providerId) {
             $provider = LlmProvider::where('id', $providerId)->where('is_active', true)->first();
-            if (!$provider) {
+            if (! $provider) {
                 continue;
             }
 
             $llmResult = $dispatchService->dispatch($provider, $renderedContent);
 
             $results[] = Result::create([
-                'prompt_id'         => $prompt->id,
+                'prompt_id' => $prompt->id,
                 'prompt_version_id' => $version->id,
-                'source'            => 'api',
-                'provider_name'     => $provider->name,
-                'model_name'        => $llmResult->modelUsed,
-                'llm_provider_id'   => $provider->id,
-                'rendered_content'  => $renderedContent,
-                'variables_used'    => !empty($variables) ? $variables : null,
-                'response_text'     => $llmResult->success ? $llmResult->text : null,
-                'input_tokens'      => $llmResult->inputTokens,
-                'output_tokens'     => $llmResult->outputTokens,
-                'duration_ms'       => $llmResult->durationMs,
-                'status'            => $llmResult->success ? 'success' : 'error',
-                'error_message'     => $llmResult->error,
-                'created_by'        => $request->user()->id,
+                'source' => 'api',
+                'provider_name' => $provider->name,
+                'model_name' => $llmResult->modelUsed,
+                'llm_provider_id' => $provider->id,
+                'rendered_content' => $renderedContent,
+                'variables_used' => ! empty($variables) ? $variables : null,
+                'response_text' => $llmResult->success ? $llmResult->text : null,
+                'input_tokens' => $llmResult->inputTokens,
+                'output_tokens' => $llmResult->outputTokens,
+                'duration_ms' => $llmResult->durationMs,
+                'status' => $llmResult->success ? 'success' : 'error',
+                'error_message' => $llmResult->error,
+                'created_by' => $request->user()->id,
             ]);
         }
 
         return $this->success($results, 201);
     }
-
 }

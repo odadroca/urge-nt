@@ -16,7 +16,7 @@ class ProfileApiTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->patchJson('/api/v1/profile', [
-            'name'  => 'Updated Name',
+            'name' => 'Updated Name',
             'email' => 'updated@example.com',
         ]);
 
@@ -37,7 +37,7 @@ class ProfileApiTest extends TestCase
         $this->assertNotNull($originalVerifiedAt);
 
         $response = $this->actingAs($user)->patchJson('/api/v1/profile', [
-            'name'  => 'Updated Name',
+            'name' => 'Updated Name',
             'email' => $user->email,
         ]);
 
@@ -51,7 +51,7 @@ class ProfileApiTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->patchJson('/api/v1/profile', [
-            'name'  => $user->name,
+            'name' => $user->name,
             'email' => 'taken@example.com',
         ]);
 
@@ -61,7 +61,7 @@ class ProfileApiTest extends TestCase
     public function test_profile_update_requires_authentication(): void
     {
         $response = $this->patchJson('/api/v1/profile', [
-            'name'  => 'X',
+            'name' => 'X',
             'email' => 'x@example.com',
         ]);
 
@@ -73,8 +73,8 @@ class ProfileApiTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->putJson('/api/v1/profile/password', [
-            'current_password'      => 'password',
-            'password'              => 'new-password-1',
+            'current_password' => 'password',
+            'password' => 'new-password-1',
             'password_confirmation' => 'new-password-1',
         ]);
 
@@ -87,8 +87,8 @@ class ProfileApiTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->putJson('/api/v1/profile/password', [
-            'current_password'      => 'wrong',
-            'password'              => 'new-password-1',
+            'current_password' => 'wrong',
+            'password' => 'new-password-1',
             'password_confirmation' => 'new-password-1',
         ]);
 
@@ -100,8 +100,8 @@ class ProfileApiTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->putJson('/api/v1/profile/password', [
-            'current_password'      => 'password',
-            'password'              => 'new-password-1',
+            'current_password' => 'password',
+            'password' => 'new-password-1',
             'password_confirmation' => 'different',
         ]);
 

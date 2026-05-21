@@ -25,9 +25,13 @@ class PipelineRunIdTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private PromptVersion $version;
+
     private LlmProvider $provider;
+
     private array $headers;
 
     protected function setUp(): void

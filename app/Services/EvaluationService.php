@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EvaluationSetting;
 use App\Models\LlmProvider;
+use App\Models\Prompt;
 use App\Models\Result;
 use App\Models\ResultEvaluation;
 use App\Models\User;
@@ -17,18 +18,18 @@ class EvaluationService
 
     public function evaluate(Result $result, User $user, ?LlmProvider $providerOverride = null): array
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return ['error' => 'Evaluation is not enabled. Enable it in Settings > Evaluation.'];
         }
 
         $result->load(['prompt', 'promptVersion']);
 
-        if (!$result->prompt || !$result->promptVersion) {
+        if (! $result->prompt || ! $result->promptVersion) {
             return ['error' => 'Result has no associated prompt or version.'];
         }
 
         $provider = $providerOverride ?? $this->getDefaultProvider();
-        if (!$provider) {
+        if (! $provider) {
             return ['error' => 'No evaluation provider configured. Set one in Settings > Evaluation.'];
         }
 
@@ -50,15 +51,15 @@ class EvaluationService
         $systemPrompt = 'You are an expert prompt evaluator. Evaluate the LLM response against the original prompt on the given dimensions. Return ONLY valid JSON with no other text.';
 
         $userPrompt = "ORIGINAL PROMPT:\n---\n{$renderedPrompt}\n---\n\n"
-            . "LLM RESPONSE:\n---\n{$result->response_text}\n---\n\n"
-            . "DIMENSIONS TO EVALUATE:\n{$dimensionsJson}\n\n"
-            . "RATING SCALE: 1 = poor, 2 = below average, 3 = adequate, 4 = good, 5 = excellent\n\n"
-            . "Return JSON in this exact format:\n"
-            . '{"scores":[{"dimension":"name","score":N,"reasoning":"brief explanation"}]}';
+            ."LLM RESPONSE:\n---\n{$result->response_text}\n---\n\n"
+            ."DIMENSIONS TO EVALUATE:\n{$dimensionsJson}\n\n"
+            ."RATING SCALE: 1 = poor, 2 = below average, 3 = adequate, 4 = good, 5 = excellent\n\n"
+            ."Return JSON in this exact format:\n"
+            .'{"scores":[{"dimension":"name","score":N,"reasoning":"brief explanation"}]}';
 
         // Check for custom evaluation prompt
         $evalPromptSlug = EvaluationSetting::get('prompt_slug', 'system/evaluation-template');
-        $evalPrompt = \App\Models\Prompt::where('slug', $evalPromptSlug)->first();
+        $evalPrompt = Prompt::where('slug', $evalPromptSlug)->first();
         $evalPromptVersion = null;
 
         if ($evalPrompt && $evalPrompt->activeVersion) {
@@ -80,7 +81,7 @@ class EvaluationService
         // Dispatch to evaluator LLM
         $llmResult = $this->dispatchService->dispatchWithSystem($provider, $systemPrompt, $userPrompt);
 
-        if (!$llmResult->success) {
+        if (! $llmResult->success) {
             return ['error' => "Evaluation LLM call failed: {$llmResult->error}"];
         }
 
@@ -102,22 +103,22 @@ class EvaluationService
             $weight = $dimension ? $dimension['weight'] : 1.0;
 
             $eval = ResultEvaluation::create([
-                'result_id'                    => $result->id,
-                'evaluation_version'           => $evalVersion,
+                'result_id' => $result->id,
+                'evaluation_version' => $evalVersion,
                 'evaluation_prompt_version_id' => $evalPromptVersion?->id,
-                'evaluator_provider'           => $provider->name,
-                'evaluator_model'              => $llmResult->modelUsed ?? $provider->model,
-                'dimension'                    => $score['dimension'],
-                'score'                        => max(1, min(5, (int) $score['score'])),
-                'reasoning'                    => $score['reasoning'] ?? null,
-                'weight'                       => $weight,
-                'created_by'                   => $user->id,
+                'evaluator_provider' => $provider->name,
+                'evaluator_model' => $llmResult->modelUsed ?? $provider->model,
+                'dimension' => $score['dimension'],
+                'score' => max(1, min(5, (int) $score['score'])),
+                'reasoning' => $score['reasoning'] ?? null,
+                'weight' => $weight,
+                'created_by' => $user->id,
             ]);
 
             $storedScores[] = [
                 'dimension' => $eval->dimension,
-                'score'     => $eval->score,
-                'weight'    => (float) $eval->weight,
+                'score' => $eval->score,
+                'weight' => (float) $eval->weight,
                 'reasoning' => $eval->reasoning,
             ];
         }
@@ -130,16 +131,16 @@ class EvaluationService
                     ['result_id' => $result->id, 'evaluation_version' => $evalVersion, 'dimension' => 'human'],
                     [
                         'evaluator_provider' => 'human',
-                        'evaluator_model'    => 'human',
-                        'score'              => $result->rating,
-                        'weight'             => $humanDim['weight'],
-                        'created_by'         => $user->id,
+                        'evaluator_model' => 'human',
+                        'score' => $result->rating,
+                        'weight' => $humanDim['weight'],
+                        'created_by' => $user->id,
                     ],
                 );
                 $storedScores[] = [
                     'dimension' => 'human',
-                    'score'     => $result->rating,
-                    'weight'    => $humanDim['weight'],
+                    'score' => $result->rating,
+                    'weight' => $humanDim['weight'],
                     'reasoning' => null,
                 ];
             }
@@ -148,11 +149,11 @@ class EvaluationService
         $composite = ResultEvaluation::compositeScore($result->id, $evalVersion);
 
         return [
-            'evaluation_version'           => $evalVersion,
-            'composite_score'              => $composite,
-            'scores'                       => $storedScores,
-            'evaluator_provider'           => $provider->name,
-            'evaluator_model'              => $llmResult->modelUsed ?? $provider->model,
+            'evaluation_version' => $evalVersion,
+            'composite_score' => $composite,
+            'scores' => $storedScores,
+            'evaluator_provider' => $provider->name,
+            'evaluator_model' => $llmResult->modelUsed ?? $provider->model,
             'evaluation_prompt_version_id' => $evalPromptVersion?->id,
         ];
     }
@@ -166,7 +167,7 @@ class EvaluationService
         } else {
             $latestVersion = ResultEvaluation::where('result_id', $resultId)
                 ->max('evaluation_version');
-            if (!$latestVersion) {
+            if (! $latestVersion) {
                 return ['evaluation_version' => null, 'composite_score' => null, 'scores' => []];
             }
             $scores = ResultEvaluation::where('result_id', $resultId)
@@ -177,14 +178,14 @@ class EvaluationService
 
         return [
             'evaluation_version' => $version,
-            'composite_score'    => ResultEvaluation::compositeScore($resultId, $version),
-            'scores'             => $scores->map(fn ($s) => [
-                'dimension'          => $s->dimension,
-                'score'              => $s->score,
-                'weight'             => (float) $s->weight,
-                'reasoning'          => $s->reasoning,
+            'composite_score' => ResultEvaluation::compositeScore($resultId, $version),
+            'scores' => $scores->map(fn ($s) => [
+                'dimension' => $s->dimension,
+                'score' => $s->score,
+                'weight' => (float) $s->weight,
+                'reasoning' => $s->reasoning,
                 'evaluator_provider' => $s->evaluator_provider,
-                'evaluator_model'    => $s->evaluator_model,
+                'evaluator_model' => $s->evaluator_model,
             ])->values()->toArray(),
         ];
     }
@@ -198,29 +199,29 @@ class EvaluationService
             ->get()
             ->map(fn ($row) => [
                 'evaluation_version' => $row->evaluation_version,
-                'scores_count'       => $row->scores_count,
-                'composite_score'    => ResultEvaluation::compositeScore($resultId, $row->evaluation_version),
-                'created_at'         => $row->created_at,
+                'scores_count' => $row->scores_count,
+                'composite_score' => ResultEvaluation::compositeScore($resultId, $row->evaluation_version),
+                'created_at' => $row->created_at,
             ])
             ->toArray();
     }
 
     public function syncHumanRating(Result $result, User $user): void
     {
-        if (!$result->rating) {
+        if (! $result->rating) {
             return;
         }
 
         $latestVersion = ResultEvaluation::where('result_id', $result->id)
             ->max('evaluation_version');
 
-        if (!$latestVersion) {
+        if (! $latestVersion) {
             return;
         }
 
         $dimensions = $this->getActiveDimensions();
         $humanDim = $this->findDimension('human', $dimensions);
-        if (!$humanDim || !$humanDim['enabled']) {
+        if (! $humanDim || ! $humanDim['enabled']) {
             return;
         }
 
@@ -228,10 +229,10 @@ class EvaluationService
             ['result_id' => $result->id, 'evaluation_version' => $latestVersion, 'dimension' => 'human'],
             [
                 'evaluator_provider' => 'human',
-                'evaluator_model'    => 'human',
-                'score'              => $result->rating,
-                'weight'             => $humanDim['weight'],
-                'created_by'         => $user->id,
+                'evaluator_model' => 'human',
+                'score' => $result->rating,
+                'weight' => $humanDim['weight'],
+                'created_by' => $user->id,
             ],
         );
     }
@@ -244,7 +245,7 @@ class EvaluationService
     public function getDefaultProvider(): ?LlmProvider
     {
         $providerId = EvaluationSetting::get('default_provider_id');
-        if (!$providerId) {
+        if (! $providerId) {
             return null;
         }
 
@@ -254,6 +255,7 @@ class EvaluationService
     public function getActiveDimensions(): array
     {
         $dimensions = EvaluationSetting::get('dimensions', config('urge.evaluation.default_dimensions'));
+
         return array_filter($dimensions, fn ($d) => $d['enabled'] ?? true);
     }
 
@@ -265,7 +267,7 @@ class EvaluationService
         }
 
         $data = json_decode($text, true);
-        if (!$data || !isset($data['scores']) || !is_array($data['scores'])) {
+        if (! $data || ! isset($data['scores']) || ! is_array($data['scores'])) {
             return null;
         }
 
@@ -273,20 +275,20 @@ class EvaluationService
         $scores = [];
 
         foreach ($data['scores'] as $score) {
-            if (!isset($score['dimension'], $score['score'])) {
+            if (! isset($score['dimension'], $score['score'])) {
                 continue;
             }
-            if (!in_array($score['dimension'], $validNames)) {
+            if (! in_array($score['dimension'], $validNames)) {
                 continue;
             }
             $scores[] = [
                 'dimension' => $score['dimension'],
-                'score'     => (int) $score['score'],
+                'score' => (int) $score['score'],
                 'reasoning' => $score['reasoning'] ?? null,
             ];
         }
 
-        return !empty($scores) ? $scores : null;
+        return ! empty($scores) ? $scores : null;
     }
 
     private function findDimension(string $name, array $dimensions): ?array
@@ -296,6 +298,7 @@ class EvaluationService
                 return $d;
             }
         }
+
         return null;
     }
 }

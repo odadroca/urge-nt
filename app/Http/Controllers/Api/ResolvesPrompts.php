@@ -25,7 +25,7 @@ trait ResolvesPrompts
             ->where('slug', $promptSlug)
             ->firstOrFail();
 
-        if (!AuthorizationService::userCanSeePrompt($user, $prompt)) {
+        if (! AuthorizationService::userCanSeePrompt($user, $prompt)) {
             abort(404);
         }
 
@@ -37,7 +37,7 @@ trait ResolvesPrompts
     protected function authorizeOwnership(Prompt $prompt, Request $request): void
     {
         $user = $request->user();
-        if (!AuthorizationService::userOwnsPrompt($user, $prompt)) {
+        if (! AuthorizationService::userOwnsPrompt($user, $prompt)) {
             abort(403, 'Only the prompt owner can perform this action.');
         }
     }

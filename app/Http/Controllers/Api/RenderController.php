@@ -17,17 +17,17 @@ class RenderController extends ApiController
         $prompt = $this->resolvePrompt($username, $promptSlug, $request);
 
         $validated = $request->validate([
-            'version'   => 'nullable|integer|min:1',
+            'version' => 'nullable|integer|min:1',
             'variables' => 'nullable|array',
         ]);
 
-        if (!empty($validated['version'])) {
+        if (! empty($validated['version'])) {
             $version = $prompt->versions()
                 ->where('version_number', $validated['version'])
                 ->firstOrFail();
         } else {
             $version = $prompt->active_version;
-            if (!$version) {
+            if (! $version) {
                 return $this->error('Prompt has no versions.', 404);
             }
         }
@@ -52,12 +52,12 @@ class RenderController extends ApiController
         }
 
         return $this->success([
-            'rendered'           => $result['rendered'],
-            'variables_used'     => $result['variables_used'],
-            'variables_missing'  => $result['variables_missing'],
-            'includes_resolved'  => $result['includes_resolved'],
-            'prompt'             => $prompt->slug,
-            'version'            => $version->version_number,
+            'rendered' => $result['rendered'],
+            'variables_used' => $result['variables_used'],
+            'variables_missing' => $result['variables_missing'],
+            'includes_resolved' => $result['includes_resolved'],
+            'prompt' => $prompt->slug,
+            'version' => $version->version_number,
         ]);
     }
 }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Models\Collection;
 use App\Models\GraphPosition;
 use App\Models\Prompt;
+use App\Models\Result;
+use App\Models\ResultEvaluation;
 use App\Services\TemplateEngine;
 use App\Services\VersioningService;
 use Illuminate\Http\JsonResponse;
@@ -65,13 +67,13 @@ class GraphController extends ApiController
         }
 
         $positions = collect();
-        if (!empty($positionKeys)) {
+        if (! empty($positionKeys)) {
             $positions = GraphPosition::where('user_id', $user->id)
                 ->where(function ($query) use ($positionKeys) {
                     foreach ($positionKeys as $key) {
                         $query->orWhere(function ($q) use ($key) {
                             $q->where('node_type', $key['node_type'])
-                              ->where('node_id', $key['node_id']);
+                                ->where('node_id', $key['node_id']);
                         });
                     }
                 })
@@ -108,10 +110,10 @@ class GraphController extends ApiController
                 'versions_count' => $prompt->versions_count,
                 'results_count' => $prompt->results_count,
                 'derived_from_prompt_id' => $prompt->derived_from_prompt_id,
-                'avg_evaluation_score' => \App\Models\ResultEvaluation::whereIn(
+                'avg_evaluation_score' => ResultEvaluation::whereIn(
                     'result_id', $prompt->results()->pluck('results.id')
                 )->whereRaw('evaluation_version = (SELECT MAX(re2.evaluation_version) FROM result_evaluations re2 WHERE re2.result_id = result_evaluations.result_id)')
-                ->avg('score'),
+                    ->avg('score'),
                 'position' => $position ? [
                     'x' => $position->x,
                     'y' => $position->y,
@@ -148,15 +150,15 @@ class GraphController extends ApiController
                 $resultIds = array_merge($resultIds, $prompt->results()->pluck('results.id')->toArray());
             }
 
-            if (!empty($resultIds)) {
-                $results = \App\Models\Result::whereIn('id', $resultIds)
+            if (! empty($resultIds)) {
+                $results = Result::whereIn('id', $resultIds)
                     ->with(['promptVersion.branch'])
                     ->orderByDesc('created_at')
                     ->get();
 
                 $resultPositions = collect();
                 if ($results->isNotEmpty()) {
-                    $resultPositions = \App\Models\GraphPosition::where('user_id', $user->id)
+                    $resultPositions = GraphPosition::where('user_id', $user->id)
                         ->where('node_type', 'result')
                         ->whereIn('node_id', $results->pluck('id'))
                         ->get()
@@ -165,19 +167,20 @@ class GraphController extends ApiController
 
                 $resultsData = $results->map(function ($result) use ($resultPositions) {
                     $position = $resultPositions->get($result->id);
+
                     return [
-                        'id'               => $result->id,
-                        'prompt_id'        => $result->prompt_id,
-                        'version_number'   => $result->promptVersion?->version_number,
-                        'branch_name'      => $result->promptVersion?->branch?->name,
-                        'provider_name'    => $result->provider_name,
-                        'model_name'       => $result->model_name,
-                        'duration_ms'      => $result->duration_ms,
-                        'rating'           => $result->rating,
+                        'id' => $result->id,
+                        'prompt_id' => $result->prompt_id,
+                        'version_number' => $result->promptVersion?->version_number,
+                        'branch_name' => $result->promptVersion?->branch?->name,
+                        'provider_name' => $result->provider_name,
+                        'model_name' => $result->model_name,
+                        'duration_ms' => $result->duration_ms,
+                        'rating' => $result->rating,
                         'evaluation_score' => $result->evaluation_score,
-                        'source'           => $result->source,
-                        'created_at'       => $result->created_at,
-                        'position'         => $position ? ['x' => $position->x, 'y' => $position->y] : null,
+                        'source' => $result->source,
+                        'created_at' => $result->created_at,
+                        'position' => $position ? ['x' => $position->x, 'y' => $position->y] : null,
                     ];
                 })->values();
             }
@@ -186,14 +189,14 @@ class GraphController extends ApiController
         if ($includeEvaluations && $includeResults && $resultsData->isNotEmpty()) {
             $evalResultIds = $resultsData->pluck('id')->toArray();
 
-            $evaluations = \App\Models\ResultEvaluation::whereIn('result_id', $evalResultIds)
+            $evaluations = ResultEvaluation::whereIn('result_id', $evalResultIds)
                 ->whereRaw('evaluation_version = (SELECT MAX(re2.evaluation_version) FROM result_evaluations re2 WHERE re2.result_id = result_evaluations.result_id)')
                 ->get()
                 ->groupBy('result_id');
 
             $evalPositions = collect();
             if ($evaluations->isNotEmpty()) {
-                $evalPositions = \App\Models\GraphPosition::where('user_id', $user->id)
+                $evalPositions = GraphPosition::where('user_id', $user->id)
                     ->where('node_type', 'evaluation')
                     ->whereIn('node_id', $evaluations->keys())
                     ->get()
@@ -209,31 +212,31 @@ class GraphController extends ApiController
                     : null;
 
                 return [
-                    'result_id'          => $resultId,
+                    'result_id' => $resultId,
                     'evaluation_version' => $first->evaluation_version,
-                    'composite_score'    => $composite,
+                    'composite_score' => $composite,
                     'evaluator_provider' => $first->evaluator_provider,
-                    'scores'             => $scores->map(fn ($s) => [
+                    'scores' => $scores->map(fn ($s) => [
                         'dimension' => $s->dimension,
-                        'score'     => $s->score,
+                        'score' => $s->score,
                         'reasoning' => $s->reasoning,
                     ])->values()->toArray(),
-                    'created_at'         => $first->created_at,
-                    'position'           => $position ? ['x' => $position->x, 'y' => $position->y] : null,
+                    'created_at' => $first->created_at,
+                    'position' => $position ? ['x' => $position->x, 'y' => $position->y] : null,
                 ];
             })->values();
         }
 
         return response()->json([
             'data' => [
-                'prompts'     => $promptsData,
+                'prompts' => $promptsData,
                 'collections' => $collectionsData,
-                'results'     => $resultsData,
+                'results' => $resultsData,
                 'evaluations' => $evaluationsData,
             ],
             'meta' => [
                 'total_count' => $totalCount,
-                'truncated'   => $truncated,
+                'truncated' => $truncated,
             ],
         ]);
     }
@@ -281,7 +284,7 @@ class GraphController extends ApiController
             return $this->error('Prompt has no active version', 400);
         }
 
-        $newContent = $activeVersion->content . "\n{{>" . $validated['fragment_slug'] . "}}";
+        $newContent = $activeVersion->content."\n{{>".$validated['fragment_slug'].'}}';
 
         $version = $this->versioningService->createVersion($prompt, [
             'content' => $newContent,
@@ -385,7 +388,7 @@ class GraphController extends ApiController
 
         if (in_array('results', $layerList)) {
             $promptIds = Prompt::visibleTo($user)->pluck('id');
-            $results = \App\Models\Result::whereIn('prompt_id', $promptIds)->get(['id', 'prompt_id']);
+            $results = Result::whereIn('prompt_id', $promptIds)->get(['id', 'prompt_id']);
             $resultEdges = $results->map(fn ($r) => [
                 'prompt_id' => $r->prompt_id,
                 'result_id' => $r->id,
@@ -393,12 +396,12 @@ class GraphController extends ApiController
 
             if (in_array('evaluations', $layerList)) {
                 $resultIds = $results->pluck('id');
-                $evals = \App\Models\ResultEvaluation::whereIn('result_id', $resultIds)
+                $evals = ResultEvaluation::whereIn('result_id', $resultIds)
                     ->selectRaw('result_id, MAX(evaluation_version) as evaluation_version')
                     ->groupBy('result_id')
                     ->get();
                 $evaluationEdges = $evals->map(fn ($e) => [
-                    'result_id'          => $e->result_id,
+                    'result_id' => $e->result_id,
                     'evaluation_version' => $e->evaluation_version,
                 ])->values()->toArray();
             }
@@ -425,10 +428,10 @@ class GraphController extends ApiController
         return response()->json([
             'data' => [
                 'composition' => $compositionEdges,
-                'collection'  => $collectionEdges,
-                'result'      => $resultEdges,
-                'evaluation'  => $evaluationEdges,
-                'derived'     => $derivedEdges,
+                'collection' => $collectionEdges,
+                'result' => $resultEdges,
+                'evaluation' => $evaluationEdges,
+                'derived' => $derivedEdges,
             ],
         ]);
     }

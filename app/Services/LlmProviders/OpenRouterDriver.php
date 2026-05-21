@@ -32,29 +32,29 @@ class OpenRouterDriver implements LlmDriverInterface
 
         try {
             $payload = json_encode([
-                'model'    => $this->model,
+                'model' => $this->model,
                 'messages' => $messages,
             ]);
 
             $ch = curl_init(self::ENDPOINT);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST           => true,
+                CURLOPT_POST => true,
                 CURLOPT_SSL_VERIFYPEER => config('urge.curl_ssl_verify', true),
                 CURLOPT_SSL_VERIFYHOST => config('urge.curl_ssl_verify', true) ? 2 : 0,
                 CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_TIMEOUT        => 120,
-                CURLOPT_HTTPHEADER     => [
-                    'Authorization: Bearer ' . $this->apiKey,
+                CURLOPT_TIMEOUT => 120,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: Bearer '.$this->apiKey,
                     'Content-Type: application/json',
-                    'HTTP-Referer: ' . config('app.url', 'http://localhost'),
-                    'X-Title: ' . config('app.name', 'URGE'),
+                    'HTTP-Referer: '.config('app.url', 'http://localhost'),
+                    'X-Title: '.config('app.name', 'URGE'),
                 ],
                 CURLOPT_POSTFIELDS => $payload,
             ]);
 
             $rawResponse = curl_exec($ch);
-            $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
@@ -70,6 +70,7 @@ class OpenRouterDriver implements LlmDriverInterface
                 $error = is_string($msg) && $msg !== ''
                     ? DriverErrorSanitizer::trim($msg)
                     : 'OpenRouter request failed.';
+
                 return LlmResult::failure($error, $this->model, $durationMs);
             }
 
@@ -82,6 +83,7 @@ class OpenRouterDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
+
             return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }

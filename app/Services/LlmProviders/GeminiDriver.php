@@ -26,7 +26,7 @@ class GeminiDriver implements LlmDriverInterface
 
     private function send(?string $system, string $userPrompt): LlmResult
     {
-        $url = self::BASE_URL . "/v1beta/models/{$this->model}:generateContent";
+        $url = self::BASE_URL."/v1beta/models/{$this->model}:generateContent";
         $start = hrtime(true);
 
         try {
@@ -65,6 +65,7 @@ class GeminiDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
+
             return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }
@@ -75,6 +76,7 @@ class GeminiDriver implements LlmDriverInterface
         if (is_string($msg) && $msg !== '') {
             return DriverErrorSanitizer::trim($msg);
         }
+
         return 'Gemini request failed.';
     }
 }

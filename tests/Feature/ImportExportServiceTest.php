@@ -15,6 +15,7 @@ class ImportExportServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private ImportExportService $service;
 
     protected function setUp(): void

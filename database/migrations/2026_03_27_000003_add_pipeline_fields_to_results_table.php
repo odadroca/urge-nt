@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::table('results', function (Blueprint $table) {
             $table->string('role_label')->nullable()->after('source');
             $table->foreignId('pipeline_template_id')
-                  ->nullable()->constrained()->nullOnDelete()
-                  ->after('role_label');
+                ->nullable()->constrained()->nullOnDelete()
+                ->after('role_label');
         });
     }
 

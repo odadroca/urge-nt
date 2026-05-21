@@ -28,7 +28,7 @@ class OAuthGitHubController
     {
         $clientId = config('urge.github.client_id');
 
-        if (!$clientId) {
+        if (! $clientId) {
             return redirect('/')->with('error', 'GitHub OAuth not configured.');
         }
 
@@ -39,19 +39,19 @@ class OAuthGitHubController
         $codeChallengeMethod = $request->query('code_challenge_method', '');
 
         // Validate before persisting attacker-controlled URIs in session
-        if (!$urgeClientId || !$urgeRedirectUri) {
+        if (! $urgeClientId || ! $urgeRedirectUri) {
             return redirect('/')->with('error', 'Missing OAuth parameters.');
         }
-        if (!$this->oauthService->validateScope($scope)) {
+        if (! $this->oauthService->validateScope($scope)) {
             return redirect('/')->with('error', 'Unsupported scope.');
         }
-        if (!$this->oauthService->validateRedirectUri($urgeClientId, $urgeRedirectUri)) {
+        if (! $this->oauthService->validateRedirectUri($urgeClientId, $urgeRedirectUri)) {
             return redirect('/')->with('error', 'redirect_uri not allowed for this client.');
         }
 
         $client = $this->oauthService->findClient($urgeClientId);
         $isConfidential = $client && $client->client_secret;
-        if (!$isConfidential && !$codeChallenge) {
+        if (! $isConfidential && ! $codeChallenge) {
             return redirect('/')->with('error', 'code_challenge is required for public clients.');
         }
         if ($codeChallenge && $codeChallengeMethod !== 'S256') {
@@ -59,23 +59,23 @@ class OAuthGitHubController
         }
 
         $request->session()->put('oauth_params', [
-            'client_id'             => $urgeClientId,
-            'redirect_uri'          => $urgeRedirectUri,
-            'scope'                 => $scope,
-            'state'                 => $request->query('state', ''),
-            'code_challenge'        => $codeChallenge,
+            'client_id' => $urgeClientId,
+            'redirect_uri' => $urgeRedirectUri,
+            'scope' => $scope,
+            'state' => $request->query('state', ''),
+            'code_challenge' => $codeChallenge,
             'code_challenge_method' => $codeChallengeMethod,
-            'resource'              => $request->query('resource'),
+            'resource' => $request->query('resource'),
         ]);
 
         $githubState = Str::random(40);
         $request->session()->put('github_oauth_state', $githubState);
 
         $query = http_build_query([
-            'client_id'    => $clientId,
+            'client_id' => $clientId,
             'redirect_uri' => url('/oauth/github/callback'),
-            'scope'        => 'user:email',
-            'state'        => $githubState,
+            'scope' => 'user:email',
+            'state' => $githubState,
         ]);
 
         return redirect("https://github.com/login/oauth/authorize?{$query}");
@@ -84,12 +84,12 @@ class OAuthGitHubController
     public function callback(Request $request): RedirectResponse
     {
         $expectedState = $request->session()->pull('github_oauth_state');
-        if (!$expectedState || $request->query('state') !== $expectedState) {
+        if (! $expectedState || $request->query('state') !== $expectedState) {
             return redirect('/')->with('error', 'Invalid GitHub OAuth state.');
         }
 
         $code = $request->query('code');
-        if (!$code) {
+        if (! $code) {
             return redirect('/')->with('error', 'GitHub OAuth failed: no code returned.');
         }
 
@@ -97,25 +97,25 @@ class OAuthGitHubController
         // handling — AUTH-04).
         try {
             $tokenResponse = Http::acceptJson()->post('https://github.com/login/oauth/access_token', [
-                'client_id'     => config('urge.github.client_id'),
+                'client_id' => config('urge.github.client_id'),
                 'client_secret' => config('urge.github.client_secret'),
-                'code'          => $code,
+                'code' => $code,
             ]);
         } catch (\Throwable $e) {
             return redirect('/')->with('error', 'GitHub OAuth failed: token request errored.');
         }
 
-        if (!$tokenResponse->successful()) {
+        if (! $tokenResponse->successful()) {
             return redirect('/')->with('error', 'GitHub OAuth failed: token request rejected.');
         }
         $githubToken = $tokenResponse->json('access_token');
-        if (!$githubToken || !is_string($githubToken)) {
+        if (! $githubToken || ! is_string($githubToken)) {
             return redirect('/')->with('error', 'GitHub OAuth failed: no access token.');
         }
 
         // Fetch profile
         $githubUser = $this->fetchGithubJson($githubToken, 'https://api.github.com/user');
-        if (!$githubUser || empty($githubUser['id'])) {
+        if (! $githubUser || empty($githubUser['id'])) {
             return redirect('/')->with('error', 'Could not fetch GitHub profile.');
         }
 
@@ -129,6 +129,7 @@ class OAuthGitHubController
             // Existing federated account — trust the binding regardless
             // of any email churn upstream.
             Auth::login($identity->user);
+
             return $this->resumeAuthorize($request, $identity->user);
         }
 
@@ -137,7 +138,7 @@ class OAuthGitHubController
         // to /user/emails and pick the first primary+verified entry.
         [$email, $verified] = $this->resolvePrimaryVerifiedEmail($githubToken, $githubUser);
 
-        if (!$email || !$verified) {
+        if (! $email || ! $verified) {
             return redirect('/')->with('error', 'A verified primary email on your GitHub account is required.');
         }
 
@@ -154,17 +155,17 @@ class OAuthGitHubController
         $name = $githubUser['name'] ?? $githubUser['login'] ?? 'GitHub User';
 
         $user = User::create([
-            'name'     => $name,
-            'email'    => $email,
+            'name' => $name,
+            'email' => $email,
             'password' => bcrypt(Str::random(32)),
         ]);
 
         UserIdentity::create([
-            'user_id'          => $user->id,
-            'provider'         => 'github',
+            'user_id' => $user->id,
+            'provider' => 'github',
             'provider_user_id' => $providerUserId,
-            'email'            => $email,
-            'email_verified'   => true,
+            'email' => $email,
+            'email_verified' => true,
         ]);
 
         Auth::login($user);
@@ -180,7 +181,7 @@ class OAuthGitHubController
             return null;
         }
 
-        if (!$resp->successful()) {
+        if (! $resp->successful()) {
             return null;
         }
 
@@ -190,7 +191,7 @@ class OAuthGitHubController
     }
 
     /**
-     * @return array{0: ?string, 1: bool}  [email, verified]
+     * @return array{0: ?string, 1: bool} [email, verified]
      */
     private function resolvePrimaryVerifiedEmail(string $githubToken, array $githubUser): array
     {
@@ -204,9 +205,9 @@ class OAuthGitHubController
             foreach ($emails as $entry) {
                 if (
                     is_array($entry)
-                    && !empty($entry['primary'])
-                    && !empty($entry['verified'])
-                    && !empty($entry['email'])
+                    && ! empty($entry['primary'])
+                    && ! empty($entry['verified'])
+                    && ! empty($entry['email'])
                     && is_string($entry['email'])
                 ) {
                     return [$entry['email'], true];
@@ -221,13 +222,13 @@ class OAuthGitHubController
     private function resumeAuthorize(Request $request, User $user): RedirectResponse
     {
         $oauthParams = $request->session()->pull('oauth_params');
-        if (!$oauthParams || empty($oauthParams['client_id'])) {
+        if (! $oauthParams || empty($oauthParams['client_id'])) {
             return redirect('/app/browse');
         }
 
         // Re-validate the (session-stored, originally validated) URI
         // defensively — covers cookie-tampered sessions.
-        if (!$this->oauthService->validateRedirectUri($oauthParams['client_id'], $oauthParams['redirect_uri'])) {
+        if (! $this->oauthService->validateRedirectUri($oauthParams['client_id'], $oauthParams['redirect_uri'])) {
             return redirect('/')->with('error', 'redirect_uri is no longer valid for this client.');
         }
 
@@ -241,8 +242,8 @@ class OAuthGitHubController
             resource: $oauthParams['resource'] ?? null,
         );
 
-        return redirect($oauthParams['redirect_uri'] . '?' . http_build_query([
-            'code'  => $urgeCode,
+        return redirect($oauthParams['redirect_uri'].'?'.http_build_query([
+            'code' => $urgeCode,
             'state' => $oauthParams['state'] ?? '',
         ]));
     }

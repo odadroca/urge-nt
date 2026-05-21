@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\OAuthRefreshToken;
 use App\Models\Prompt;
 use App\Models\User;
 use App\Services\OAuthService;
@@ -13,8 +14,11 @@ class OAuthFlowTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private string $verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+
     private string $challenge;
 
     protected function setUp(): void
@@ -22,16 +26,16 @@ class OAuthFlowTest extends TestCase
         parent::setUp();
 
         $this->user = User::create([
-            'name'     => 'OAuth User',
-            'email'    => 'oauth@example.com',
+            'name' => 'OAuth User',
+            'email' => 'oauth@example.com',
             'password' => bcrypt('password'),
         ]);
 
         $this->challenge = rtrim(strtr(base64_encode(hash('sha256', $this->verifier, true)), '+/', '-_'), '=');
 
         $this->prompt = Prompt::create([
-            'name'       => 'OAuth Test',
-            'type'       => 'prompt',
+            'name' => 'OAuth Test',
+            'type' => 'prompt',
             'created_by' => $this->user->id,
         ]);
     }
@@ -55,12 +59,12 @@ class OAuthFlowTest extends TestCase
 
     public function test_authorize_shows_consent_page(): void
     {
-        $response = $this->actingAs($this->user)->get('/oauth/authorize?' . http_build_query([
-            'client_id'             => 'http://localhost:3000',
-            'redirect_uri'          => 'http://localhost:3000/callback',
-            'scope'                 => 'mcp:read',
-            'state'                 => 'test-state',
-            'code_challenge'        => $this->challenge,
+        $response = $this->actingAs($this->user)->get('/oauth/authorize?'.http_build_query([
+            'client_id' => 'http://localhost:3000',
+            'redirect_uri' => 'http://localhost:3000/callback',
+            'scope' => 'mcp:read',
+            'state' => 'test-state',
+            'code_challenge' => $this->challenge,
             'code_challenge_method' => 'S256',
         ]));
 
@@ -73,14 +77,14 @@ class OAuthFlowTest extends TestCase
     {
         // Step 1: Approve authorization
         $response = $this->actingAs($this->user)->post('/oauth/authorize', [
-            '_token'                => csrf_token(),
-            'client_id'             => 'http://localhost:3000',
-            'redirect_uri'          => 'http://localhost:3000/callback',
-            'scope'                 => 'mcp:read',
-            'state'                 => 'test-state',
-            'code_challenge'        => $this->challenge,
+            '_token' => csrf_token(),
+            'client_id' => 'http://localhost:3000',
+            'redirect_uri' => 'http://localhost:3000/callback',
+            'scope' => 'mcp:read',
+            'state' => 'test-state',
+            'code_challenge' => $this->challenge,
             'code_challenge_method' => 'S256',
-            'decision'              => 'approve',
+            'decision' => 'approve',
         ]);
 
         $response->assertRedirect();
@@ -94,11 +98,11 @@ class OAuthFlowTest extends TestCase
 
         // Step 3: Exchange code for token
         $tokenResponse = $this->postJson('/oauth/token', [
-            'grant_type'    => 'authorization_code',
-            'code'          => $code,
+            'grant_type' => 'authorization_code',
+            'code' => $code,
             'code_verifier' => $this->verifier,
-            'client_id'     => 'http://localhost:3000',
-            'redirect_uri'  => 'http://localhost:3000/callback',
+            'client_id' => 'http://localhost:3000',
+            'redirect_uri' => 'http://localhost:3000/callback',
         ]);
 
         $tokenResponse->assertStatus(200)
@@ -109,9 +113,9 @@ class OAuthFlowTest extends TestCase
         // Step 4: Use token on MCP initialize
         $mcpResponse = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
-            'id'      => '1',
-            'method'  => 'initialize',
-            'params'  => [],
+            'id' => '1',
+            'method' => 'initialize',
+            'params' => [],
         ], ['Authorization' => "Bearer {$accessToken}"]);
 
         $mcpResponse->assertStatus(200)
@@ -122,14 +126,14 @@ class OAuthFlowTest extends TestCase
     {
         // Approve authorization
         $response = $this->actingAs($this->user)->post('/oauth/authorize', [
-            '_token'                => csrf_token(),
-            'client_id'             => 'http://localhost:3000',
-            'redirect_uri'          => 'http://localhost:3000/callback',
-            'scope'                 => 'mcp:read',
-            'state'                 => 'test-state',
-            'code_challenge'        => $this->challenge,
+            '_token' => csrf_token(),
+            'client_id' => 'http://localhost:3000',
+            'redirect_uri' => 'http://localhost:3000/callback',
+            'scope' => 'mcp:read',
+            'state' => 'test-state',
+            'code_challenge' => $this->challenge,
             'code_challenge_method' => 'S256',
-            'decision'              => 'approve',
+            'decision' => 'approve',
         ]);
 
         $redirectUrl = $response->headers->get('Location');
@@ -138,11 +142,11 @@ class OAuthFlowTest extends TestCase
 
         // Exchange with WRONG verifier
         $tokenResponse = $this->postJson('/oauth/token', [
-            'grant_type'    => 'authorization_code',
-            'code'          => $code,
+            'grant_type' => 'authorization_code',
+            'code' => $code,
             'code_verifier' => 'wrong-verifier-that-does-not-match-the-challenge',
-            'client_id'     => 'http://localhost:3000',
-            'redirect_uri'  => 'http://localhost:3000/callback',
+            'client_id' => 'http://localhost:3000',
+            'redirect_uri' => 'http://localhost:3000/callback',
         ]);
 
         $tokenResponse->assertStatus(400)
@@ -152,14 +156,14 @@ class OAuthFlowTest extends TestCase
     public function test_deny_authorization(): void
     {
         $response = $this->actingAs($this->user)->post('/oauth/authorize', [
-            '_token'                => csrf_token(),
-            'client_id'             => 'http://localhost:3000',
-            'redirect_uri'          => 'http://localhost:3000/callback',
-            'scope'                 => 'mcp:read',
-            'state'                 => 'test-state',
-            'code_challenge'        => $this->challenge,
+            '_token' => csrf_token(),
+            'client_id' => 'http://localhost:3000',
+            'redirect_uri' => 'http://localhost:3000/callback',
+            'scope' => 'mcp:read',
+            'state' => 'test-state',
+            'code_challenge' => $this->challenge,
             'code_challenge_method' => 'S256',
-            'decision'              => 'deny',
+            'decision' => 'deny',
         ]);
 
         $response->assertRedirect();
@@ -171,9 +175,9 @@ class OAuthFlowTest extends TestCase
     {
         $response = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
-            'id'      => '1',
-            'method'  => 'initialize',
-            'params'  => [],
+            'id' => '1',
+            'method' => 'initialize',
+            'params' => [],
         ]);
 
         $response->assertStatus(401);
@@ -207,10 +211,10 @@ class OAuthFlowTest extends TestCase
         // Try to call delete_prompt (requires mcp:admin) with a read-only token
         $response = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
-            'id'      => '1',
-            'method'  => 'tools/call',
-            'params'  => [
-                'name'      => 'delete_prompt',
+            'id' => '1',
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'delete_prompt',
                 'arguments' => ['slug' => $this->prompt->slug],
             ],
         ], ['Authorization' => "Bearer {$token->raw_token}"]);
@@ -307,7 +311,7 @@ class OAuthFlowTest extends TestCase
             'id' => '1',
             'method' => 'initialize',
             'params' => [],
-        ], ['Authorization' => 'Bearer ' . $tokenResponse->json('access_token')]);
+        ], ['Authorization' => 'Bearer '.$tokenResponse->json('access_token')]);
 
         $mcpResponse->assertOk()
             ->assertJsonPath('result.protocolVersion', '2025-06-18');
@@ -327,7 +331,7 @@ class OAuthFlowTest extends TestCase
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
 
         // Try to authorize with a DIFFERENT URI
-        $response = $this->get('/oauth/authorize?' . http_build_query([
+        $response = $this->get('/oauth/authorize?'.http_build_query([
             'client_id' => $clientId,
             'redirect_uri' => 'http://127.0.0.1:9999/evil',
             'scope' => 'mcp:read',
@@ -355,7 +359,7 @@ class OAuthFlowTest extends TestCase
         $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
 
         // Use a non-registered localhost client_id (should work via fallback)
-        $response = $this->get('/oauth/authorize?' . http_build_query([
+        $response = $this->get('/oauth/authorize?'.http_build_query([
             'client_id' => 'http://localhost:4000',
             'redirect_uri' => 'http://localhost:4000/callback',
             'scope' => 'mcp:read',
@@ -376,7 +380,7 @@ class OAuthFlowTest extends TestCase
         $code = $oauthService->generateAuthorizationCode(
             $this->user,
             $clientId,
-            $clientId . '/callback',
+            $clientId.'/callback',
             $scope,
             $this->challenge,
             'S256',
@@ -386,13 +390,13 @@ class OAuthFlowTest extends TestCase
             $code,
             $this->verifier,
             $clientId,
-            $clientId . '/callback',
+            $clientId.'/callback',
         );
 
         return [
-            'access_token'  => $token->raw_token,
+            'access_token' => $token->raw_token,
             'refresh_token' => $token->raw_refresh_token,
-            'client_id'     => $clientId,
+            'client_id' => $clientId,
         ];
     }
 
@@ -401,9 +405,9 @@ class OAuthFlowTest extends TestCase
         $tokens = $this->obtainTokens();
 
         $response = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $tokens['refresh_token'],
-            'client_id'     => $tokens['client_id'],
+            'client_id' => $tokens['client_id'],
         ]);
 
         $response->assertOk()
@@ -412,10 +416,10 @@ class OAuthFlowTest extends TestCase
         // New access token works on MCP
         $mcpResponse = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
-            'id'      => '1',
-            'method'  => 'initialize',
-            'params'  => [],
-        ], ['Authorization' => 'Bearer ' . $response->json('access_token')]);
+            'id' => '1',
+            'method' => 'initialize',
+            'params' => [],
+        ], ['Authorization' => 'Bearer '.$response->json('access_token')]);
 
         $mcpResponse->assertOk()
             ->assertJsonPath('result.protocolVersion', '2025-06-18');
@@ -428,17 +432,17 @@ class OAuthFlowTest extends TestCase
 
         // First refresh succeeds
         $response = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $oldRefreshToken,
-            'client_id'     => $tokens['client_id'],
+            'client_id' => $tokens['client_id'],
         ]);
         $response->assertOk();
 
         // Second refresh with OLD token fails (rotation — single use)
         $response2 = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $oldRefreshToken,
-            'client_id'     => $tokens['client_id'],
+            'client_id' => $tokens['client_id'],
         ]);
         $response2->assertStatus(400)
             ->assertJsonPath('error', 'invalid_grant');
@@ -450,9 +454,9 @@ class OAuthFlowTest extends TestCase
 
         // Try to refresh with a different client_id
         $response = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $tokens['refresh_token'],
-            'client_id'     => 'http://localhost:9999',
+            'client_id' => 'http://localhost:9999',
         ]);
 
         $response->assertStatus(400)
@@ -465,10 +469,10 @@ class OAuthFlowTest extends TestCase
 
         // Refresh with narrower scope
         $response = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $tokens['refresh_token'],
-            'client_id'     => $tokens['client_id'],
-            'scope'         => 'mcp:read',
+            'client_id' => $tokens['client_id'],
+            'scope' => 'mcp:read',
         ]);
 
         $response->assertOk()
@@ -481,10 +485,10 @@ class OAuthFlowTest extends TestCase
 
         // Try to refresh with broader scope
         $response = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $tokens['refresh_token'],
-            'client_id'     => $tokens['client_id'],
-            'scope'         => 'mcp:admin',
+            'client_id' => $tokens['client_id'],
+            'scope' => 'mcp:admin',
         ]);
 
         $response->assertStatus(400)
@@ -496,13 +500,13 @@ class OAuthFlowTest extends TestCase
         $tokens = $this->obtainTokens();
 
         // Expire the refresh token directly in DB
-        \App\Models\OAuthRefreshToken::where('token', hash('sha256', $tokens['refresh_token']))
+        OAuthRefreshToken::where('token', hash('sha256', $tokens['refresh_token']))
             ->update(['expires_at' => now()->subDay()]);
 
         $response = $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $tokens['refresh_token'],
-            'client_id'     => $tokens['client_id'],
+            'client_id' => $tokens['client_id'],
         ]);
 
         $response->assertStatus(400)
@@ -534,17 +538,17 @@ class OAuthFlowTest extends TestCase
 
         // Refresh
         $this->postJson('/oauth/token', [
-            'grant_type'    => 'refresh_token',
+            'grant_type' => 'refresh_token',
             'refresh_token' => $tokens['refresh_token'],
-            'client_id'     => $tokens['client_id'],
+            'client_id' => $tokens['client_id'],
         ])->assertOk();
 
         // Old access token should no longer work
         $mcpResponse = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0',
-            'id'      => '1',
-            'method'  => 'initialize',
-            'params'  => [],
+            'id' => '1',
+            'method' => 'initialize',
+            'params' => [],
         ], ['Authorization' => "Bearer {$oldAccessToken}"]);
 
         $mcpResponse->assertStatus(401);

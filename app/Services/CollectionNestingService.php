@@ -24,7 +24,7 @@ class CollectionNestingService
         }
 
         // Depth check
-        if (!config('urge.unlimited_collection_depth')) {
+        if (! config('urge.unlimited_collection_depth')) {
             $maxDepth = config('urge.max_collection_depth', 5);
             $depthAbove = $this->getDepthFromRoot($parentId);
             $depthBelow = $this->getMaxChildDepth($childId);
@@ -44,7 +44,7 @@ class CollectionNestingService
         $ancestors = [];
         $queue = [$collectionId];
 
-        while (!empty($queue)) {
+        while (! empty($queue)) {
             $current = array_shift($queue);
 
             $parentIds = CollectionItem::where('item_type', 'collection')
@@ -53,7 +53,7 @@ class CollectionNestingService
                 ->all();
 
             foreach ($parentIds as $parentId) {
-                if (!in_array($parentId, $ancestors, true)) {
+                if (! in_array($parentId, $ancestors, true)) {
                     $ancestors[] = $parentId;
                     $queue[] = $parentId;
                 }

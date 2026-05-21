@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\LlmDispatchService;
 use App\Services\LlmProviders\LlmResult;
 use App\Services\PipelineService;
+use App\Services\TemplateEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
@@ -21,8 +22,11 @@ class PipelineServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private PromptVersion $version;
+
     private LlmProvider $provider;
 
     protected function setUp(): void
@@ -86,7 +90,7 @@ class PipelineServiceTest extends TestCase
             );
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -132,11 +136,12 @@ class PipelineServiceTest extends TestCase
                 $this->assertStringContains('[ANALYST]', $content);
                 $this->assertStringContains('Parallel output', $content);
                 $this->assertEquals('Combine the results.', $systemPrompt);
+
                 return LlmResult::success('Synthesized response', 'gpt-4', 200, 30, 40);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -166,7 +171,7 @@ class PipelineServiceTest extends TestCase
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -205,7 +210,7 @@ class PipelineServiceTest extends TestCase
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -241,7 +246,7 @@ class PipelineServiceTest extends TestCase
             ->andReturn(LlmResult::success('Analyst result', 'gpt-4', 100, 10, 20));
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -302,7 +307,7 @@ class PipelineServiceTest extends TestCase
             ->andReturn(LlmResult::success('server output', 'gpt-4', 100, 10, 20));
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -325,11 +330,11 @@ class PipelineServiceTest extends TestCase
         // result_history synthesis ignores this run's parallels, so a mixed
         // client/server parallel set should NOT cause user_prompt to go null.
         Result::create([
-            'prompt_id'         => $this->prompt->id,
+            'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $this->version->id,
-            'source'            => 'api',
-            'response_text'     => 'historical answer',
-            'created_by'        => $this->user->id,
+            'source' => 'api',
+            'response_text' => 'historical answer',
+            'created_by' => $this->user->id,
         ]);
 
         $inactive = LlmProvider::create([
@@ -362,7 +367,7 @@ class PipelineServiceTest extends TestCase
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -400,7 +405,7 @@ class PipelineServiceTest extends TestCase
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -430,7 +435,7 @@ class PipelineServiceTest extends TestCase
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -480,11 +485,12 @@ class PipelineServiceTest extends TestCase
                 $this->assertStringContains('[SUCCEEDER]', $content);
                 $this->assertStringContains('Good result', $content);
                 $this->assertStringNotContains('FAILER', $content);
+
                 return LlmResult::success('Synthesis result', 'gpt-4', 200, 30, 40);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -497,25 +503,25 @@ class PipelineServiceTest extends TestCase
     public function test_result_history_channel_serializes_recent_results(): void
     {
         Result::create([
-            'prompt_id'         => $this->prompt->id,
+            'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $this->version->id,
-            'source'            => 'api',
-            'response_text'     => 'old answer',
-            'provider_name'     => 'OpenAI',
-            'model_name'        => 'gpt-4',
-            'created_by'        => $this->user->id,
+            'source' => 'api',
+            'response_text' => 'old answer',
+            'provider_name' => 'OpenAI',
+            'model_name' => 'gpt-4',
+            'created_by' => $this->user->id,
         ]);
 
         $pipeline = Pipeline::create(['name' => 'Trend', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Analyst',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Analyst',
             'llm_provider_id' => $this->provider->id,
-            'system_prompt'   => 'Analyze this history.',
-            'input_source'    => 'result_history',
-            'input_filters'   => [],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'system_prompt' => 'Analyze this history.',
+            'input_source' => 'result_history',
+            'input_filters' => [],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -524,11 +530,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('Trend report', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -562,13 +569,13 @@ class PipelineServiceTest extends TestCase
 
         $pipeline = Pipeline::create(['name' => 'Window', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Recent',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Recent',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => ['since' => 'P30D'],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => ['since' => 'P30D'],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -577,11 +584,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('OK', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
         $service->run($pipeline, $this->version, [], $this->user->id);
@@ -611,13 +619,13 @@ class PipelineServiceTest extends TestCase
 
         $pipeline = Pipeline::create(['name' => 'Scheduled-only', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => ['run_source' => 'scheduled'],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => ['run_source' => 'scheduled'],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -626,11 +634,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('OK', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
         $service->run($pipeline, $this->version, [], $this->user->id);
@@ -643,20 +652,20 @@ class PipelineServiceTest extends TestCase
     {
         $pipeline = Pipeline::create(['name' => 'Empty', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => [],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => [],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $mockDispatch = Mockery::mock(LlmDispatchService::class);
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -678,20 +687,20 @@ class PipelineServiceTest extends TestCase
 
         $pipeline = Pipeline::create(['name' => 'Client analytical', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => null,
-            'input_source'    => 'result_history',
-            'input_filters'   => [],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => [],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $mockDispatch = Mockery::mock(LlmDispatchService::class);
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -726,13 +735,13 @@ class PipelineServiceTest extends TestCase
 
         $pipeline = Pipeline::create(['name' => 'No failures', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => [],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => [],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -741,11 +750,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('OK', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
         $service->run($pipeline, $this->version, [], $this->user->id);
@@ -804,20 +814,20 @@ class PipelineServiceTest extends TestCase
 
         $pipeline = Pipeline::create(['name' => 'Sneaky', 'created_by' => $reader->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Peeker',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Peeker',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => ['prompt_slug' => $otherPrompt->slug, 'owner' => $other->slug],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => ['prompt_slug' => $otherPrompt->slug, 'owner' => $other->slug],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $mockDispatch = Mockery::mock(LlmDispatchService::class);
         $mockDispatch->shouldNotReceive('dispatchWithSystem');
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -838,23 +848,23 @@ class PipelineServiceTest extends TestCase
         // Seed 60 results — more than the safe default of 50, fewer than the cap.
         for ($i = 0; $i < 60; $i++) {
             Result::create([
-                'prompt_id'         => $this->prompt->id,
+                'prompt_id' => $this->prompt->id,
                 'prompt_version_id' => $this->version->id,
-                'source'            => 'api',
-                'response_text'     => "result $i",
-                'created_by'        => $this->user->id,
+                'source' => 'api',
+                'response_text' => "result $i",
+                'created_by' => $this->user->id,
             ]);
         }
 
         $pipeline = Pipeline::create(['name' => 'Bad limit', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => ['limit' => $invalidLimit],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => ['limit' => $invalidLimit],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -863,11 +873,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('OK', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
         $runResult = $service->run($pipeline, $this->version, [], $this->user->id);
@@ -883,23 +894,23 @@ class PipelineServiceTest extends TestCase
     {
         for ($i = 0; $i < 110; $i++) {
             Result::create([
-                'prompt_id'         => $this->prompt->id,
+                'prompt_id' => $this->prompt->id,
                 'prompt_version_id' => $this->version->id,
-                'source'            => 'api',
-                'response_text'     => "r$i",
-                'created_by'        => $this->user->id,
+                'source' => 'api',
+                'response_text' => "r$i",
+                'created_by' => $this->user->id,
             ]);
         }
 
         $pipeline = Pipeline::create(['name' => 'Cap', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => ['limit' => 500],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => ['limit' => 500],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -908,11 +919,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('OK', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
         $service->run($pipeline, $this->version, [], $this->user->id);
@@ -925,23 +937,23 @@ class PipelineServiceTest extends TestCase
     {
         for ($i = 0; $i < 20; $i++) {
             Result::create([
-                'prompt_id'         => $this->prompt->id,
+                'prompt_id' => $this->prompt->id,
                 'prompt_version_id' => $this->version->id,
-                'source'            => 'api',
-                'response_text'     => "r$i",
-                'created_by'        => $this->user->id,
+                'source' => 'api',
+                'response_text' => "r$i",
+                'created_by' => $this->user->id,
             ]);
         }
 
         $pipeline = Pipeline::create(['name' => 'Explicit', 'created_by' => $this->user->id]);
         PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => 'Trend',
+            'pipeline_id' => $pipeline->id,
+            'role_label' => 'Trend',
             'llm_provider_id' => $this->provider->id,
-            'input_source'    => 'result_history',
-            'input_filters'   => ['limit' => 5],
-            'trigger'         => 'parallel',
-            'sort_order'      => 0,
+            'input_source' => 'result_history',
+            'input_filters' => ['limit' => 5],
+            'trigger' => 'parallel',
+            'sort_order' => 0,
         ]);
 
         $captured = null;
@@ -950,11 +962,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) use (&$captured) {
                 $captured = $content;
+
                 return LlmResult::success('OK', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
         $service->run($pipeline, $this->version, [], $this->user->id);
@@ -987,7 +1000,7 @@ class PipelineServiceTest extends TestCase
             ->andReturn(LlmResult::success('Out', 'gpt-4', 100, 10, 20));
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -1016,7 +1029,7 @@ class PipelineServiceTest extends TestCase
             ->andReturn(LlmResult::success('Out', 'gpt-4', 100));
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 
@@ -1048,11 +1061,12 @@ class PipelineServiceTest extends TestCase
             ->once()
             ->andReturnUsing(function ($provider, $systemPrompt, $content) {
                 $this->assertStringContains('Hello World', $content);
+
                 return LlmResult::success('Done', 'gpt-4', 100);
             });
 
         $service = new PipelineService(
-            app(\App\Services\TemplateEngine::class),
+            app(TemplateEngine::class),
             $mockDispatch,
         );
 

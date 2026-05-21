@@ -14,6 +14,7 @@ class ApiKeyServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private ApiKeyService $service;
 
     protected function setUp(): void

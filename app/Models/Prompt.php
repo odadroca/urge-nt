@@ -42,7 +42,7 @@ class Prompt extends Model
                     ->where('created_by', $prompt->created_by)
                     ->exists()
                 ) {
-                    $slug = $base . '-' . $counter++;
+                    $slug = $base.'-'.$counter++;
                 }
                 $prompt->slug = $slug;
             }
@@ -132,15 +132,15 @@ class Prompt extends Model
 
         $query->where(function ($q) use ($user) {
             $q->where('created_by', $user->id)
-              ->orWhereHas('teams', function ($tq) use ($user) {
-                  $tq->whereHas('members', fn ($mq) => $mq->where('users.id', $user->id));
-              });
+                ->orWhereHas('teams', function ($tq) use ($user) {
+                    $tq->whereHas('members', fn ($mq) => $mq->where('users.id', $user->id));
+                });
         });
     }
 
     public function workspaceUrl(): string
     {
-        return '/app/workspace/' . $this->creator->slug . '/' . $this->slug;
+        return '/app/workspace/'.$this->creator->slug.'/'.$this->slug;
     }
 
     public function isFragment(): bool
@@ -155,6 +155,7 @@ class Prompt extends Model
             if ($this->relationLoaded('pinnedVersion')) {
                 return $this->pinnedVersion;
             }
+
             return $this->pinnedVersion;
         }
 

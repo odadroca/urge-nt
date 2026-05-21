@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Pipeline;
 use App\Models\PipelineChannel;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class PipelineSeeder extends Seeder
@@ -14,7 +15,7 @@ class PipelineSeeder extends Seeder
             return;
         }
 
-        $userId = \App\Models\User::first()?->id ?? 1;
+        $userId = User::first()?->id ?? 1;
 
         // SWOT Analysis
         $swot = Pipeline::create([

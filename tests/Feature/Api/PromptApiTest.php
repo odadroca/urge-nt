@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Category;
 use App\Models\Prompt;
 use App\Models\User;
 use App\Services\ApiKeyService;
@@ -14,7 +13,9 @@ class PromptApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private string $apiKey;
+
     private array $headers;
 
     protected function setUp(): void

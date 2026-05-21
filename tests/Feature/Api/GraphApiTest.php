@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Category;
 use App\Models\Collection;
 use App\Models\GraphPosition;
 use App\Models\Prompt;
+use App\Models\PromptBranch;
 use App\Models\PromptVersion;
 use App\Models\User;
 use App\Services\ApiKeyService;
@@ -17,7 +17,9 @@ class GraphApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private string $apiKey;
+
     private array $headers;
 
     protected function setUp(): void
@@ -372,13 +374,14 @@ class GraphApiTest extends TestCase
 
     private function createDefaultBranch(Prompt $prompt): int
     {
-        $branch = \App\Models\PromptBranch::create([
+        $branch = PromptBranch::create([
             'prompt_id' => $prompt->id,
             'name' => 'main',
             'is_default' => true,
             'created_by' => $this->user->id,
         ]);
         $prompt->update(['default_branch_id' => $branch->id]);
+
         return $branch->id;
     }
 
@@ -399,7 +402,7 @@ class GraphApiTest extends TestCase
         ], $overrides));
 
         // Update branch HEAD so activeVersion accessor works
-        \App\Models\PromptBranch::where('id', $branchId)->update(['head_version_id' => $version->id]);
+        PromptBranch::where('id', $branchId)->update(['head_version_id' => $version->id]);
 
         return $version;
     }

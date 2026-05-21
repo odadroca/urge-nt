@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\LlmProvider;
 use App\Services\LlmDispatchService;
+use App\Services\UrlSafetyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,7 +14,7 @@ class LlmProviderController extends ApiController
     {
         $query = LlmProvider::orderBy('name');
 
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             $query->where('is_active', true);
         }
 
@@ -24,30 +25,30 @@ class LlmProviderController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'driver'   => 'required|in:openai,anthropic,mistral,gemini,ollama,openrouter',
-            'api_key'  => 'nullable|string',
-            'model'    => 'required|string|max:255',
+            'name' => 'required|string|max:255',
+            'driver' => 'required|in:openai,anthropic,mistral,gemini,ollama,openrouter',
+            'api_key' => 'nullable|string',
+            'model' => 'required|string|max:255',
             'endpoint' => 'nullable|string|max:500|url',
             'is_active' => 'boolean',
         ]);
 
         // LLM-01 / LLM-08: SSRF-validate the endpoint before persisting.
-        if (!empty($validated['endpoint'])) {
+        if (! empty($validated['endpoint'])) {
             try {
-                \App\Services\UrlSafetyService::assertSafe(
+                UrlSafetyService::assertSafe(
                     $validated['endpoint'],
                     $validated['driver'] === 'ollama'
                         ? ['allow_loopback' => true, 'allow_http' => true]
                         : ['allow_loopback' => false, 'allow_http' => false],
                 );
             } catch (\InvalidArgumentException $e) {
-                return $this->error('Invalid endpoint: ' . $e->getMessage(), 422);
+                return $this->error('Invalid endpoint: '.$e->getMessage(), 422);
             }
         }
         if ($validated['driver'] === 'ollama' && empty($validated['endpoint'])) {
@@ -55,11 +56,11 @@ class LlmProviderController extends ApiController
         }
 
         $provider = LlmProvider::create([
-            'name'      => $validated['name'],
-            'driver'    => $validated['driver'],
-            'api_key'   => $validated['api_key'] ?? null,
-            'model'     => $validated['model'],
-            'endpoint'  => $validated['endpoint'] ?? null,
+            'name' => $validated['name'],
+            'driver' => $validated['driver'],
+            'api_key' => $validated['api_key'] ?? null,
+            'model' => $validated['model'],
+            'endpoint' => $validated['endpoint'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
@@ -68,18 +69,18 @@ class LlmProviderController extends ApiController
 
     public function update(Request $request, int $id): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
         $provider = LlmProvider::findOrFail($id);
 
         $validated = $request->validate([
-            'name'      => 'sometimes|required|string|max:255',
-            'driver'    => 'sometimes|required|in:openai,anthropic,mistral,gemini,ollama,openrouter',
-            'api_key'   => 'nullable|string',
-            'model'     => 'sometimes|required|string|max:255',
-            'endpoint'  => 'nullable|string|max:500|url',
+            'name' => 'sometimes|required|string|max:255',
+            'driver' => 'sometimes|required|in:openai,anthropic,mistral,gemini,ollama,openrouter',
+            'api_key' => 'nullable|string',
+            'model' => 'sometimes|required|string|max:255',
+            'endpoint' => 'nullable|string|max:500|url',
             'is_active' => 'sometimes|boolean',
         ]);
 
@@ -88,17 +89,17 @@ class LlmProviderController extends ApiController
         }
 
         // LLM-01 / LLM-08: SSRF-validate any endpoint change.
-        if (array_key_exists('endpoint', $validated) && !empty($validated['endpoint'])) {
+        if (array_key_exists('endpoint', $validated) && ! empty($validated['endpoint'])) {
             $effectiveDriver = $validated['driver'] ?? $provider->driver;
             try {
-                \App\Services\UrlSafetyService::assertSafe(
+                UrlSafetyService::assertSafe(
                     $validated['endpoint'],
                     $effectiveDriver === 'ollama'
                         ? ['allow_loopback' => true, 'allow_http' => true]
                         : ['allow_loopback' => false, 'allow_http' => false],
                 );
             } catch (\InvalidArgumentException $e) {
-                return $this->error('Invalid endpoint: ' . $e->getMessage(), 422);
+                return $this->error('Invalid endpoint: '.$e->getMessage(), 422);
             }
         }
 
@@ -109,7 +110,7 @@ class LlmProviderController extends ApiController
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
@@ -120,7 +121,7 @@ class LlmProviderController extends ApiController
 
     public function test(Request $request, int $id, LlmDispatchService $dispatchService): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
@@ -131,18 +132,18 @@ class LlmProviderController extends ApiController
 
             if ($result->success) {
                 return $this->success([
-                    'status'  => 'success',
+                    'status' => 'success',
                     'message' => "Connected: {$result->modelUsed} ({$result->durationMs}ms)",
                 ]);
             }
 
             return $this->success([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Failed: {$result->error}",
             ]);
         } catch (\Throwable $e) {
             return $this->success([
-                'status'  => 'error',
+                'status' => 'error',
                 'message' => "Error: {$e->getMessage()}",
             ]);
         }

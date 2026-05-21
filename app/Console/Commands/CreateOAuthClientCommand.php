@@ -30,28 +30,29 @@ class CreateOAuthClientCommand extends Command
         $redirectUris = $this->option('redirect');
         if (empty($redirectUris)) {
             $this->error('At least one --redirect URI is required.');
+
             return 1;
         }
 
         $client = OAuthClient::create([
-            'client_id'                  => $clientId,
-            'client_secret'              => $rawSecret ? hash('sha256', $rawSecret) : null,
-            'client_name'                => $this->argument('name'),
-            'redirect_uris'              => $redirectUris,
-            'grant_types'                => ['authorization_code'],
-            'response_types'             => ['code'],
+            'client_id' => $clientId,
+            'client_secret' => $rawSecret ? hash('sha256', $rawSecret) : null,
+            'client_name' => $this->argument('name'),
+            'redirect_uris' => $redirectUris,
+            'grant_types' => ['authorization_code'],
+            'response_types' => ['code'],
             'token_endpoint_auth_method' => $authMethod,
-            'scope'                      => $this->option('scope'),
+            'scope' => $this->option('scope'),
         ]);
 
-        $this->info("OAuth client created:");
+        $this->info('OAuth client created:');
         $this->line("  client_id:     {$client->client_id}");
         if ($rawSecret) {
             $this->line("  client_secret: {$rawSecret}");
-            $this->warn("  ↑ Save this now — it cannot be retrieved again.");
+            $this->warn('  ↑ Save this now — it cannot be retrieved again.');
         }
         $this->line("  name:          {$client->client_name}");
-        $this->line("  redirect_uris: " . implode(', ', $client->redirect_uris));
+        $this->line('  redirect_uris: '.implode(', ', $client->redirect_uris));
         $this->line("  auth_method:   {$client->token_endpoint_auth_method}");
 
         return 0;

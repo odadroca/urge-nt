@@ -14,7 +14,9 @@ class McpControllerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private array $headers;
+
     private Prompt $prompt;
 
     protected function setUp(): void

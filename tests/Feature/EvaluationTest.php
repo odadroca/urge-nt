@@ -9,6 +9,7 @@ use App\Models\Result;
 use App\Models\ResultEvaluation;
 use App\Models\User;
 use App\Services\ApiKeyService;
+use App\Services\EvaluationService;
 use App\Services\LlmDispatchService;
 use App\Services\LlmProviders\LlmResult;
 use App\Services\VersioningService;
@@ -20,9 +21,13 @@ class EvaluationTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private array $headers;
+
     private Prompt $prompt;
+
     private Result $result;
+
     private LlmProvider $provider;
 
     protected function setUp(): void
@@ -270,7 +275,7 @@ class EvaluationTest extends TestCase
         $this->result->update(['rating' => 4]);
 
         // Call syncHumanRating
-        app(\App\Services\EvaluationService::class)->syncHumanRating($this->result, $this->user);
+        app(EvaluationService::class)->syncHumanRating($this->result, $this->user);
 
         // Assert human dimension exists
         $human = ResultEvaluation::where('result_id', $this->result->id)

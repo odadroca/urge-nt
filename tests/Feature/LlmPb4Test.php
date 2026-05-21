@@ -26,20 +26,23 @@ class LlmPb4Test extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $alice;
+
     private array $aliceHeaders;
+
     private array $adminHeaders;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->admin = User::create([
-            'name'  => 'Admin',
+            'name' => 'Admin',
             'email' => 'admin@example.com',
             'password' => bcrypt('password'),
         ]);
         $this->alice = User::create([
-            'name'  => 'Alice',
+            'name' => 'Alice',
             'email' => 'alice@example.com',
             'password' => bcrypt('password'),
         ]);
@@ -161,6 +164,7 @@ class LlmPb4Test extends TestCase
             $this->assertStringNotContainsString('AIza', $request->url());
             // Header must
             $this->assertEquals('AIzaSyTEST_FAKE_KEY_NOT_REAL', $request->header('x-goog-api-key')[0] ?? null);
+
             return true;
         });
     }

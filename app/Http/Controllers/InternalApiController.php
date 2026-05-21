@@ -34,7 +34,7 @@ class InternalApiController extends Controller
             ->where('type', 'fragment')
             ->where(function ($q) {
                 $q->whereNotNull('pinned_version_id')
-                  ->orWhereHas('versions');
+                    ->orWhereHas('versions');
             })
             ->orderBy('name')
             ->get(['id', 'slug', 'name']);

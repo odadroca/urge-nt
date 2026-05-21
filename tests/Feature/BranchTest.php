@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Prompt;
 use App\Models\PromptBranch;
-use App\Models\PromptVersion;
 use App\Models\User;
+use App\Services\ApiKeyService;
 use App\Services\McpToolHandler;
 use App\Services\VersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +16,9 @@ class BranchTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private VersioningService $versioningService;
 
     protected function setUp(): void
@@ -350,7 +352,7 @@ class BranchTest extends TestCase
             $this->prompt, 'feature', $this->user
         );
 
-        $apiKey = app(\App\Services\ApiKeyService::class)->generateKey($this->user, 'Test');
+        $apiKey = app(ApiKeyService::class)->generateKey($this->user, 'Test');
 
         $response = $this->getJson(
             "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/branches",
@@ -367,7 +369,7 @@ class BranchTest extends TestCase
             $this->prompt, ['content' => 'v1'], $this->user
         );
 
-        $apiKey = app(\App\Services\ApiKeyService::class)->generateKey($this->user, 'Test');
+        $apiKey = app(ApiKeyService::class)->generateKey($this->user, 'Test');
 
         $response = $this->postJson(
             "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/branches",
@@ -388,7 +390,7 @@ class BranchTest extends TestCase
             $this->prompt, 'feature', $this->user
         );
 
-        $apiKey = app(\App\Services\ApiKeyService::class)->generateKey($this->user, 'Test');
+        $apiKey = app(ApiKeyService::class)->generateKey($this->user, 'Test');
 
         $response = $this->getJson(
             "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/branches/feature",
@@ -408,7 +410,7 @@ class BranchTest extends TestCase
             $this->prompt, 'to-delete', $this->user
         );
 
-        $apiKey = app(\App\Services\ApiKeyService::class)->generateKey($this->user, 'Test');
+        $apiKey = app(ApiKeyService::class)->generateKey($this->user, 'Test');
 
         $response = $this->deleteJson(
             "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/branches/to-delete",
@@ -426,7 +428,7 @@ class BranchTest extends TestCase
             $this->prompt, ['content' => 'v1'], $this->user
         );
 
-        $apiKey = app(\App\Services\ApiKeyService::class)->generateKey($this->user, 'Test');
+        $apiKey = app(ApiKeyService::class)->generateKey($this->user, 'Test');
 
         $response = $this->deleteJson(
             "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/branches/main",
@@ -446,7 +448,7 @@ class BranchTest extends TestCase
             $this->prompt, 'feature', $this->user
         );
 
-        $apiKey = app(\App\Services\ApiKeyService::class)->generateKey($this->user, 'Test');
+        $apiKey = app(ApiKeyService::class)->generateKey($this->user, 'Test');
 
         $response = $this->patchJson(
             "/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/branches/feature/default",

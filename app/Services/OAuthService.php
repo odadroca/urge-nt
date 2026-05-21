@@ -24,15 +24,15 @@ class OAuthService
         $code = Str::random(64);
 
         OAuthAuthorizationCode::create([
-            'code'                  => hash('sha256', $code),
-            'client_id'             => $clientId,
-            'user_id'               => $user->id,
-            'redirect_uri'          => $redirectUri,
-            'scope'                 => $scope,
-            'code_challenge'        => $codeChallenge ?? '',
+            'code' => hash('sha256', $code),
+            'client_id' => $clientId,
+            'user_id' => $user->id,
+            'redirect_uri' => $redirectUri,
+            'scope' => $scope,
+            'code_challenge' => $codeChallenge ?? '',
             'code_challenge_method' => $codeChallengeMethod ?? 'S256',
-            'resource'              => $resource,
-            'expires_at'            => now()->addSeconds(config('urge.oauth.code_ttl', 600)),
+            'resource' => $resource,
+            'expires_at' => now()->addSeconds(config('urge.oauth.code_ttl', 600)),
         ]);
 
         return $code;
@@ -59,7 +59,7 @@ class OAuthService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$authCode || $authCode->isExpired()) {
+            if (! $authCode || $authCode->isExpired()) {
                 return null;
             }
 
@@ -68,7 +68,7 @@ class OAuthService
 
             // Confidential clients must present the correct secret
             if ($clientIsConfidential) {
-                if (!hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
+                if (! hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
                     return null;
                 }
             }
@@ -76,10 +76,10 @@ class OAuthService
             // PKCE: if the code was bound to a challenge, the verifier MUST
             // match — regardless of client confidentiality (AUTH-05).
             if ($authCode->code_challenge !== '') {
-                if ($codeVerifier === '' || !$this->validatePkce($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method)) {
+                if ($codeVerifier === '' || ! $this->validatePkce($codeVerifier, $authCode->code_challenge, $authCode->code_challenge_method)) {
                     return null;
                 }
-            } elseif (!$clientIsConfidential) {
+            } elseif (! $clientIsConfidential) {
                 // Public client without a challenge — refuse (no auth proof at all)
                 return null;
             }
@@ -89,21 +89,21 @@ class OAuthService
 
             $rawToken = Str::random(64);
             $token = OAuthAccessToken::create([
-                'token'      => hash('sha256', $rawToken),
-                'user_id'    => $authCode->user_id,
-                'client_id'  => $authCode->client_id,
-                'scope'      => $authCode->scope,
+                'token' => hash('sha256', $rawToken),
+                'user_id' => $authCode->user_id,
+                'client_id' => $authCode->client_id,
+                'scope' => $authCode->scope,
                 'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
             ]);
 
             $rawRefreshToken = Str::random(64);
             OAuthRefreshToken::create([
-                'token'           => hash('sha256', $rawRefreshToken),
-                'user_id'         => $authCode->user_id,
-                'client_id'       => $authCode->client_id,
-                'scope'           => $authCode->scope,
+                'token' => hash('sha256', $rawRefreshToken),
+                'user_id' => $authCode->user_id,
+                'client_id' => $authCode->client_id,
+                'scope' => $authCode->scope,
                 'access_token_id' => $token->id,
-                'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
+                'expires_at' => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
             ]);
 
             $token->raw_token = $rawToken;
@@ -127,7 +127,7 @@ class OAuthService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$refreshToken || $refreshToken->isExpired()) {
+            if (! $refreshToken || $refreshToken->isExpired()) {
                 return null;
             }
 
@@ -141,7 +141,7 @@ class OAuthService
                 $grantedScopes = explode(' ', $refreshToken->scope);
                 $requestedParts = explode(' ', $requestedScope);
                 foreach ($requestedParts as $s) {
-                    if (!in_array($s, $grantedScopes)) {
+                    if (! in_array($s, $grantedScopes)) {
                         return null;
                     }
                 }
@@ -155,21 +155,21 @@ class OAuthService
 
             $rawToken = Str::random(64);
             $newAccessToken = OAuthAccessToken::create([
-                'token'      => hash('sha256', $rawToken),
-                'user_id'    => $refreshToken->user_id,
-                'client_id'  => $refreshToken->client_id,
-                'scope'      => $scope,
+                'token' => hash('sha256', $rawToken),
+                'user_id' => $refreshToken->user_id,
+                'client_id' => $refreshToken->client_id,
+                'scope' => $scope,
                 'expires_at' => now()->addSeconds(config('urge.oauth.token_ttl', 3600)),
             ]);
 
             $rawNewRefreshToken = Str::random(64);
             OAuthRefreshToken::create([
-                'token'           => hash('sha256', $rawNewRefreshToken),
-                'user_id'         => $refreshToken->user_id,
-                'client_id'       => $refreshToken->client_id,
-                'scope'           => $scope,
+                'token' => hash('sha256', $rawNewRefreshToken),
+                'user_id' => $refreshToken->user_id,
+                'client_id' => $refreshToken->client_id,
+                'scope' => $scope,
                 'access_token_id' => $newAccessToken->id,
-                'expires_at'      => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
+                'expires_at' => now()->addSeconds(config('urge.oauth.refresh_token_ttl', 2592000)),
             ]);
 
             $newAccessToken->raw_token = $rawToken;
@@ -199,6 +199,7 @@ class OAuthService
             if ($access) {
                 OAuthRefreshToken::where('access_token_id', $access->id)->delete();
                 $access->delete();
+
                 return true;
             }
 
@@ -210,6 +211,7 @@ class OAuthService
             if ($refresh) {
                 OAuthAccessToken::where('id', $refresh->access_token_id)->delete();
                 $refresh->delete();
+
                 return true;
             }
 
@@ -223,7 +225,7 @@ class OAuthService
             ->with('user')
             ->first();
 
-        if (!$token || $token->isExpired()) {
+        if (! $token || $token->isExpired()) {
             return null;
         }
 
@@ -247,7 +249,7 @@ class OAuthService
         $parts = explode(' ', $requested);
 
         foreach ($parts as $scope) {
-            if (!in_array($scope, $allowed)) {
+            if (! in_array($scope, $allowed)) {
                 return false;
             }
         }
@@ -280,7 +282,7 @@ class OAuthService
         }
 
         // Non-production loopback fallback for development clients
-        if (!app()->environment('production')) {
+        if (! app()->environment('production')) {
             $parsed = parse_url($redirectUri);
             $host = $parsed['host'] ?? '';
 

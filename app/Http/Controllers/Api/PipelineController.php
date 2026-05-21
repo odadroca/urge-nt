@@ -4,10 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Pipeline;
 use App\Models\PipelineChannel;
-use App\Models\Prompt;
 use App\Models\PromptVersion;
-use App\Models\User;
-use App\Services\AuthorizationService;
 use App\Services\PipelineService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +18,7 @@ class PipelineController extends ApiController
         $user = $request->user();
         $query = Pipeline::where('is_active', true)->withCount('channels');
 
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             $query->where('created_by', $user->id);
         }
 
@@ -60,35 +57,35 @@ class PipelineController extends ApiController
             }
 
             return [
-                'id'              => $channel->id,
-                'pipeline_id'     => $channel->pipeline_id,
-                'role_label'      => $channel->role_label,
-                'system_prompt'   => $channel->system_prompt,
-                'input_source'    => $channel->input_source ?? 'prompt',
-                'input_filters'   => $channel->input_filters,
-                'trigger'         => $channel->trigger,
-                'sort_order'      => $channel->sort_order,
+                'id' => $channel->id,
+                'pipeline_id' => $channel->pipeline_id,
+                'role_label' => $channel->role_label,
+                'system_prompt' => $channel->system_prompt,
+                'input_source' => $channel->input_source ?? 'prompt',
+                'input_filters' => $channel->input_filters,
+                'trigger' => $channel->trigger,
+                'sort_order' => $channel->sort_order,
                 'llm_provider_id' => $channel->llm_provider_id,
-                'provider'        => $channel->llmProvider ? [
-                    'id'        => $channel->llmProvider->id,
-                    'name'      => $channel->llmProvider->name,
-                    'model'     => $channel->llmProvider->model,
+                'provider' => $channel->llmProvider ? [
+                    'id' => $channel->llmProvider->id,
+                    'name' => $channel->llmProvider->name,
+                    'model' => $channel->llmProvider->model,
                     'is_active' => $channel->llmProvider->is_active,
                 ] : null,
-                'execution_mode'  => $mode,
+                'execution_mode' => $mode,
             ];
         })->all();
 
         return $this->success([
-            'id'                  => $pipeline->id,
-            'name'                => $pipeline->name,
-            'slug'                => $pipeline->slug,
-            'description'         => $pipeline->description,
-            'is_active'           => $pipeline->is_active,
-            'created_by'          => $pipeline->created_by,
-            'created_at'          => $pipeline->created_at,
-            'updated_at'          => $pipeline->updated_at,
-            'channels'            => $channels,
+            'id' => $pipeline->id,
+            'name' => $pipeline->name,
+            'slug' => $pipeline->slug,
+            'description' => $pipeline->description,
+            'is_active' => $pipeline->is_active,
+            'created_by' => $pipeline->created_by,
+            'created_at' => $pipeline->created_at,
+            'updated_at' => $pipeline->updated_at,
+            'channels' => $channels,
             'has_client_channels' => $hasClient,
         ]);
     }
@@ -122,24 +119,24 @@ class PipelineController extends ApiController
         $this->authorizePipeline($request, $pipeline, 'manageChannels');
 
         $validated = $request->validate([
-            'role_label'      => 'required|string|max:255',
+            'role_label' => 'required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
-            'system_prompt'   => 'nullable|string',
-            'input_source'    => 'nullable|in:prompt,result_history',
-            'input_filters'   => 'nullable|array',
-            'trigger'         => 'required|in:parallel,synthesis',
-            'sort_order'      => 'integer|min:0',
+            'system_prompt' => 'nullable|string',
+            'input_source' => 'nullable|in:prompt,result_history',
+            'input_filters' => 'nullable|array',
+            'trigger' => 'required|in:parallel,synthesis',
+            'sort_order' => 'integer|min:0',
         ]);
 
         $channel = PipelineChannel::create([
-            'pipeline_id'     => $pipeline->id,
-            'role_label'      => $validated['role_label'],
+            'pipeline_id' => $pipeline->id,
+            'role_label' => $validated['role_label'],
             'llm_provider_id' => $validated['llm_provider_id'] ?? null,
-            'system_prompt'   => $validated['system_prompt'] ?? null,
-            'input_source'    => $validated['input_source'] ?? 'prompt',
-            'input_filters'   => $validated['input_filters'] ?? null,
-            'trigger'         => $validated['trigger'],
-            'sort_order'      => $validated['sort_order'] ?? 0,
+            'system_prompt' => $validated['system_prompt'] ?? null,
+            'input_source' => $validated['input_source'] ?? 'prompt',
+            'input_filters' => $validated['input_filters'] ?? null,
+            'trigger' => $validated['trigger'],
+            'sort_order' => $validated['sort_order'] ?? 0,
         ]);
 
         return $this->success($channel, 201);
@@ -154,13 +151,13 @@ class PipelineController extends ApiController
         }
 
         $validated = $request->validate([
-            'role_label'      => 'sometimes|required|string|max:255',
+            'role_label' => 'sometimes|required|string|max:255',
             'llm_provider_id' => 'nullable|integer|exists:llm_providers,id',
-            'system_prompt'   => 'nullable|string',
-            'input_source'    => 'sometimes|in:prompt,result_history',
-            'input_filters'   => 'nullable|array',
-            'trigger'         => 'sometimes|required|in:parallel,synthesis',
-            'sort_order'      => 'sometimes|integer|min:0',
+            'system_prompt' => 'nullable|string',
+            'input_source' => 'sometimes|in:prompt,result_history',
+            'input_filters' => 'nullable|array',
+            'trigger' => 'sometimes|required|in:parallel,synthesis',
+            'sort_order' => 'sometimes|integer|min:0',
         ]);
 
         $channel->update($validated);
@@ -196,14 +193,14 @@ class PipelineController extends ApiController
             ->where('is_active', true)
             ->first();
 
-        if (!$pipeline) {
+        if (! $pipeline) {
             return $this->error('Pipeline not found or inactive.', 404);
         }
 
         $this->authorizePipeline($request, $pipeline, 'run');
 
         $version = null;
-        if (!empty($validated['version'])) {
+        if (! empty($validated['version'])) {
             $version = PromptVersion::where('prompt_id', $prompt->id)
                 ->where('version_number', $validated['version'])
                 ->first();
@@ -211,7 +208,7 @@ class PipelineController extends ApiController
             $version = $prompt->active_version;
         }
 
-        if (!$version) {
+        if (! $version) {
             return $this->error('Version not found.', 404);
         }
 
@@ -229,7 +226,7 @@ class PipelineController extends ApiController
     private function authorizePipeline(Request $request, Pipeline $pipeline, string $ability): void
     {
         $user = $request->user();
-        if (!$user->can($ability, $pipeline)) {
+        if (! $user->can($ability, $pipeline)) {
             $code = $ability === 'view' ? 404 : 403;
             $message = $code === 404
                 ? 'Pipeline not found.'

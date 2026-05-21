@@ -20,7 +20,7 @@ return new class extends Migration
             $slug = $base;
             $counter = 1;
             while (User::where('slug', $slug)->where('id', '!=', $user->id)->exists()) {
-                $slug = $base . '-' . $counter++;
+                $slug = $base.'-'.$counter++;
             }
             $user->update(['slug' => $slug]);
         }

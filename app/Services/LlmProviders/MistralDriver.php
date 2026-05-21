@@ -35,8 +35,8 @@ class MistralDriver implements LlmDriverInterface
             $response = Http::withToken($this->apiKey)
                 ->withOptions(['verify' => config('urge.curl_ssl_verify', true), 'allow_redirects' => false])
                 ->timeout(120)
-                ->post(self::BASE_URL . '/v1/chat/completions', [
-                    'model'    => $this->model,
+                ->post(self::BASE_URL.'/v1/chat/completions', [
+                    'model' => $this->model,
                     'messages' => $messages,
                 ]);
 
@@ -47,10 +47,12 @@ class MistralDriver implements LlmDriverInterface
                 $error = is_string($msg) && $msg !== ''
                     ? DriverErrorSanitizer::trim($msg)
                     : 'Mistral request failed.';
+
                 return LlmResult::failure($error, $this->model, $durationMs);
             }
 
             $data = $response->json();
+
             return LlmResult::success(
                 text: $data['choices'][0]['message']['content'] ?? '',
                 modelUsed: $data['model'] ?? $this->model,
@@ -60,6 +62,7 @@ class MistralDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
+
             return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }

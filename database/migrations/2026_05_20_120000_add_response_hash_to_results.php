@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\Schema;
  * impossible. Store a sha256 hash alongside the encrypted column so
  * dedup queries can use the hash.
  */
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::table('results', function (Blueprint $table) {

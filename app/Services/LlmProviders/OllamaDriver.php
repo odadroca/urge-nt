@@ -34,9 +34,9 @@ class OllamaDriver implements LlmDriverInterface
             $response = Http::withOptions(['verify' => config('urge.curl_ssl_verify', true), 'allow_redirects' => false])
                 ->timeout(300)
                 ->post("{$base}/api/chat", [
-                    'model'    => $this->model,
+                    'model' => $this->model,
                     'messages' => $messages,
-                    'stream'   => false,
+                    'stream' => false,
                 ]);
 
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
@@ -46,6 +46,7 @@ class OllamaDriver implements LlmDriverInterface
                 $error = is_string($msg) && $msg !== ''
                     ? DriverErrorSanitizer::trim($msg)
                     : 'Ollama request failed.';
+
                 return LlmResult::failure($error, $this->model, $durationMs);
             }
 
@@ -61,6 +62,7 @@ class OllamaDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
+
             return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }

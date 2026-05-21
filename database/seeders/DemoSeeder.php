@@ -13,7 +13,7 @@ class DemoSeeder extends Seeder
     public function run(): void
     {
         $user = User::first();
-        if (!$user) {
+        if (! $user) {
             $user = User::create(['name' => 'Admin', 'email' => 'admin@urge.local', 'password' => bcrypt('password')]);
         }
 
@@ -158,6 +158,6 @@ class DemoSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('Seeded: ' . Prompt::count() . ' prompts, ' . PromptVersion::count() . ' versions, ' . Category::count() . ' categories');
+        $this->command->info('Seeded: '.Prompt::count().' prompts, '.PromptVersion::count().' versions, '.Category::count().' categories');
     }
 }

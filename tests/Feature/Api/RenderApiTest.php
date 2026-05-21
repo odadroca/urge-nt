@@ -14,7 +14,9 @@ class RenderApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private array $headers;
 
     protected function setUp(): void

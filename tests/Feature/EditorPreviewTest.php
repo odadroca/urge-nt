@@ -14,6 +14,7 @@ class EditorPreviewTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private array $headers;
 
     protected function setUp(): void

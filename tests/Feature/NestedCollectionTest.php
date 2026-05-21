@@ -4,13 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Collection;
 use App\Models\CollectionItem;
-use App\Models\CollectionShareLink;
-use App\Models\Prompt;
-use App\Models\PromptVersion;
 use App\Models\User;
 use App\Services\ApiKeyService;
 use App\Services\CollectionNestingService;
 use App\Services\ShareLinkService;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,8 +17,11 @@ class NestedCollectionTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private CollectionNestingService $nestingService;
+
     private string $apiKey;
+
     private array $headers;
 
     protected function setUp(): void
@@ -425,7 +426,7 @@ class NestedCollectionTest extends TestCase
 
     public function test_collection_morph_map_includes_collection(): void
     {
-        $map = \Illuminate\Database\Eloquent\Relations\Relation::morphMap();
+        $map = Relation::morphMap();
         $this->assertArrayHasKey('collection', $map);
         $this->assertEquals(Collection::class, $map['collection']);
     }

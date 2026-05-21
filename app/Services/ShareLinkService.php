@@ -19,9 +19,9 @@ class ShareLinkService
         // Require an explicit expiry. Previously default/unknown → null
         // (link never expires); TPL-06 closes that.
         $expiresAt = match ($expiresIn) {
-            '1h'  => now()->addHour(),
+            '1h' => now()->addHour(),
             '24h' => now()->addDay(),
-            '7d'  => now()->addWeek(),
+            '7d' => now()->addWeek(),
             '30d' => now()->addMonth(),
             default => throw new \InvalidArgumentException(
                 'expires_in is required: must be one of 1h, 24h, 7d, 30d.'
@@ -30,10 +30,10 @@ class ShareLinkService
 
         return CollectionShareLink::create([
             'collection_id' => $collection->id,
-            'token'         => $token,
-            'label'         => $label,
-            'expires_at'    => $expiresAt,
-            'created_by'    => $creator->id,
+            'token' => $token,
+            'label' => $label,
+            'expires_at' => $expiresAt,
+            'created_by' => $creator->id,
         ]);
     }
 
@@ -43,7 +43,7 @@ class ShareLinkService
             ->whereHas('collection', fn ($q) => $q->whereNull('deleted_at'))
             ->first();
 
-        if (!$link || !$link->isValid()) {
+        if (! $link || ! $link->isValid()) {
             return null;
         }
 

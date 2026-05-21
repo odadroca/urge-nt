@@ -7,7 +7,6 @@ use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
 use App\Services\ApiKeyService;
-use App\Services\VersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,6 +15,7 @@ class WorkspacePhase3Test extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private array $headers;
 
     protected function setUp(): void
