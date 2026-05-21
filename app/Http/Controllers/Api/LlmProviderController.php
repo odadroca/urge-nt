@@ -33,9 +33,26 @@ class LlmProviderController extends ApiController
             'driver'   => 'required|in:openai,anthropic,mistral,gemini,ollama,openrouter',
             'api_key'  => 'nullable|string',
             'model'    => 'required|string|max:255',
-            'endpoint' => 'nullable|string|max:500',
+            'endpoint' => 'nullable|string|max:500|url',
             'is_active' => 'boolean',
         ]);
+
+        // LLM-01 / LLM-08: SSRF-validate the endpoint before persisting.
+        if (!empty($validated['endpoint'])) {
+            try {
+                \App\Services\UrlSafetyService::assertSafe(
+                    $validated['endpoint'],
+                    $validated['driver'] === 'ollama'
+                        ? ['allow_loopback' => true, 'allow_http' => true]
+                        : ['allow_loopback' => false, 'allow_http' => false],
+                );
+            } catch (\InvalidArgumentException $e) {
+                return $this->error('Invalid endpoint: ' . $e->getMessage(), 422);
+            }
+        }
+        if ($validated['driver'] === 'ollama' && empty($validated['endpoint'])) {
+            return $this->error('Ollama provider requires an explicit endpoint.', 422);
+        }
 
         $provider = LlmProvider::create([
             'name'      => $validated['name'],
@@ -62,12 +79,27 @@ class LlmProviderController extends ApiController
             'driver'    => 'sometimes|required|in:openai,anthropic,mistral,gemini,ollama,openrouter',
             'api_key'   => 'nullable|string',
             'model'     => 'sometimes|required|string|max:255',
-            'endpoint'  => 'nullable|string|max:500',
+            'endpoint'  => 'nullable|string|max:500|url',
             'is_active' => 'sometimes|boolean',
         ]);
 
         if (array_key_exists('api_key', $validated) && ($validated['api_key'] === null || $validated['api_key'] === '')) {
             unset($validated['api_key']);
+        }
+
+        // LLM-01 / LLM-08: SSRF-validate any endpoint change.
+        if (array_key_exists('endpoint', $validated) && !empty($validated['endpoint'])) {
+            $effectiveDriver = $validated['driver'] ?? $provider->driver;
+            try {
+                \App\Services\UrlSafetyService::assertSafe(
+                    $validated['endpoint'],
+                    $effectiveDriver === 'ollama'
+                        ? ['allow_loopback' => true, 'allow_http' => true]
+                        : ['allow_loopback' => false, 'allow_http' => false],
+                );
+            } catch (\InvalidArgumentException $e) {
+                return $this->error('Invalid endpoint: ' . $e->getMessage(), 422);
+            }
         }
 
         $provider->update($validated);

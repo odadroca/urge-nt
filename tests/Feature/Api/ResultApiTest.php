@@ -64,7 +64,11 @@ class ResultApiTest extends TestCase
             ->assertJsonPath('data.response_text', 'The LLM response')
             ->assertJsonPath('data.source', 'api');
 
-        $this->assertDatabaseHas('results', ['response_text' => 'The LLM response', 'provider_name' => 'OpenAI']);
+        // response_text is encrypted at rest (LLM-05); query via response_hash.
+        $this->assertDatabaseHas('results', [
+            'response_hash' => hash('sha256', 'The LLM response'),
+            'provider_name' => 'OpenAI',
+        ]);
     }
 
     public function test_create_result_requires_version_and_response(): void
@@ -205,7 +209,7 @@ class ResultApiTest extends TestCase
             ->assertJsonPath('data.run_source', 'scheduled');
 
         $this->assertDatabaseHas('results', [
-            'response_text' => 'Daily summary',
+            'response_hash' => hash('sha256', 'Daily summary'),
             'run_source'    => 'scheduled',
         ]);
     }

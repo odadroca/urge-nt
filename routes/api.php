@@ -63,6 +63,15 @@ Route::prefix('v1')->group(function () {
         // Render (namespaced)
         Route::post('prompts/{username}/{promptSlug}/render', [RenderController::class, 'render']);
 
+        // LLM-dispatching endpoints are throttled per authenticated user
+        // (LLM-06) — previously only API-key callers were rate-limited;
+        // Sanctum/OAuth callers were unbounded.
+        Route::middleware('throttle:30,1')->group(function () {
+            Route::post('prompts/{username}/{promptSlug}/run', [PromptController::class, 'run']);
+            Route::post('prompts/{username}/{promptSlug}/run-pipeline', [PipelineController::class, 'runPipeline']);
+            Route::post('results/{result}/evaluate', [EvaluationController::class, 'evaluate']);
+        });
+
         // Results (prompt-scoped, namespaced)
         Route::get('prompts/{username}/{promptSlug}/results', [ResultController::class, 'index']);
         Route::post('prompts/{username}/{promptSlug}/results', [ResultController::class, 'store']);
@@ -74,8 +83,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('results/{result}', [ResultController::class, 'update']);
         Route::delete('results/{result}', [ResultController::class, 'destroy']);
 
-        // Evaluations
-        Route::post('results/{result}/evaluate', [EvaluationController::class, 'evaluate']);
+        // Evaluations (evaluate is rate-limited above)
         Route::get('results/{result}/evaluations', [EvaluationController::class, 'index']);
         Route::get('results/{result}/evaluations/latest', [EvaluationController::class, 'latest']);
         Route::get('results/{result}/evaluations/{version}', [EvaluationController::class, 'show']);
@@ -112,7 +120,7 @@ Route::prefix('v1')->group(function () {
         Route::post('pipelines/{pipeline:slug}/channels', [PipelineController::class, 'addChannel']);
         Route::patch('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'updateChannel']);
         Route::delete('pipelines/{pipeline:slug}/channels/{channel}', [PipelineController::class, 'removeChannel']);
-        Route::post('prompts/{username}/{promptSlug}/run-pipeline', [PipelineController::class, 'runPipeline']);
+        // run-pipeline is rate-limited above (LLM-06)
 
         // LLM Providers (read is non-admin so the SPA can pick a provider; mutations are admin-only)
         Route::get('providers', [LlmProviderController::class, 'index']);
@@ -124,7 +132,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // Run prompt with LLM
-        Route::post('prompts/{username}/{promptSlug}/run', [PromptController::class, 'run']);
+        // run is rate-limited above (LLM-06)
 
         // Categories
         Route::get('categories', [CategoryController::class, 'index']);

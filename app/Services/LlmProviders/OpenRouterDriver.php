@@ -42,6 +42,7 @@ class OpenRouterDriver implements LlmDriverInterface
                 CURLOPT_POST           => true,
                 CURLOPT_SSL_VERIFYPEER => config('urge.curl_ssl_verify', true),
                 CURLOPT_SSL_VERIFYHOST => config('urge.curl_ssl_verify', true) ? 2 : 0,
+                CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_TIMEOUT        => 120,
                 CURLOPT_HTTPHEADER     => [
                     'Authorization: Bearer ' . $this->apiKey,
@@ -53,20 +54,22 @@ class OpenRouterDriver implements LlmDriverInterface
             ]);
 
             $rawResponse = curl_exec($ch);
-            $curlError   = curl_error($ch);
             $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
 
             if ($rawResponse === false) {
-                return LlmResult::failure($curlError ?: 'cURL request failed', $this->model, $durationMs);
+                return LlmResult::failure('OpenRouter transport error.', $this->model, $durationMs);
             }
 
             $data = json_decode($rawResponse, true);
 
             if ($httpCode >= 400) {
-                $error = $data['error']['message'] ?? $rawResponse;
+                $msg = $data['error']['message'] ?? null;
+                $error = is_string($msg) && $msg !== ''
+                    ? DriverErrorSanitizer::trim($msg)
+                    : 'OpenRouter request failed.';
                 return LlmResult::failure($error, $this->model, $durationMs);
             }
 
@@ -79,7 +82,7 @@ class OpenRouterDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
-            return LlmResult::failure($e->getMessage(), $this->model, $durationMs);
+            return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }
 }

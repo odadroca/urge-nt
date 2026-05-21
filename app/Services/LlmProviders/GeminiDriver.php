@@ -26,11 +26,10 @@ class GeminiDriver implements LlmDriverInterface
 
     private function send(?string $system, string $userPrompt): LlmResult
     {
+        $url = self::BASE_URL . "/v1beta/models/{$this->model}:generateContent";
         $start = hrtime(true);
 
         try {
-            $url = self::BASE_URL . "/v1beta/models/{$this->model}:generateContent?key={$this->apiKey}";
-
             $payload = [
                 'contents' => [
                     ['parts' => [['text' => $userPrompt]]],
@@ -41,15 +40,17 @@ class GeminiDriver implements LlmDriverInterface
                 $payload['systemInstruction'] = ['parts' => [['text' => $system]]];
             }
 
-            $response = Http::withOptions(['verify' => config('urge.curl_ssl_verify', true)])
+            // LLM-02: pass the API key via x-goog-api-key (was: ?key=… in
+            // the URL — leaked via exception messages on transport errors).
+            $response = Http::withHeaders(['x-goog-api-key' => $this->apiKey])
+                ->withOptions(['verify' => config('urge.curl_ssl_verify', true), 'allow_redirects' => false])
                 ->timeout(120)
                 ->post($url, $payload);
 
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
 
             if ($response->failed()) {
-                $error = $response->json('error.message') ?? $response->body();
-                return LlmResult::failure($error, $this->model, $durationMs);
+                return LlmResult::failure($this->safeError($response), $this->model, $durationMs);
             }
 
             $data = $response->json();
@@ -64,7 +65,16 @@ class GeminiDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
-            return LlmResult::failure($e->getMessage(), $this->model, $durationMs);
+            return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
+    }
+
+    private function safeError($response): string
+    {
+        $msg = $response->json('error.message');
+        if (is_string($msg) && $msg !== '') {
+            return DriverErrorSanitizer::trim($msg);
+        }
+        return 'Gemini request failed.';
     }
 }

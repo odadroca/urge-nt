@@ -115,7 +115,7 @@ class McpToolHandlerTest extends TestCase
 
         $this->assertTrue($result['created']);
         $this->assertDatabaseHas('results', [
-            'response_text' => 'MCP result',
+            'response_hash' => hash('sha256', 'MCP result'),
             'source' => 'mcp',
         ]);
     }
