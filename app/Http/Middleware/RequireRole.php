@@ -12,7 +12,7 @@ class RequireRole
     {
         $user = $request->user();
 
-        if (!$user || !in_array($user->role, $roles)) {
+        if (! $user || ! in_array($user->role, $roles)) {
             abort(403, 'Insufficient permissions.');
         }
 

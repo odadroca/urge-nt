@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\ApiKey;
 use App\Models\Pipeline;
 use App\Models\PipelineChannel;
 use App\Models\Prompt;
@@ -29,9 +28,13 @@ class AuthorizationPb1Test extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $alice;
+
     private User $bob;
+
     private array $aliceHeaders;
+
     private array $bobHeaders;
 
     protected function setUp(): void
@@ -187,7 +190,7 @@ class AuthorizationPb1Test extends TestCase
         $this->assertDatabaseHas('pipelines', ['id' => $pipeline->id]);
     }
 
-    public function test_pipeline_addChannel_blocked_cross_tenant(): void
+    public function test_pipeline_add_channel_blocked_cross_tenant(): void
     {
         $pipeline = Pipeline::create(['name' => 'Alice P', 'created_by' => $this->alice->id]);
 
@@ -201,7 +204,7 @@ class AuthorizationPb1Test extends TestCase
         $this->assertEquals(0, $pipeline->channels()->count());
     }
 
-    public function test_pipeline_removeChannel_blocked_cross_tenant(): void
+    public function test_pipeline_remove_channel_blocked_cross_tenant(): void
     {
         $pipeline = Pipeline::create(['name' => 'Alice P', 'created_by' => $this->alice->id]);
         $channel = PipelineChannel::create([

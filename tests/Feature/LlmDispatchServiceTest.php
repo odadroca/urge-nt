@@ -15,6 +15,7 @@ class LlmDispatchServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private LlmDispatchService $service;
 
     protected function setUp(): void
@@ -25,7 +26,7 @@ class LlmDispatchServiceTest extends TestCase
             'email' => 'admin@test.com',
             'password' => bcrypt('password'),
         ]);
-        $this->service = new LlmDispatchService();
+        $this->service = new LlmDispatchService;
     }
 
     public function test_llm_result_success_factory(): void

@@ -46,7 +46,7 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
             'item_type' => 'prompt_version',
             'item_id' => $version->id,
         ]);
@@ -67,7 +67,7 @@ class BrowseCollectionTest extends TestCase
             'created_by' => $this->user->id,
         ]);
 
-        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
             'item_type' => 'prompt_version',
             'item_id' => 99999,
         ]);
@@ -103,7 +103,7 @@ class BrowseCollectionTest extends TestCase
 
         // Add each version individually via API
         foreach ($versions as $version) {
-            $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+            $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
                 'item_type' => 'prompt_version',
                 'item_id' => $version->id,
             ]);
@@ -133,14 +133,14 @@ class BrowseCollectionTest extends TestCase
         ]);
 
         // Add real version — succeeds
-        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
             'item_type' => 'prompt_version',
             'item_id' => $version->id,
         ]);
         $response->assertStatus(201);
 
         // Add nonexistent version — fails
-        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
             'item_type' => 'prompt_version',
             'item_id' => 99999,
         ]);
@@ -170,14 +170,14 @@ class BrowseCollectionTest extends TestCase
         ]);
 
         // First add — succeeds
-        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
             'item_type' => 'prompt_version',
             'item_id' => $version->id,
         ]);
         $response->assertStatus(201);
 
         // Second add — duplicate
-        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/' . $collection->slug . '/items', [
+        $response = $this->actingAs($this->user)->postJson('/api/v1/collections/'.$collection->slug.'/items', [
             'item_type' => 'prompt_version',
             'item_id' => $version->id,
         ]);

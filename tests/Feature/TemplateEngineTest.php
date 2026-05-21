@@ -18,7 +18,7 @@ class TemplateEngineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->engine = new TemplateEngine();
+        $this->engine = new TemplateEngine;
     }
 
     public function test_extract_variables(): void

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Prompt;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -55,7 +54,7 @@ class TeamsTest extends TestCase
         $team->members()->attach($owner->id, ['role' => 'owner']);
         $team->members()->attach($member->id, ['role' => 'member']);
 
-        $response = $this->actingAs($owner)->getJson('/api/v1/teams/' . $team->slug);
+        $response = $this->actingAs($owner)->getJson('/api/v1/teams/'.$team->slug);
 
         $response->assertOk();
         $memberNames = collect($response->json('data.members'))->pluck('name');
@@ -71,7 +70,7 @@ class TeamsTest extends TestCase
         $team = Team::create(['name' => 'Private Team', 'created_by' => $owner->id]);
         $team->members()->attach($owner->id, ['role' => 'owner']);
 
-        $response = $this->actingAs($outsider)->getJson('/api/v1/teams/' . $team->slug);
+        $response = $this->actingAs($outsider)->getJson('/api/v1/teams/'.$team->slug);
 
         $response->assertStatus(403);
     }
@@ -84,7 +83,7 @@ class TeamsTest extends TestCase
         $team = Team::create(['name' => 'Test Team', 'created_by' => $owner->id]);
         $team->members()->attach($owner->id, ['role' => 'owner']);
 
-        $response = $this->actingAs($owner)->postJson('/api/v1/teams/' . $team->slug . '/members', [
+        $response = $this->actingAs($owner)->postJson('/api/v1/teams/'.$team->slug.'/members', [
             'email' => 'newguy@example.com',
         ]);
 
@@ -101,7 +100,7 @@ class TeamsTest extends TestCase
         $team->members()->attach($owner->id, ['role' => 'owner']);
         $team->members()->attach($member->id, ['role' => 'member']);
 
-        $response = $this->actingAs($owner)->deleteJson('/api/v1/teams/' . $team->slug . '/members/' . $member->id);
+        $response = $this->actingAs($owner)->deleteJson('/api/v1/teams/'.$team->slug.'/members/'.$member->id);
 
         $response->assertOk();
         $this->assertFalse($team->members()->where('users.id', $member->id)->exists());
@@ -114,7 +113,7 @@ class TeamsTest extends TestCase
         $team = Team::create(['name' => 'Test Team', 'created_by' => $owner->id]);
         $team->members()->attach($owner->id, ['role' => 'owner']);
 
-        $response = $this->actingAs($owner)->postJson('/api/v1/teams/' . $team->slug . '/leave');
+        $response = $this->actingAs($owner)->postJson('/api/v1/teams/'.$team->slug.'/leave');
 
         $response->assertStatus(422);
         $response->assertJsonPath('error', 'Cannot leave as sole owner. Transfer ownership first.');
@@ -129,7 +128,7 @@ class TeamsTest extends TestCase
         $team->members()->attach($owner->id, ['role' => 'owner']);
         $teamId = $team->id;
 
-        $response = $this->actingAs($owner)->deleteJson('/api/v1/teams/' . $team->slug);
+        $response = $this->actingAs($owner)->deleteJson('/api/v1/teams/'.$team->slug);
 
         $response->assertOk();
         $this->assertDatabaseMissing('teams', ['id' => $teamId]);

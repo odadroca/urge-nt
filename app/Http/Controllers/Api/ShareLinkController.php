@@ -24,14 +24,14 @@ class ShareLinkController extends ApiController
             ->orderByDesc('created_at')
             ->get()
             ->map(fn (CollectionShareLink $link) => [
-                'id'               => $link->id,
-                'label'            => $link->label,
-                'url'              => $link->getUrl(),
-                'expires_at'       => $link->expires_at?->toIso8601String(),
-                'expired'          => $link->isExpired(),
-                'access_count'     => $link->access_count,
+                'id' => $link->id,
+                'label' => $link->label,
+                'url' => $link->getUrl(),
+                'expires_at' => $link->expires_at?->toIso8601String(),
+                'expired' => $link->isExpired(),
+                'access_count' => $link->access_count,
                 'last_accessed_at' => $link->last_accessed_at?->toIso8601String(),
-                'created_at'       => $link->created_at->toIso8601String(),
+                'created_at' => $link->created_at->toIso8601String(),
             ]);
 
         return $this->success($links);
@@ -44,7 +44,7 @@ class ShareLinkController extends ApiController
         }
 
         $validated = $request->validate([
-            'label'      => 'nullable|string|max:255',
+            'label' => 'nullable|string|max:255',
             // expires_in is now required (TPL-06) — previously null meant
             // "never expires", giving a public link with no off-switch
             // beyond explicit revoke.
@@ -59,10 +59,10 @@ class ShareLinkController extends ApiController
         );
 
         return $this->success([
-            'id'         => $link->id,
-            'label'      => $link->label,
-            'url'        => $link->getUrl(),
-            'token'      => $link->token,
+            'id' => $link->id,
+            'label' => $link->label,
+            'url' => $link->getUrl(),
+            'token' => $link->token,
             'expires_at' => $link->expires_at?->toIso8601String(),
             'created_at' => $link->created_at->toIso8601String(),
         ], 201);

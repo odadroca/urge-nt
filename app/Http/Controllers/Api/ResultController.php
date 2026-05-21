@@ -50,20 +50,20 @@ class ResultController extends ApiController
         }
 
         $validated = $request->validate([
-            'version'          => 'required|integer|min:1',
-            'response_text'    => 'required|string',
-            'source'           => 'in:api,manual,import,mcp',
-            'run_source'       => 'nullable|in:manual,scheduled',
-            'provider_name'    => 'nullable|string|max:100',
-            'model_name'       => 'nullable|string|max:100',
-            'notes'            => 'nullable|string',
-            'rating'           => 'nullable|integer|min:1|max:5',
-            'starred'          => 'nullable|boolean',
+            'version' => 'required|integer|min:1',
+            'response_text' => 'required|string',
+            'source' => 'in:api,manual,import,mcp',
+            'run_source' => 'nullable|in:manual,scheduled',
+            'provider_name' => 'nullable|string|max:100',
+            'model_name' => 'nullable|string|max:100',
+            'notes' => 'nullable|string',
+            'rating' => 'nullable|integer|min:1|max:5',
+            'starred' => 'nullable|boolean',
             'rendered_content' => 'nullable|string',
-            'variables_used'   => 'nullable|array',
-            'input_tokens'     => 'nullable|integer|min:0',
-            'output_tokens'    => 'nullable|integer|min:0',
-            'duration_ms'      => 'nullable|integer|min:0',
+            'variables_used' => 'nullable|array',
+            'input_tokens' => 'nullable|integer|min:0',
+            'output_tokens' => 'nullable|integer|min:0',
+            'duration_ms' => 'nullable|integer|min:0',
         ]);
 
         $promptVersion = $prompt->versions()
@@ -71,22 +71,22 @@ class ResultController extends ApiController
             ->firstOrFail();
 
         $result = Result::create([
-            'prompt_id'         => $prompt->id,
+            'prompt_id' => $prompt->id,
             'prompt_version_id' => $promptVersion->id,
-            'source'            => $validated['source'] ?? 'api',
-            'run_source'        => $validated['run_source'] ?? null,
-            'provider_name'     => $validated['provider_name'] ?? null,
-            'model_name'        => $validated['model_name'] ?? null,
-            'response_text'     => $validated['response_text'],
-            'notes'             => $validated['notes'] ?? null,
-            'rating'            => $validated['rating'] ?? null,
-            'starred'           => $validated['starred'] ?? false,
-            'rendered_content'  => $validated['rendered_content'] ?? null,
-            'variables_used'    => $validated['variables_used'] ?? null,
-            'input_tokens'      => $validated['input_tokens'] ?? null,
-            'output_tokens'     => $validated['output_tokens'] ?? null,
-            'duration_ms'       => $validated['duration_ms'] ?? null,
-            'created_by'        => $request->user()->id,
+            'source' => $validated['source'] ?? 'api',
+            'run_source' => $validated['run_source'] ?? null,
+            'provider_name' => $validated['provider_name'] ?? null,
+            'model_name' => $validated['model_name'] ?? null,
+            'response_text' => $validated['response_text'],
+            'notes' => $validated['notes'] ?? null,
+            'rating' => $validated['rating'] ?? null,
+            'starred' => $validated['starred'] ?? false,
+            'rendered_content' => $validated['rendered_content'] ?? null,
+            'variables_used' => $validated['variables_used'] ?? null,
+            'input_tokens' => $validated['input_tokens'] ?? null,
+            'output_tokens' => $validated['output_tokens'] ?? null,
+            'duration_ms' => $validated['duration_ms'] ?? null,
+            'created_by' => $request->user()->id,
         ]);
 
         return $this->success($result, 201);
@@ -118,6 +118,7 @@ class ResultController extends ApiController
         $this->authorizeResultAccess($request, $result, 'view');
 
         $result->load(['prompt', 'promptVersion']);
+
         return $this->success($result);
     }
 
@@ -132,7 +133,7 @@ class ResultController extends ApiController
         $slug = $result->prompt->slug ?? 'result';
         $filename = "{$slug}-v{$version}-{$result->id}.md";
 
-        return response()->streamDownload(fn () => print($content), $filename, [
+        return response()->streamDownload(fn () => print ($content), $filename, [
             'Content-Type' => 'text/markdown; charset=UTF-8',
         ]);
     }
@@ -142,9 +143,9 @@ class ResultController extends ApiController
         $this->authorizeResultAccess($request, $result, 'update');
 
         $validated = $request->validate([
-            'rating'  => 'nullable|integer|min:1|max:5',
+            'rating' => 'nullable|integer|min:1|max:5',
             'starred' => 'nullable|boolean',
-            'notes'   => 'nullable|string',
+            'notes' => 'nullable|string',
         ]);
 
         $result->update($validated);
@@ -162,7 +163,7 @@ class ResultController extends ApiController
         $user = $request->user();
         $result->loadMissing('prompt');
 
-        if (!AuthorizationService::userCanSeeResult($user, $result)) {
+        if (! AuthorizationService::userCanSeeResult($user, $result)) {
             abort(404);
         }
 
@@ -171,7 +172,7 @@ class ResultController extends ApiController
             AuthorizationService::enforceApiKeyScope($request, $result->prompt);
         }
 
-        if ($ability !== 'view' && !$user->can($ability, $result)) {
+        if ($ability !== 'view' && ! $user->can($ability, $result)) {
             abort(403, "You do not have permission to {$ability} this result.");
         }
     }

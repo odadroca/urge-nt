@@ -42,7 +42,7 @@ class ResultEvaluation extends Model
             $query->where('evaluation_version', $version);
         } else {
             $latestVersion = static::where('result_id', $resultId)->max('evaluation_version');
-            if (!$latestVersion) {
+            if (! $latestVersion) {
                 return null;
             }
             $query->where('evaluation_version', $latestVersion);

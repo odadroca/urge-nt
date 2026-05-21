@@ -76,14 +76,15 @@ class PipelineService
             if ($channel->execution_mode === 'client') {
                 $hasClientParallel = true;
                 $pendingClient[] = [
-                    'channel_id'    => $channel->id,
-                    'role_label'    => $channel->role_label,
-                    'trigger'       => $channel->trigger,
-                    'sort_order'    => $channel->sort_order,
-                    'input_source'  => $channel->input_source,
+                    'channel_id' => $channel->id,
+                    'role_label' => $channel->role_label,
+                    'trigger' => $channel->trigger,
+                    'sort_order' => $channel->sort_order,
+                    'input_source' => $channel->input_source,
                     'system_prompt' => $systemPrompt,
-                    'user_prompt'   => $userPrompt,
+                    'user_prompt' => $userPrompt,
                 ];
+
                 continue;
             }
 
@@ -91,32 +92,32 @@ class PipelineService
             $llmResult = $this->dispatchService->dispatchWithSystem($provider, $systemPrompt, $userPrompt);
 
             $result = Result::create([
-                'prompt_id'         => $version->prompt_id,
+                'prompt_id' => $version->prompt_id,
                 'prompt_version_id' => $version->id,
-                'source'            => 'api',
-                'run_source'        => $runSource,
-                'role_label'        => $channel->role_label,
-                'pipeline_id'       => $pipeline->id,
-                'pipeline_run_id'   => $runId,
-                'provider_name'     => $provider->name,
-                'model_name'        => $llmResult->modelUsed,
-                'llm_provider_id'   => $provider->id,
-                'rendered_content'  => $userPrompt,
-                'variables_used'    => !empty($variableValues) ? $variableValues : null,
-                'response_text'     => $llmResult->text,
-                'input_tokens'      => $llmResult->inputTokens,
-                'output_tokens'     => $llmResult->outputTokens,
-                'duration_ms'       => $llmResult->durationMs,
-                'status'            => $llmResult->success ? 'success' : 'error',
-                'error_message'     => $llmResult->error,
-                'created_by'        => $userId,
+                'source' => 'api',
+                'run_source' => $runSource,
+                'role_label' => $channel->role_label,
+                'pipeline_id' => $pipeline->id,
+                'pipeline_run_id' => $runId,
+                'provider_name' => $provider->name,
+                'model_name' => $llmResult->modelUsed,
+                'llm_provider_id' => $provider->id,
+                'rendered_content' => $userPrompt,
+                'variables_used' => ! empty($variableValues) ? $variableValues : null,
+                'response_text' => $llmResult->text,
+                'input_tokens' => $llmResult->inputTokens,
+                'output_tokens' => $llmResult->outputTokens,
+                'duration_ms' => $llmResult->durationMs,
+                'status' => $llmResult->success ? 'success' : 'error',
+                'error_message' => $llmResult->error,
+                'created_by' => $userId,
             ]);
 
             $resultIds[] = $result->id;
 
             if ($llmResult->success) {
                 $parallelResults[] = [
-                    'role_label'    => $channel->role_label,
+                    'role_label' => $channel->role_label,
                     'response_text' => $llmResult->text,
                 ];
             }
@@ -153,13 +154,13 @@ class PipelineService
                 }
 
                 $pendingClient[] = [
-                    'channel_id'    => $synthesisChannel->id,
-                    'role_label'    => $synthesisChannel->role_label,
-                    'trigger'       => $synthesisChannel->trigger,
-                    'sort_order'    => $synthesisChannel->sort_order,
-                    'input_source'  => $synthesisChannel->input_source,
+                    'channel_id' => $synthesisChannel->id,
+                    'role_label' => $synthesisChannel->role_label,
+                    'trigger' => $synthesisChannel->trigger,
+                    'sort_order' => $synthesisChannel->sort_order,
+                    'input_source' => $synthesisChannel->input_source,
                     'system_prompt' => $systemPrompt,
-                    'user_prompt'   => $clientUserPrompt,
+                    'user_prompt' => $clientUserPrompt,
                 ];
             } elseif ($synthesisInput !== null && $synthesisInput !== '') {
                 $provider = $synthesisChannel->llmProvider;
@@ -171,25 +172,25 @@ class PipelineService
                 );
 
                 $result = Result::create([
-                    'prompt_id'         => $version->prompt_id,
+                    'prompt_id' => $version->prompt_id,
                     'prompt_version_id' => $version->id,
-                    'source'            => 'api',
-                    'run_source'        => $runSource,
-                    'role_label'        => $synthesisChannel->role_label,
-                    'pipeline_id'       => $pipeline->id,
-                    'pipeline_run_id'   => $runId,
-                    'provider_name'     => $provider->name,
-                    'model_name'        => $llmResult->modelUsed,
-                    'llm_provider_id'   => $provider->id,
-                    'rendered_content'  => $synthesisInput,
-                    'variables_used'    => !empty($variableValues) ? $variableValues : null,
-                    'response_text'     => $llmResult->text,
-                    'input_tokens'      => $llmResult->inputTokens,
-                    'output_tokens'     => $llmResult->outputTokens,
-                    'duration_ms'       => $llmResult->durationMs,
-                    'status'            => $llmResult->success ? 'success' : 'error',
-                    'error_message'     => $llmResult->error,
-                    'created_by'        => $userId,
+                    'source' => 'api',
+                    'run_source' => $runSource,
+                    'role_label' => $synthesisChannel->role_label,
+                    'pipeline_id' => $pipeline->id,
+                    'pipeline_run_id' => $runId,
+                    'provider_name' => $provider->name,
+                    'model_name' => $llmResult->modelUsed,
+                    'llm_provider_id' => $provider->id,
+                    'rendered_content' => $synthesisInput,
+                    'variables_used' => ! empty($variableValues) ? $variableValues : null,
+                    'response_text' => $llmResult->text,
+                    'input_tokens' => $llmResult->inputTokens,
+                    'output_tokens' => $llmResult->outputTokens,
+                    'duration_ms' => $llmResult->durationMs,
+                    'status' => $llmResult->success ? 'success' : 'error',
+                    'error_message' => $llmResult->error,
+                    'created_by' => $userId,
                 ]);
 
                 $resultIds[] = $result->id;
@@ -197,14 +198,14 @@ class PipelineService
         }
 
         return [
-            'result_ids'              => $resultIds,
+            'result_ids' => $resultIds,
             'pending_client_channels' => $pendingClient,
         ];
     }
 
     /**
      * @return string|null Returns null when input_source=result_history matches
-     *                    no results — caller treats that as "skip this channel".
+     *                     no results — caller treats that as "skip this channel".
      */
     private function resolveUserPrompt(
         PipelineChannel $channel,
@@ -233,7 +234,7 @@ class PipelineService
             return $this->buildResultHistoryInput($synthesisChannel, $version, $user);
         }
 
-        return !empty($parallelResults) ? $this->buildSynthesisInput($parallelResults) : null;
+        return ! empty($parallelResults) ? $this->buildSynthesisInput($parallelResults) : null;
     }
 
     /**
@@ -248,31 +249,31 @@ class PipelineService
         PromptVersion $version,
         ?User $user,
     ): ?string {
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
         $filters = $channel->input_filters ?? [];
 
         $targetSlug = $filters['prompt_slug'] ?? $version->prompt->slug;
-        $ownerSlug  = $filters['owner'] ?? null;
+        $ownerSlug = $filters['owner'] ?? null;
 
         $promptQuery = Prompt::visibleTo($user)->where('slug', $targetSlug);
         if ($ownerSlug) {
             $owner = User::where('slug', $ownerSlug)->first();
-            if (!$owner) {
+            if (! $owner) {
                 return null;
             }
             $promptQuery->where('created_by', $owner->id);
         }
         $targetPrompt = $promptQuery->first();
-        if (!$targetPrompt) {
+        if (! $targetPrompt) {
             return null;
         }
 
         $query = Result::where('prompt_id', $targetPrompt->id);
 
-        if (!empty($filters['since'])) {
+        if (! empty($filters['since'])) {
             try {
                 $since = now()->sub(new \DateInterval($filters['since']));
                 $query->where('created_at', '>=', $since);
@@ -281,7 +282,7 @@ class PipelineService
             }
         }
 
-        if (!empty($filters['run_source']) && in_array($filters['run_source'], ['manual', 'scheduled'], true)) {
+        if (! empty($filters['run_source']) && in_array($filters['run_source'], ['manual', 'scheduled'], true)) {
             $query->where('run_source', $filters['run_source']);
         }
 
@@ -307,12 +308,13 @@ class PipelineService
         }
 
         $sections = $results->map(function (Result $r) {
-            $providerLabel = trim(($r->provider_name ?? '') . ' · ' . ($r->model_name ?? ''), ' ·');
-            $header = '[' . $r->created_at->toIso8601String() . ']';
+            $providerLabel = trim(($r->provider_name ?? '').' · '.($r->model_name ?? ''), ' ·');
+            $header = '['.$r->created_at->toIso8601String().']';
             if ($providerLabel) {
                 $header .= " [{$providerLabel}]";
             }
-            return "{$header}\n" . ($r->response_text ?? '');
+
+            return "{$header}\n".($r->response_text ?? '');
         })->all();
 
         return implode("\n\n---\n\n", $sections);
@@ -322,7 +324,7 @@ class PipelineService
     {
         $systemPrompt = $channel->system_prompt ?? '';
 
-        if (!$systemPrompt) {
+        if (! $systemPrompt) {
             return '';
         }
 

@@ -15,12 +15,12 @@ class CategoryController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->isEditor()) {
+        if (! $request->user()->isEditor()) {
             return $this->error('Insufficient permissions.', 403);
         }
 
         $validated = $request->validate([
-            'name'  => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             'color' => 'nullable|string|max:30',
         ]);
 
@@ -31,14 +31,14 @@ class CategoryController extends ApiController
 
     public function update(Request $request, int $id): JsonResponse
     {
-        if (!$request->user()->isEditor()) {
+        if (! $request->user()->isEditor()) {
             return $this->error('Editor access required.', 403);
         }
 
         $category = Category::findOrFail($id);
 
         $validated = $request->validate([
-            'name'  => 'sometimes|required|string|max:255',
+            'name' => 'sometimes|required|string|max:255',
             'color' => 'sometimes|required|string|max:30',
         ]);
 
@@ -49,7 +49,7 @@ class CategoryController extends ApiController
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        if (!$request->user()->isEditor()) {
+        if (! $request->user()->isEditor()) {
             return $this->error('Editor access required.', 403);
         }
 

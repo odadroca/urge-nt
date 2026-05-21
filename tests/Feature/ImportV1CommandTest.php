@@ -25,7 +25,7 @@ class ImportV1CommandTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->v1DbPath = tempnam(sys_get_temp_dir(), 'urge_v1_test_') . '.sqlite';
+        $this->v1DbPath = tempnam(sys_get_temp_dir(), 'urge_v1_test_').'.sqlite';
         touch($this->v1DbPath);
         $this->createV1Database();
     }

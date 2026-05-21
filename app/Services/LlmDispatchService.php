@@ -18,13 +18,15 @@ class LlmDispatchService
     {
         $this->assertPromptSize($prompt);
         $driver = $this->resolveDriver($provider);
+
         return $driver->complete($prompt);
     }
 
     public function dispatchWithSystem(LlmProvider $provider, string $systemPrompt, string $userPrompt): LlmResult
     {
-        $this->assertPromptSize($systemPrompt . $userPrompt);
+        $this->assertPromptSize($systemPrompt.$userPrompt);
         $driver = $this->resolveDriver($provider);
+
         return $driver->completeWithSystem($systemPrompt, $userPrompt);
     }
 
@@ -42,7 +44,7 @@ class LlmDispatchService
     {
         $apiKey = $provider->isOllama() ? '' : ($provider->api_key ?? '');
 
-        if (!$provider->isOllama() && trim($apiKey) === '') {
+        if (! $provider->isOllama() && trim($apiKey) === '') {
             throw new \RuntimeException("No API key configured for provider: {$provider->name}");
         }
 
@@ -55,7 +57,7 @@ class LlmDispatchService
             UrlSafetyService::assertSafe($endpoint, ['allow_loopback' => false, 'allow_http' => false]);
         }
         if ($provider->driver === 'ollama') {
-            if (!$endpoint) {
+            if (! $endpoint) {
                 throw new \RuntimeException(
                     "Ollama provider '{$provider->name}' requires an explicit endpoint."
                 );
@@ -64,13 +66,13 @@ class LlmDispatchService
         }
 
         return match ($provider->driver) {
-            'openai'     => new OpenAiDriver($apiKey, $provider->model, $endpoint),
-            'anthropic'  => new AnthropicDriver($apiKey, $provider->model),
-            'mistral'    => new MistralDriver($apiKey, $provider->model),
-            'gemini'     => new GeminiDriver($apiKey, $provider->model),
-            'ollama'     => new OllamaDriver($endpoint, $provider->model),
+            'openai' => new OpenAiDriver($apiKey, $provider->model, $endpoint),
+            'anthropic' => new AnthropicDriver($apiKey, $provider->model),
+            'mistral' => new MistralDriver($apiKey, $provider->model),
+            'gemini' => new GeminiDriver($apiKey, $provider->model),
+            'ollama' => new OllamaDriver($endpoint, $provider->model),
             'openrouter' => new OpenRouterDriver($apiKey, $provider->model),
-            default      => throw new \InvalidArgumentException("Unknown LLM driver: {$provider->driver}"),
+            default => throw new \InvalidArgumentException("Unknown LLM driver: {$provider->driver}"),
         };
     }
 }

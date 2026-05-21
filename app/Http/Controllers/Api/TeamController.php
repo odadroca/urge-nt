@@ -18,15 +18,15 @@ class TeamController extends ApiController
             ->get()
             ->map(function (Team $team) {
                 return [
-                    'id'           => $team->id,
-                    'name'         => $team->name,
-                    'slug'         => $team->slug,
-                    'created_by'   => $team->created_by,
+                    'id' => $team->id,
+                    'name' => $team->name,
+                    'slug' => $team->slug,
+                    'created_by' => $team->created_by,
                     'member_count' => $team->members_count,
                     'prompt_count' => $team->prompts_count,
-                    'role'         => $team->pivot->role,
-                    'created_at'   => $team->created_at,
-                    'updated_at'   => $team->updated_at,
+                    'role' => $team->pivot->role,
+                    'created_at' => $team->created_at,
+                    'updated_at' => $team->updated_at,
                 ];
             });
 
@@ -40,7 +40,7 @@ class TeamController extends ApiController
         ]);
 
         $team = Team::create([
-            'name'       => $validated['name'],
+            'name' => $validated['name'],
             'created_by' => $request->user()->id,
         ]);
 
@@ -50,14 +50,14 @@ class TeamController extends ApiController
         $team->loadCount(['members', 'prompts']);
 
         return $this->success([
-            'id'           => $team->id,
-            'name'         => $team->name,
-            'slug'         => $team->slug,
-            'created_by'   => $team->created_by,
+            'id' => $team->id,
+            'name' => $team->name,
+            'slug' => $team->slug,
+            'created_by' => $team->created_by,
             'member_count' => $team->members_count,
             'prompt_count' => $team->prompts_count,
-            'created_at'   => $team->created_at,
-            'updated_at'   => $team->updated_at,
+            'created_at' => $team->created_at,
+            'updated_at' => $team->updated_at,
         ], 201);
     }
 
@@ -74,20 +74,20 @@ class TeamController extends ApiController
             ->get(['prompts.id', 'prompts.name', 'prompts.slug', 'prompts.type', 'prompts.updated_at']);
 
         return $this->success([
-            'id'           => $team->id,
-            'name'         => $team->name,
-            'slug'         => $team->slug,
-            'created_by'   => $team->created_by,
+            'id' => $team->id,
+            'name' => $team->name,
+            'slug' => $team->slug,
+            'created_by' => $team->created_by,
             'prompt_count' => $team->prompts_count,
-            'members'      => $team->members->map(fn (User $m) => [
-                'id'    => $m->id,
-                'name'  => $m->name,
+            'members' => $team->members->map(fn (User $m) => [
+                'id' => $m->id,
+                'name' => $m->name,
                 'email' => $m->email,
-                'role'  => $m->pivot->role,
+                'role' => $m->pivot->role,
             ]),
-            'prompts'      => $sharedPrompts,
-            'created_at'   => $team->created_at,
-            'updated_at'   => $team->updated_at,
+            'prompts' => $sharedPrompts,
+            'created_at' => $team->created_at,
+            'updated_at' => $team->updated_at,
         ]);
     }
 
@@ -95,7 +95,7 @@ class TeamController extends ApiController
     {
         $user = $request->user();
 
-        if (!$team->members()->where('users.id', $user->id)->exists()) {
+        if (! $team->members()->where('users.id', $user->id)->exists()) {
             return $this->error('You are not a member of this team.', 404);
         }
 
@@ -123,9 +123,9 @@ class TeamController extends ApiController
         $team->update($validated);
 
         return $this->success([
-            'id'         => $team->id,
-            'name'       => $team->name,
-            'slug'       => $team->slug,
+            'id' => $team->id,
+            'name' => $team->name,
+            'slug' => $team->slug,
             'created_by' => $team->created_by,
             'created_at' => $team->created_at,
             'updated_at' => $team->updated_at,
@@ -146,11 +146,11 @@ class TeamController extends ApiController
         $this->authorizeOwnerOrAdmin($team, $request);
 
         $validated = $request->validate([
-            'email'   => 'required_without:user_id|nullable|email|exists:users,email',
+            'email' => 'required_without:user_id|nullable|email|exists:users,email',
             'user_id' => 'required_without:email|nullable|exists:users,id',
         ]);
 
-        if (!empty($validated['user_id'])) {
+        if (! empty($validated['user_id'])) {
             $user = User::findOrFail($validated['user_id']);
         } else {
             $user = User::where('email', $validated['email'])->firstOrFail();
@@ -164,10 +164,10 @@ class TeamController extends ApiController
         $team->members()->attach($user->id, ['role' => 'member']);
 
         return $this->success([
-            'id'    => $user->id,
-            'name'  => $user->name,
+            'id' => $user->id,
+            'name' => $user->name,
             'email' => $user->email,
-            'role'  => 'member',
+            'role' => 'member',
         ], 201);
     }
 
@@ -175,7 +175,7 @@ class TeamController extends ApiController
     {
         $this->authorizeOwnerOrAdmin($team, $request);
 
-        if (!$team->members()->where('users.id', $user->id)->exists()) {
+        if (! $team->members()->where('users.id', $user->id)->exists()) {
             return $this->error('User is not a member of this team.', 404);
         }
 
@@ -187,7 +187,7 @@ class TeamController extends ApiController
     private function authorizeMembershipOrAdmin(Team $team, Request $request): void
     {
         $user = $request->user();
-        if (!$user->isAdmin() && !$team->members()->where('users.id', $user->id)->exists()) {
+        if (! $user->isAdmin() && ! $team->members()->where('users.id', $user->id)->exists()) {
             abort(403, 'You are not a member of this team.');
         }
     }
@@ -200,7 +200,7 @@ class TeamController extends ApiController
         }
 
         $membership = $team->members()->where('users.id', $user->id)->first();
-        if (!$membership || $membership->pivot->role !== 'owner') {
+        if (! $membership || $membership->pivot->role !== 'owner') {
             abort(403, 'Only team owners can perform this action.');
         }
     }

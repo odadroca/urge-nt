@@ -63,7 +63,7 @@ class InternalApiTest extends TestCase
         $this->assertContains('city', $data);
         $this->assertContains('role', $data);
         // name should only appear once
-        $this->assertCount(1, array_keys(array_filter($data, fn($v) => $v === 'name')));
+        $this->assertCount(1, array_keys(array_filter($data, fn ($v) => $v === 'name')));
     }
 
     public function test_variables_endpoint_returns_empty_when_no_versions(): void

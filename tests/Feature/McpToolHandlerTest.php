@@ -16,8 +16,11 @@ class McpToolHandlerTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private User $otherUser;
+
     private McpToolHandler $handler;
+
     private Prompt $prompt;
 
     protected function setUp(): void

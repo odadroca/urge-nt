@@ -14,24 +14,26 @@ use Illuminate\Console\Command;
 class SeedEvaluationCommand extends Command
 {
     protected $signature = 'urge:seed-evaluation';
+
     protected $description = 'Create default evaluation prompt, pipeline, and settings';
 
     public function handle(): int
     {
         $user = User::first();
-        if (!$user) {
+        if (! $user) {
             $this->error('No users exist. Register a user first.');
+
             return 1;
         }
 
         // 1. Create evaluation prompt (fragment)
         $prompt = Prompt::where('slug', 'system-evaluation-template')->first();
-        if (!$prompt) {
+        if (! $prompt) {
             $prompt = Prompt::create([
-                'name'        => 'System Evaluation Template',
-                'type'        => 'fragment',
+                'name' => 'System Evaluation Template',
+                'type' => 'fragment',
                 'description' => 'Default evaluation prompt used to assess LLM results. Edit this to customize evaluation criteria.',
-                'created_by'  => $user->id,
+                'created_by' => $user->id,
             ]);
 
             $content = <<<'TEMPLATE'
@@ -58,7 +60,7 @@ Return ONLY valid JSON in this exact format:
 TEMPLATE;
 
             app(VersioningService::class)->createVersion($prompt, [
-                'content'        => $content,
+                'content' => $content,
                 'commit_message' => 'Default evaluation template',
             ], $user);
 
@@ -69,14 +71,14 @@ TEMPLATE;
 
         // 2. Create evaluation pipeline with dimension channels
         $pipeline = Pipeline::where('slug', 'evaluation')->first();
-        if (!$pipeline) {
+        if (! $pipeline) {
             $defaultProvider = LlmProvider::where('is_active', true)->first();
 
             $pipeline = Pipeline::create([
-                'name'        => 'Evaluation',
+                'name' => 'Evaluation',
                 'description' => 'Evaluates LLM results across quality dimensions: relevance, completeness, accuracy, clarity, conciseness. Each channel scores one dimension.',
-                'is_active'   => true,
-                'created_by'  => $user->id,
+                'is_active' => true,
+                'created_by' => $user->id,
             ]);
 
             $dimensions = [
@@ -89,12 +91,12 @@ TEMPLATE;
 
             foreach ($dimensions as $i => $dim) {
                 PipelineChannel::create([
-                    'pipeline_id'     => $pipeline->id,
-                    'role_label'      => $dim['label'],
+                    'pipeline_id' => $pipeline->id,
+                    'role_label' => $dim['label'],
                     'llm_provider_id' => $defaultProvider?->id,
-                    'system_prompt'   => $dim['prompt'],
-                    'trigger'         => 'parallel',
-                    'sort_order'      => $i,
+                    'system_prompt' => $dim['prompt'],
+                    'trigger' => 'parallel',
+                    'sort_order' => $i,
                 ]);
             }
 
@@ -112,7 +114,7 @@ TEMPLATE;
 
         $this->info('Evaluation settings initialized.');
         $this->info('Enable evaluation in Settings > Evaluation tab.');
-        if (!LlmProvider::where('is_active', true)->exists()) {
+        if (! LlmProvider::where('is_active', true)->exists()) {
             $this->warn('No active LLM provider found. Add one in Settings > LLM Providers, then assign it to evaluation pipeline channels.');
         }
 

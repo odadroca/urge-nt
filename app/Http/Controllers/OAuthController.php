@@ -24,7 +24,7 @@ class OAuthController
         $codeChallengeMethod = $request->query('code_challenge_method', '');
         $resource = $request->query('resource');
 
-        if (!$clientId || !$redirectUri) {
+        if (! $clientId || ! $redirectUri) {
             return redirect('/')->with('error', 'Invalid OAuth request: missing required parameters.');
         }
 
@@ -32,7 +32,7 @@ class OAuthController
         $client = $this->oauthService->findClient($clientId);
         $isConfidential = $client && $client->client_secret;
 
-        if (!$isConfidential && !$codeChallenge) {
+        if (! $isConfidential && ! $codeChallenge) {
             return redirect('/')->with('error', 'Invalid OAuth request: code_challenge is required for public clients.');
         }
 
@@ -40,11 +40,11 @@ class OAuthController
             return redirect('/')->with('error', 'Invalid OAuth request: code_challenge_method must be S256.');
         }
 
-        if (!$this->oauthService->validateScope($scope)) {
+        if (! $this->oauthService->validateScope($scope)) {
             return redirect('/')->with('error', 'Invalid OAuth request: unsupported scope.');
         }
 
-        if (!$this->oauthService->validateRedirectUri($clientId, $redirectUri)) {
+        if (! $this->oauthService->validateRedirectUri($clientId, $redirectUri)) {
             return redirect('/')->with('error', 'Invalid OAuth request: redirect_uri not allowed for this client.');
         }
 
@@ -55,25 +55,25 @@ class OAuthController
         }
 
         return view('oauth.authorize', [
-            'client_id'             => $clientId,
-            'client_name'           => $clientName,
-            'redirect_uri'          => $redirectUri,
-            'scope'                 => $scope,
-            'state'                 => $state,
-            'code_challenge'        => $codeChallenge,
+            'client_id' => $clientId,
+            'client_name' => $clientName,
+            'redirect_uri' => $redirectUri,
+            'scope' => $scope,
+            'state' => $state,
+            'code_challenge' => $codeChallenge,
             'code_challenge_method' => $codeChallengeMethod,
-            'resource'              => $resource,
-            'scopes'                => explode(' ', $scope),
+            'resource' => $resource,
+            'scopes' => explode(' ', $scope),
         ]);
     }
 
     public function handleAuthorize(Request $request): RedirectResponse
     {
         $request->validate([
-            'client_id'             => 'required|string',
-            'redirect_uri'          => 'required|string|url',
-            'scope'                 => 'required|string',
-            'code_challenge'        => 'nullable|string',
+            'client_id' => 'required|string',
+            'redirect_uri' => 'required|string|url',
+            'scope' => 'required|string',
+            'code_challenge' => 'nullable|string',
             'code_challenge_method' => 'nullable|in:S256',
         ]);
 
@@ -84,15 +84,15 @@ class OAuthController
         // Re-validate the redirect_uri allowlist on this code-issuing path.
         // Without this, the GET allowlist check is bypassable by a forged
         // POST that goes straight to consent submission (AUTH-01).
-        if (!$this->oauthService->validateRedirectUri($clientId, $redirectUri)) {
+        if (! $this->oauthService->validateRedirectUri($clientId, $redirectUri)) {
             return redirect('/')->with('error', 'Invalid OAuth request: redirect_uri not allowed for this client.');
         }
 
         if ($request->input('decision') === 'deny') {
             return redirect($this->buildRedirectUrl($redirectUri, [
-                'error'             => 'access_denied',
+                'error' => 'access_denied',
                 'error_description' => 'User denied the request.',
-                'state'             => $state,
+                'state' => $state,
             ]));
         }
 
@@ -107,7 +107,7 @@ class OAuthController
         );
 
         return redirect($this->buildRedirectUrl($redirectUri, [
-            'code'  => $code,
+            'code' => $code,
             'state' => $state,
         ]));
     }
@@ -118,9 +118,9 @@ class OAuthController
 
         return match ($grantType) {
             'authorization_code' => $this->handleAuthorizationCodeGrant($request),
-            'refresh_token'      => $this->handleRefreshTokenGrant($request),
-            default              => response()->json([
-                'error'             => 'unsupported_grant_type',
+            'refresh_token' => $this->handleRefreshTokenGrant($request),
+            default => response()->json([
+                'error' => 'unsupported_grant_type',
                 'error_description' => 'Supported grant types: authorization_code, refresh_token.',
             ], 400),
         };
@@ -134,25 +134,25 @@ class OAuthController
         $clientSecret = $request->input('client_secret', '');
         $redirectUri = $request->input('redirect_uri', '');
 
-        if (!$code || !$clientId || !$redirectUri) {
+        if (! $code || ! $clientId || ! $redirectUri) {
             return response()->json([
-                'error'             => 'invalid_request',
+                'error' => 'invalid_request',
                 'error_description' => 'Missing required parameters: code, client_id, redirect_uri.',
             ], 400);
         }
 
-        if (!$codeVerifier && !$clientSecret) {
+        if (! $codeVerifier && ! $clientSecret) {
             return response()->json([
-                'error'             => 'invalid_request',
+                'error' => 'invalid_request',
                 'error_description' => 'Either code_verifier (PKCE) or client_secret is required.',
             ], 400);
         }
 
         $token = $this->oauthService->exchangeCode($code, $codeVerifier, $clientId, $redirectUri, $clientSecret);
 
-        if (!$token) {
+        if (! $token) {
             return response()->json([
-                'error'             => 'invalid_grant',
+                'error' => 'invalid_grant',
                 'error_description' => 'Invalid authorization code, PKCE verifier, or parameters.',
             ], 400);
         }
@@ -166,18 +166,18 @@ class OAuthController
         $clientId = $request->input('client_id', '');
         $scope = $request->input('scope');
 
-        if (!$refreshToken || !$clientId) {
+        if (! $refreshToken || ! $clientId) {
             return response()->json([
-                'error'             => 'invalid_request',
+                'error' => 'invalid_request',
                 'error_description' => 'Missing required parameters: refresh_token, client_id.',
             ], 400);
         }
 
         $token = $this->oauthService->refreshToken($refreshToken, $clientId, $scope);
 
-        if (!$token) {
+        if (! $token) {
             return response()->json([
-                'error'             => 'invalid_grant',
+                'error' => 'invalid_grant',
                 'error_description' => 'Invalid or expired refresh token.',
             ], 400);
         }
@@ -188,11 +188,11 @@ class OAuthController
     private function tokenResponse(mixed $token): JsonResponse
     {
         return response()->json([
-            'access_token'  => $token->raw_token,
-            'token_type'    => 'Bearer',
-            'expires_in'    => config('urge.oauth.token_ttl', 3600),
+            'access_token' => $token->raw_token,
+            'token_type' => 'Bearer',
+            'expires_in' => config('urge.oauth.token_ttl', 3600),
             'refresh_token' => $token->raw_refresh_token,
-            'scope'         => $token->scope,
+            'scope' => $token->scope,
         ]);
     }
 
@@ -204,7 +204,7 @@ class OAuthController
         $data = $request->json()->all();
 
         // redirect_uris is required
-        if (empty($data['redirect_uris']) || !is_array($data['redirect_uris'])) {
+        if (empty($data['redirect_uris']) || ! is_array($data['redirect_uris'])) {
             return response()->json([
                 'error' => 'invalid_client_metadata',
                 'error_description' => 'redirect_uris is required and must be a non-empty array.',
@@ -219,7 +219,7 @@ class OAuthController
 
             if ($scheme === 'http') {
                 // HTTP only allowed for loopback
-                if (!in_array($host, ['localhost', '127.0.0.1', '[::1]'])) {
+                if (! in_array($host, ['localhost', '127.0.0.1', '[::1]'])) {
                     return response()->json([
                         'error' => 'invalid_client_metadata',
                         'error_description' => "HTTP redirect URIs are only allowed for loopback addresses. Got: {$uri}",
@@ -243,25 +243,25 @@ class OAuthController
         }
 
         $client = OAuthClient::create([
-            'client_id'                   => $clientId,
-            'client_secret'               => $rawSecret ? hash('sha256', $rawSecret) : null,
-            'client_name'                 => $data['client_name'] ?? null,
-            'redirect_uris'               => $data['redirect_uris'],
-            'grant_types'                 => $data['grant_types'] ?? ['authorization_code'],
-            'response_types'              => $data['response_types'] ?? ['code'],
-            'token_endpoint_auth_method'  => $authMethod,
-            'scope'                       => $data['scope'] ?? null,
+            'client_id' => $clientId,
+            'client_secret' => $rawSecret ? hash('sha256', $rawSecret) : null,
+            'client_name' => $data['client_name'] ?? null,
+            'redirect_uris' => $data['redirect_uris'],
+            'grant_types' => $data['grant_types'] ?? ['authorization_code'],
+            'response_types' => $data['response_types'] ?? ['code'],
+            'token_endpoint_auth_method' => $authMethod,
+            'scope' => $data['scope'] ?? null,
         ]);
 
         $response = [
-            'client_id'                   => $client->client_id,
-            'client_name'                 => $client->client_name,
-            'redirect_uris'               => $client->redirect_uris,
-            'client_id_issued_at'         => $client->created_at->timestamp,
-            'client_secret_expires_at'    => 0,
-            'grant_types'                 => $client->grant_types,
-            'response_types'              => $client->response_types,
-            'token_endpoint_auth_method'  => $client->token_endpoint_auth_method,
+            'client_id' => $client->client_id,
+            'client_name' => $client->client_name,
+            'redirect_uris' => $client->redirect_uris,
+            'client_id_issued_at' => $client->created_at->timestamp,
+            'client_secret_expires_at' => 0,
+            'grant_types' => $client->grant_types,
+            'response_types' => $client->response_types,
+            'token_endpoint_auth_method' => $client->token_endpoint_auth_method,
         ];
 
         if ($rawSecret) {
@@ -283,7 +283,7 @@ class OAuthController
         $clientId = $request->input('client_id', '');
         $clientSecret = $request->input('client_secret', '');
 
-        if (!$token || !$clientId) {
+        if (! $token || ! $clientId) {
             return response()->json([
                 'error' => 'invalid_request',
                 'error_description' => 'token and client_id are required.',
@@ -292,7 +292,7 @@ class OAuthController
 
         $client = $this->oauthService->findClient($clientId);
         if ($client && $client->client_secret) {
-            if (!hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
+            if (! hash_equals($client->client_secret, hash('sha256', $clientSecret))) {
                 return response()->json([
                     'error' => 'invalid_client',
                     'error_description' => 'Client authentication failed.',
@@ -303,13 +303,13 @@ class OAuthController
         $this->oauthService->revokeToken($token, $clientId);
 
         // RFC 7009 §2.2: always 200, even when the token was not found
-        return response()->json(new \stdClass(), 200);
+        return response()->json(new \stdClass, 200);
     }
 
     private function buildRedirectUrl(string $baseUri, array $params): string
     {
         $separator = str_contains($baseUri, '?') ? '&' : '?';
 
-        return $baseUri . $separator . http_build_query($params);
+        return $baseUri.$separator.http_build_query($params);
     }
 }

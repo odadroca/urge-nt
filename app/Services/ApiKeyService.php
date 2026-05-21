@@ -13,19 +13,19 @@ class ApiKeyService
         $bytes = config('urge.key_bytes', 31);
         $previewLength = config('urge.key_preview_length', 8);
 
-        $raw = $prefix . rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
+        $raw = $prefix.rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
         $hash = hash('sha256', $raw);
         $preview = substr($raw, 0, $previewLength);
 
         $apiKey = ApiKey::create([
-            'name'        => $name,
-            'user_id'     => $user->id,
-            'key_hash'    => $hash,
+            'name' => $name,
+            'user_id' => $user->id,
+            'key_hash' => $hash,
             'key_preview' => $preview,
-            'is_active'   => true,
+            'is_active' => true,
         ]);
 
-        if (!empty($promptIds)) {
+        if (! empty($promptIds)) {
             $apiKey->prompts()->sync($promptIds);
         }
 
@@ -38,7 +38,7 @@ class ApiKeyService
 
         $apiKey = ApiKey::where('key_hash', $hash)->first();
 
-        if (!$apiKey || !$apiKey->isValid()) {
+        if (! $apiKey || ! $apiKey->isValid()) {
             return null;
         }
 

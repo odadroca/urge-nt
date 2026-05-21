@@ -1,7 +1,11 @@
 <?php
 
 use App\Http\Controllers\InternalApiController;
+use App\Http\Controllers\OAuthController;
+use App\Http\Controllers\OAuthGitHubController;
 use App\Http\Controllers\ShareController;
+use App\Http\Controllers\WellKnownController;
+use App\Http\Middleware\OAuthCors;
 use App\Models\Prompt;
 use App\Models\Team;
 use Illuminate\Support\Facades\Route;
@@ -67,26 +71,26 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', fn () => redirect('/app/settings?tab=profile'))->name('profile.edit');
 
     // OAuth 2.1 authorization (requires login)
-    Route::get('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'showAuthorize']);
-    Route::post('/oauth/authorize', [App\Http\Controllers\OAuthController::class, 'handleAuthorize']);
+    Route::get('/oauth/authorize', [OAuthController::class, 'showAuthorize']);
+    Route::post('/oauth/authorize', [OAuthController::class, 'handleAuthorize']);
 
     // GitHub OAuth — redirect (stores MCP params in session, then goes to GitHub)
-    Route::get('/oauth/github', [App\Http\Controllers\OAuthGitHubController::class, 'redirect']);
+    Route::get('/oauth/github', [OAuthGitHubController::class, 'redirect']);
 });
 
 // GitHub OAuth callback (no auth — user is not logged in yet)
-Route::get('/oauth/github/callback', [App\Http\Controllers\OAuthGitHubController::class, 'callback']);
+Route::get('/oauth/github/callback', [OAuthGitHubController::class, 'callback']);
 
 // OAuth 2.1 endpoints (public, CORS-enabled for browser-based MCP clients)
-Route::middleware(App\Http\Middleware\OAuthCors::class)->group(function () {
-    Route::get('/.well-known/oauth-protected-resource', [App\Http\Controllers\WellKnownController::class, 'protectedResource']);
-    Route::get('/.well-known/oauth-authorization-server', [App\Http\Controllers\WellKnownController::class, 'authorizationServer']);
-    Route::get('/.well-known/openid-configuration', [App\Http\Controllers\WellKnownController::class, 'openIdConfiguration']);
+Route::middleware(OAuthCors::class)->group(function () {
+    Route::get('/.well-known/oauth-protected-resource', [WellKnownController::class, 'protectedResource']);
+    Route::get('/.well-known/oauth-authorization-server', [WellKnownController::class, 'authorizationServer']);
+    Route::get('/.well-known/openid-configuration', [WellKnownController::class, 'openIdConfiguration']);
 
     // CSRF-exempt per OAuth spec; throttled per AUTH-02 (was: unthrottled).
-    Route::middleware('throttle:20,1')->post('/oauth/token', [App\Http\Controllers\OAuthController::class, 'token']);
-    Route::middleware('throttle:5,1')->post('/oauth/register', [App\Http\Controllers\OAuthController::class, 'register']);
-    Route::middleware('throttle:20,1')->post('/oauth/revoke', [App\Http\Controllers\OAuthController::class, 'revoke']);
+    Route::middleware('throttle:20,1')->post('/oauth/token', [OAuthController::class, 'token']);
+    Route::middleware('throttle:5,1')->post('/oauth/register', [OAuthController::class, 'register']);
+    Route::middleware('throttle:20,1')->post('/oauth/revoke', [OAuthController::class, 'revoke']);
 
     Route::options('/oauth/token', fn () => response('', 204));
     Route::options('/oauth/register', fn () => response('', 204));

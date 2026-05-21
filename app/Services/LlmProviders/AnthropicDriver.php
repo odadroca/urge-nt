@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 class AnthropicDriver implements LlmDriverInterface
 {
     private const BASE_URL = 'https://api.anthropic.com';
+
     private const API_VERSION = '2023-06-01';
 
     public function __construct(
@@ -31,9 +32,9 @@ class AnthropicDriver implements LlmDriverInterface
 
         try {
             $payload = [
-                'model'      => $this->model,
+                'model' => $this->model,
                 'max_tokens' => 4096,
-                'messages'   => $messages,
+                'messages' => $messages,
             ];
 
             if ($system !== null) {
@@ -41,12 +42,12 @@ class AnthropicDriver implements LlmDriverInterface
             }
 
             $response = Http::withHeaders([
-                'x-api-key'         => $this->apiKey,
+                'x-api-key' => $this->apiKey,
                 'anthropic-version' => self::API_VERSION,
             ])
                 ->withOptions(['verify' => config('urge.curl_ssl_verify', true), 'allow_redirects' => false])
                 ->timeout(120)
-                ->post(self::BASE_URL . '/v1/messages', $payload);
+                ->post(self::BASE_URL.'/v1/messages', $payload);
 
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
 
@@ -55,10 +56,12 @@ class AnthropicDriver implements LlmDriverInterface
                 $error = is_string($msg) && $msg !== ''
                     ? DriverErrorSanitizer::trim($msg)
                     : 'Anthropic request failed.';
+
                 return LlmResult::failure($error, $this->model, $durationMs);
             }
 
             $data = $response->json();
+
             return LlmResult::success(
                 text: $data['content'][0]['text'] ?? '',
                 modelUsed: $data['model'] ?? $this->model,
@@ -68,6 +71,7 @@ class AnthropicDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
+
             return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }

@@ -30,6 +30,7 @@ class OAuthAccessToken extends Model
     public function hasScope(string $scope): bool
     {
         $granted = explode(' ', $this->scope);
+
         return in_array($scope, $granted);
     }
 }

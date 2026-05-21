@@ -30,10 +30,10 @@ class SecurityHeaders
         }
 
         $headers = [
-            'X-Frame-Options'        => 'DENY',
+            'X-Frame-Options' => 'DENY',
             'X-Content-Type-Options' => 'nosniff',
-            'Referrer-Policy'        => 'strict-origin-when-cross-origin',
-            'Permissions-Policy'     => 'camera=(), microphone=(), geolocation=(), payment=()',
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=(), payment=()',
         ];
 
         if ($request->isSecure() || config('app.env') === 'production') {
@@ -52,7 +52,7 @@ class SecurityHeaders
 
         foreach ($headers as $name => $value) {
             // Don't clobber values another middleware deliberately set
-            if (!$response->headers->has($name)) {
+            if (! $response->headers->has($name)) {
                 $response->headers->set($name, $value);
             }
         }
@@ -69,7 +69,7 @@ class SecurityHeaders
         $directives = [
             "default-src 'self'",
             "script-src 'self'",
-            'style-src ' . ($allowInlineStyle ? "'self' 'unsafe-inline'" : "'self'"),
+            'style-src '.($allowInlineStyle ? "'self' 'unsafe-inline'" : "'self'"),
             "img-src 'self' data:",
             "font-src 'self' data:",
             "connect-src 'self'",

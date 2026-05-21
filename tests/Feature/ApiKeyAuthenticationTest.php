@@ -13,6 +13,7 @@ class ApiKeyAuthenticationTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private string $apiKey;
 
     protected function setUp(): void

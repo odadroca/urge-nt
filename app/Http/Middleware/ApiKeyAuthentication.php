@@ -16,13 +16,13 @@ class ApiKeyAuthentication
     {
         $token = $request->bearerToken();
 
-        if (!$token) {
+        if (! $token) {
             return response()->json(['error' => 'Missing API key. Provide a Bearer token in the Authorization header.'], 401);
         }
 
         $apiKey = $this->apiKeyService->findByToken($token);
 
-        if (!$apiKey) {
+        if (! $apiKey) {
             return response()->json(['error' => 'Invalid or expired API key.'], 401);
         }
 

@@ -11,7 +11,7 @@ class UserController extends ApiController
 {
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
@@ -20,22 +20,22 @@ class UserController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
-            'role'     => 'required|in:admin,editor,viewer',
+            'role' => 'required|in:admin,editor,viewer',
         ]);
 
         $user = User::create([
-            'name'     => $validated['name'],
-            'email'    => $validated['email'],
+            'name' => $validated['name'],
+            'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'role'     => $validated['role'],
+            'role' => $validated['role'],
         ]);
 
         return $this->success($user->only(['id', 'name', 'slug', 'email', 'role', 'created_at']), 201);
@@ -43,7 +43,7 @@ class UserController extends ApiController
 
     public function update(Request $request, int $id): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 
@@ -64,7 +64,7 @@ class UserController extends ApiController
 
     public function destroy(Request $request, int $id): JsonResponse
     {
-        if (!$request->user()->isAdmin()) {
+        if (! $request->user()->isAdmin()) {
             return $this->error('Admin access required.', 403);
         }
 

@@ -13,7 +13,7 @@ class ShareController extends Controller
     {
         $link = $shareService->findByToken($token);
 
-        if (!$link) {
+        if (! $link) {
             abort(404);
         }
 
@@ -45,16 +45,16 @@ class ShareController extends Controller
         );
 
         return view('public.collection-story', [
-            'collection'    => $collection,
+            'collection' => $collection,
             'renderedItems' => $renderedItems,
-            'shareLink'     => $link,
+            'shareLink' => $link,
         ]);
     }
 
     /**
-     * @param array<int, bool> $visited Collection IDs already entered on
-     *  the current render path; guards against DAG cycles introduced
-     *  outside the CollectionNestingService validator (TPL-07).
+     * @param  array<int, bool>  $visited  Collection IDs already entered on
+     *                                     the current render path; guards against DAG cycles introduced
+     *                                     outside the CollectionNestingService validator (TPL-07).
      */
     private function renderCollectionItems(
         Collection $collection,
@@ -73,7 +73,7 @@ class ShareController extends Controller
 
         return $collection->items->map(function ($item) use ($templateEngine, $remainingDepth, $owner, &$visited) {
             $data = [
-                'item'     => $item,
+                'item' => $item,
                 'resolved' => $item->item,
                 'rendered' => null,
                 'children' => null,

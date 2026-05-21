@@ -18,12 +18,13 @@ class DualAuthentication
 
         // 2. OAuth access token
         $bearer = $request->bearerToken();
-        if ($bearer && !str_starts_with($bearer, config('urge.key_prefix', 'urge_'))) {
+        if ($bearer && ! str_starts_with($bearer, config('urge.key_prefix', 'urge_'))) {
             $oauthService = app(OAuthService::class);
             $token = $oauthService->findByToken($bearer);
             if ($token) {
                 $request->setUserResolver(fn () => $token->user);
                 $request->attributes->set('oauth_token', $token);
+
                 return $next($request);
             }
         }

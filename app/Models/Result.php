@@ -47,16 +47,16 @@ class Result extends Model
      * the dedup path used by ImportV1Command.
      */
     protected $casts = [
-        'variables_used'   => 'encrypted:array',
-        'response_text'    => 'encrypted',
+        'variables_used' => 'encrypted:array',
+        'response_text' => 'encrypted',
         'rendered_content' => 'encrypted',
-        'error_message'    => 'encrypted',
-        'starred'          => 'boolean',
-        'rating'           => 'integer',
-        'input_tokens'     => 'integer',
-        'output_tokens'    => 'integer',
-        'duration_ms'      => 'integer',
-        'pipeline_id'      => 'integer',
+        'error_message' => 'encrypted',
+        'starred' => 'boolean',
+        'rating' => 'integer',
+        'input_tokens' => 'integer',
+        'output_tokens' => 'integer',
+        'duration_ms' => 'integer',
+        'pipeline_id' => 'integer',
     ];
 
     protected static function booted(): void
@@ -100,6 +100,6 @@ class Result extends Model
 
     public function getEvaluationScoreAttribute(): ?float
     {
-        return \App\Models\ResultEvaluation::compositeScore($this->id);
+        return ResultEvaluation::compositeScore($this->id);
     }
 }

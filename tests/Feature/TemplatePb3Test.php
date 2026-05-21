@@ -26,9 +26,13 @@ class TemplatePb3Test extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $alice;
+
     private User $bob;
+
     private array $aliceHeaders;
+
     private TemplateEngine $engine;
 
     protected function setUp(): void
@@ -36,17 +40,17 @@ class TemplatePb3Test extends TestCase
         parent::setUp();
 
         $this->admin = User::create([
-            'name'  => 'Admin',
+            'name' => 'Admin',
             'email' => 'admin@example.com',
             'password' => bcrypt('password'),
         ]);
         $this->alice = User::create([
-            'name'  => 'Alice',
+            'name' => 'Alice',
             'email' => 'alice@example.com',
             'password' => bcrypt('password'),
         ]);
         $this->bob = User::create([
-            'name'  => 'Bob',
+            'name' => 'Bob',
             'email' => 'bob@example.com',
             'password' => bcrypt('password'),
         ]);
@@ -232,7 +236,7 @@ class TemplatePb3Test extends TestCase
         // Build a cycle bypassing the validator (direct DB insert):
         // parent → child → parent.
         $parent = Collection::create(['title' => 'P', 'created_by' => $this->alice->id]);
-        $child  = Collection::create(['title' => 'C', 'created_by' => $this->alice->id]);
+        $child = Collection::create(['title' => 'C', 'created_by' => $this->alice->id]);
 
         CollectionItem::create(['collection_id' => $parent->id, 'item_type' => 'collection', 'item_id' => $child->id, 'sort_order' => 0]);
         CollectionItem::create(['collection_id' => $child->id,  'item_type' => 'collection', 'item_id' => $parent->id, 'sort_order' => 0]);

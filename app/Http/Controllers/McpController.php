@@ -23,45 +23,45 @@ class McpController
     {
         // Validate Origin header
         $origin = $request->header('Origin');
-        if ($origin && !$this->isAllowedOrigin($origin)) {
+        if ($origin && ! $this->isAllowedOrigin($origin)) {
             return response()->json([
                 'jsonrpc' => '2.0',
-                'id'      => null,
-                'error'   => ['code' => -32000, 'message' => 'Origin not allowed.'],
+                'id' => null,
+                'error' => ['code' => -32000, 'message' => 'Origin not allowed.'],
             ], 403);
         }
 
         // Attempt authentication (non-aborting — handles OAuth 401 discovery)
         $this->resolveAuth($request);
 
-        if (!$request->user()) {
+        if (! $request->user()) {
             return response()->json([
                 'jsonrpc' => '2.0',
-                'id'      => null,
-                'error'   => ['code' => -32000, 'message' => 'Authentication required.'],
+                'id' => null,
+                'error' => ['code' => -32000, 'message' => 'Authentication required.'],
             ], 401)->withHeaders([
-                'WWW-Authenticate' => 'Bearer resource_metadata="' . url('/.well-known/oauth-protected-resource') . '"',
+                'WWW-Authenticate' => 'Bearer resource_metadata="'.url('/.well-known/oauth-protected-resource').'"',
             ]);
         }
 
         // Rate limiting
-        $key = 'mcp:' . $request->user()->id;
+        $key = 'mcp:'.$request->user()->id;
         if (RateLimiter::tooManyAttempts($key, 60)) {
             return response()->json([
                 'jsonrpc' => '2.0',
-                'id'      => null,
-                'error'   => ['code' => -32000, 'message' => 'Rate limit exceeded.'],
+                'id' => null,
+                'error' => ['code' => -32000, 'message' => 'Rate limit exceeded.'],
             ], 429);
         }
         RateLimiter::hit($key, 60);
 
         $body = $request->json()->all();
 
-        if (!isset($body['jsonrpc']) || $body['jsonrpc'] !== '2.0') {
+        if (! isset($body['jsonrpc']) || $body['jsonrpc'] !== '2.0') {
             return response()->json([
                 'jsonrpc' => '2.0',
-                'id'      => $body['id'] ?? null,
-                'error'   => ['code' => -32600, 'message' => 'Invalid Request: jsonrpc must be "2.0".'],
+                'id' => $body['id'] ?? null,
+                'error' => ['code' => -32600, 'message' => 'Invalid Request: jsonrpc must be "2.0".'],
             ]);
         }
 
@@ -76,11 +76,11 @@ class McpController
         // Validate session for non-initialize requests
         $sessionId = $request->header('Mcp-Session-Id');
         if ($method !== 'initialize' && $sessionId) {
-            if (!Cache::has("mcp_session:{$sessionId}")) {
+            if (! Cache::has("mcp_session:{$sessionId}")) {
                 return response()->json([
                     'jsonrpc' => '2.0',
-                    'id'      => $id,
-                    'error'   => ['code' => -32000, 'message' => 'Invalid or expired session.'],
+                    'id' => $id,
+                    'error' => ['code' => -32000, 'message' => 'Invalid or expired session.'],
                 ], 400);
             }
             Cache::put("mcp_session:{$sessionId}", $request->user()->id, 3600);
@@ -123,16 +123,17 @@ class McpController
         }
 
         $bearer = $request->bearerToken();
-        if (!$bearer) {
+        if (! $bearer) {
             return;
         }
 
         // OAuth token (non-prefixed)
-        if (!str_starts_with($bearer, config('urge.key_prefix', 'urge_'))) {
+        if (! str_starts_with($bearer, config('urge.key_prefix', 'urge_'))) {
             $oauthToken = app(OAuthService::class)->findByToken($bearer);
             if ($oauthToken) {
                 $request->setUserResolver(fn () => $oauthToken->user);
                 $request->attributes->set('oauth_token', $oauthToken);
+
                 return;
             }
         }
@@ -155,8 +156,8 @@ class McpController
         $result = match ($method) {
             'initialize' => [
                 'protocolVersion' => '2025-06-18',
-                'capabilities'    => [
-                    'tools'     => ['listChanged' => true],
+                'capabilities' => [
+                    'tools' => ['listChanged' => true],
                     'resources' => ['subscribe' => false, 'listChanged' => false],
                 ],
                 'serverInfo' => $this->handler->getServerInfo(),
@@ -169,22 +170,22 @@ class McpController
                 'resources' => $this->handler->getResourceDefinitions(),
             ],
             'resources/read' => $this->handleResourceRead($params, $request),
-            'ping' => new \stdClass(),
+            'ping' => new \stdClass,
             default => null,
         };
 
         if ($result === null) {
             return [
                 'jsonrpc' => '2.0',
-                'id'      => $id,
-                'error'   => ['code' => -32601, 'message' => "Method not found: {$method}"],
+                'id' => $id,
+                'error' => ['code' => -32601, 'message' => "Method not found: {$method}"],
             ];
         }
 
         return [
             'jsonrpc' => '2.0',
-            'id'      => $id,
-            'result'  => $result,
+            'id' => $id,
+            'result' => $result,
         ];
     }
 
@@ -198,7 +199,7 @@ class McpController
         $oauthToken = $request->attributes->get('oauth_token');
         if ($oauthToken) {
             $requiredScope = $this->handler->getRequiredScope($toolName);
-            if ($requiredScope && !$oauthToken->hasScope($requiredScope)) {
+            if ($requiredScope && ! $oauthToken->hasScope($requiredScope)) {
                 return [
                     'content' => [
                         ['type' => 'text', 'text' => "Insufficient scope. Required: {$requiredScope}"],

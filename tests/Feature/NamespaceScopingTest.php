@@ -53,11 +53,11 @@ class NamespaceScopingTest extends TestCase
         ]);
 
         // Web route now redirects to React SPA
-        $response = $this->actingAs($user)->get('/prompts/' . $user->slug . '/' . $prompt->slug);
-        $response->assertRedirect('/app/workspace/' . $user->slug . '/' . $prompt->slug);
+        $response = $this->actingAs($user)->get('/prompts/'.$user->slug.'/'.$prompt->slug);
+        $response->assertRedirect('/app/workspace/'.$user->slug.'/'.$prompt->slug);
 
         // API route still works for direct access
-        $apiResponse = $this->actingAs($user)->getJson('/api/v1/prompts/' . $user->slug . '/' . $prompt->slug);
+        $apiResponse = $this->actingAs($user)->getJson('/api/v1/prompts/'.$user->slug.'/'.$prompt->slug);
         $apiResponse->assertStatus(200);
     }
 
@@ -79,11 +79,11 @@ class NamespaceScopingTest extends TestCase
         $prompt->teams()->attach($team->id);
 
         // Web route redirects to React SPA
-        $response = $this->actingAs($member)->get('/prompts/' . $owner->slug . '/' . $prompt->slug);
-        $response->assertRedirect('/app/workspace/' . $owner->slug . '/' . $prompt->slug);
+        $response = $this->actingAs($member)->get('/prompts/'.$owner->slug.'/'.$prompt->slug);
+        $response->assertRedirect('/app/workspace/'.$owner->slug.'/'.$prompt->slug);
 
         // API route verifies team member access
-        $apiResponse = $this->actingAs($member)->getJson('/api/v1/prompts/' . $owner->slug . '/' . $prompt->slug);
+        $apiResponse = $this->actingAs($member)->getJson('/api/v1/prompts/'.$owner->slug.'/'.$prompt->slug);
         $apiResponse->assertStatus(200);
     }
 
@@ -100,11 +100,11 @@ class NamespaceScopingTest extends TestCase
         ]);
 
         // Web route now always redirects (access check happens in React/API)
-        $response = $this->actingAs($outsider)->get('/prompts/' . $owner->slug . '/' . $prompt->slug);
-        $response->assertRedirect('/app/workspace/' . $owner->slug . '/' . $prompt->slug);
+        $response = $this->actingAs($outsider)->get('/prompts/'.$owner->slug.'/'.$prompt->slug);
+        $response->assertRedirect('/app/workspace/'.$owner->slug.'/'.$prompt->slug);
 
         // API route correctly denies access
-        $apiResponse = $this->actingAs($outsider)->getJson('/api/v1/prompts/' . $owner->slug . '/' . $prompt->slug);
+        $apiResponse = $this->actingAs($outsider)->getJson('/api/v1/prompts/'.$owner->slug.'/'.$prompt->slug);
         $apiResponse->assertStatus(404);
     }
 
@@ -117,8 +117,8 @@ class NamespaceScopingTest extends TestCase
             'created_by' => $user->id,
         ]);
 
-        $response = $this->actingAs($user)->get('/prompts/' . $prompt->slug);
-        $response->assertRedirect('/app/workspace/' . $user->slug . '/' . $prompt->slug);
+        $response = $this->actingAs($user)->get('/prompts/'.$prompt->slug);
+        $response->assertRedirect('/app/workspace/'.$user->slug.'/'.$prompt->slug);
     }
 
     public function test_legacy_slug_prefers_current_users_prompt(): void
@@ -131,7 +131,7 @@ class NamespaceScopingTest extends TestCase
 
         // User2 accesses legacy URL — should redirect to their own prompt via SPA
         $response = $this->actingAs($user2)->get('/prompts/same-name');
-        $response->assertRedirect('/app/workspace/' . $user2->slug . '/same-name');
+        $response->assertRedirect('/app/workspace/'.$user2->slug.'/same-name');
     }
 
     public function test_only_owner_can_delete_prompt(): void
@@ -170,11 +170,11 @@ class NamespaceScopingTest extends TestCase
         ]);
 
         // Web route redirects to SPA
-        $response = $this->actingAs($admin)->get('/prompts/' . $owner->slug . '/' . $prompt->slug);
-        $response->assertRedirect('/app/workspace/' . $owner->slug . '/' . $prompt->slug);
+        $response = $this->actingAs($admin)->get('/prompts/'.$owner->slug.'/'.$prompt->slug);
+        $response->assertRedirect('/app/workspace/'.$owner->slug.'/'.$prompt->slug);
 
         // API route verifies admin access
-        $apiResponse = $this->actingAs($admin)->getJson('/api/v1/prompts/' . $owner->slug . '/' . $prompt->slug);
+        $apiResponse = $this->actingAs($admin)->getJson('/api/v1/prompts/'.$owner->slug.'/'.$prompt->slug);
         $apiResponse->assertStatus(200);
     }
 

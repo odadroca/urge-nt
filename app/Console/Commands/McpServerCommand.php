@@ -9,6 +9,7 @@ use Illuminate\Console\Command;
 class McpServerCommand extends Command
 {
     protected $signature = 'urge:mcp-server {--user= : User ID for authenticated operations}';
+
     protected $description = 'Start the MCP stdio server (reads JSON-RPC from STDIN, writes to STDOUT)';
 
     public function handle(McpToolHandler $handler): int
@@ -25,11 +26,12 @@ class McpServerCommand extends Command
             }
 
             $request = json_decode($line, true);
-            if (!$request || !isset($request['method'])) {
+            if (! $request || ! isset($request['method'])) {
                 $this->writeJsonRpc(null, null, [
-                    'code'    => -32700,
+                    'code' => -32700,
                     'message' => 'Parse error',
                 ]);
+
                 continue;
             }
 
@@ -45,8 +47,8 @@ class McpServerCommand extends Command
             $result = match ($method) {
                 'initialize' => [
                     'protocolVersion' => '2024-11-05',
-                    'capabilities'    => [
-                        'tools'     => ['listChanged' => false],
+                    'capabilities' => [
+                        'tools' => ['listChanged' => false],
                         'resources' => ['subscribe' => false, 'listChanged' => false],
                     ],
                     'serverInfo' => $handler->getServerInfo(),
@@ -59,15 +61,16 @@ class McpServerCommand extends Command
                     'resources' => $handler->getResourceDefinitions(),
                 ],
                 'resources/read' => $this->handleResourceRead($handler, $params, $user),
-                'ping' => new \stdClass(),
+                'ping' => new \stdClass,
                 default => null,
             };
 
             if ($result === null) {
                 $this->writeJsonRpc($id, null, [
-                    'code'    => -32601,
+                    'code' => -32601,
                     'message' => "Method not found: {$method}",
                 ]);
+
                 continue;
             }
 
@@ -122,12 +125,12 @@ class McpServerCommand extends Command
             $response['result'] = $result;
         }
 
-        fwrite(STDOUT, json_encode($response) . "\n");
+        fwrite(STDOUT, json_encode($response)."\n");
         fflush(STDOUT);
     }
 
     private function writeStderr(string $message): void
     {
-        fwrite(STDERR, $message . "\n");
+        fwrite(STDERR, $message."\n");
     }
 }

@@ -8,17 +8,20 @@ use App\Models\User;
 class TemplateEngine
 {
     private const PATTERN = '/\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/';
+
     private const INCLUDE_PATTERN = '/\{\{>([a-zA-Z0-9_-]+)\}\}/';
 
     public function extractVariables(string $content): array
     {
         preg_match_all(self::PATTERN, $content, $matches);
+
         return array_values(array_unique($matches[1]));
     }
 
     public function extractIncludes(string $content): array
     {
         preg_match_all(self::INCLUDE_PATTERN, $content, $matches);
+
         return array_values(array_unique($matches[1]));
     }
 
@@ -40,12 +43,11 @@ class TemplateEngine
      *  - Global expansion-count + total-output-size budget guard against
      *    sibling-fanout amplification (TPL-04 — "billion laughs").
      *
-     * @param array  $variables       name => scalar value
-     * @param ?array $metadata        caller-supplied metadata (variable defaults)
-     * @param ?User  $user            invoking user for visibility scoping
-     * @param bool   $strict          throw if required vars are missing
-     * @param bool   $strictIncludes  throw if an include cannot be resolved
-     *
+     * @param  array  $variables  name => scalar value
+     * @param  ?array  $metadata  caller-supplied metadata (variable defaults)
+     * @param  ?User  $user  invoking user for visibility scoping
+     * @param  bool  $strict  throw if required vars are missing
+     * @param  bool  $strictIncludes  throw if an include cannot be resolved
      * @return array{rendered: string, variables_used: string[], variables_missing: string[], includes_resolved: string[]}
      */
     public function render(
@@ -59,10 +61,10 @@ class TemplateEngine
         $this->validateVariableValues($variables);
 
         $state = [
-            'expansions'        => 0,
-            'bytes'             => 0,
-            'max_expansions'    => (int) config('urge.max_include_expansions', 500),
-            'max_render_bytes'  => (int) config('urge.max_render_bytes', 5 * 1024 * 1024),
+            'expansions' => 0,
+            'bytes' => 0,
+            'max_expansions' => (int) config('urge.max_include_expansions', 500),
+            'max_render_bytes' => (int) config('urge.max_render_bytes', 5 * 1024 * 1024),
         ];
 
         $includesResolved = [];
@@ -75,17 +77,20 @@ class TemplateEngine
             $name = $matches[1];
             if (array_key_exists($name, $variables) && $variables[$name] !== null) {
                 $used[] = $name;
+
                 return (string) $variables[$name];
             }
             if ($metadata && isset($metadata[$name]['default']) && $metadata[$name]['default'] !== null) {
                 $used[] = $name;
+
                 return (string) $metadata[$name]['default'];
             }
             $missing[] = $name;
+
             return $matches[0];
         }, $resolvedContent);
 
-        if ($strict && !empty($missing)) {
+        if ($strict && ! empty($missing)) {
             $missingList = implode(', ', array_unique($missing));
             throw new \InvalidArgumentException(
                 "Missing required variables: {$missingList}. Provide values or set defaults in variable metadata."
@@ -101,15 +106,15 @@ class TemplateEngine
         }
 
         return [
-            'rendered'           => $rendered,
-            'variables_used'     => array_values(array_unique($used)),
-            'variables_missing'  => array_values(array_unique($missing)),
-            'includes_resolved'  => array_values(array_unique($includesResolved)),
+            'rendered' => $rendered,
+            'variables_used' => array_values(array_unique($used)),
+            'variables_missing' => array_values(array_unique($missing)),
+            'includes_resolved' => array_values(array_unique($includesResolved)),
         ];
     }
 
     /**
-     * @param array<string, mixed> $variables
+     * @param  array<string, mixed>  $variables
      */
     private function validateVariableValues(array $variables): void
     {
@@ -117,7 +122,7 @@ class TemplateEngine
             if ($value === null) {
                 continue;
             }
-            if (!is_scalar($value)) {
+            if (! is_scalar($value)) {
                 throw new \InvalidArgumentException(
                     "Variable '{$name}' must be a scalar value (string, number, or boolean)."
                 );
@@ -126,9 +131,9 @@ class TemplateEngine
     }
 
     /**
-     * @param array<string> $chain
-     * @param array<string> $resolved
-     * @param array{expansions:int, bytes:int, max_expansions:int, max_render_bytes:int} $state
+     * @param  array<string>  $chain
+     * @param  array<string>  $resolved
+     * @param  array{expansions:int, bytes:int, max_expansions:int, max_render_bytes:int}  $state
      */
     private function resolveIncludes(
         string $content,
@@ -160,10 +165,11 @@ class TemplateEngine
 
             $prompt = $this->findPromptBySlug($slug, $user);
             $version = $prompt?->active_version;
-            if (!$prompt || !$version) {
+            if (! $prompt || ! $version) {
                 if ($strictIncludes) {
                     throw new \RuntimeException("Include not available: {$slug}");
                 }
+
                 return $matches[0];
             }
 
@@ -199,7 +205,7 @@ class TemplateEngine
      */
     private function findPromptBySlug(string $slug, ?User $user): ?Prompt
     {
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 

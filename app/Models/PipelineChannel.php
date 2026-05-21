@@ -21,7 +21,7 @@ class PipelineChannel extends Model
     ];
 
     protected $casts = [
-        'sort_order'    => 'integer',
+        'sort_order' => 'integer',
         'input_filters' => 'array',
     ];
 
@@ -47,10 +47,11 @@ class PipelineChannel extends Model
      */
     public function getExecutionModeAttribute(): string
     {
-        if (!$this->llm_provider_id) {
+        if (! $this->llm_provider_id) {
             return 'client';
         }
         $provider = $this->llmProvider;
+
         return $provider && $provider->is_active ? 'server' : 'client';
     }
 }

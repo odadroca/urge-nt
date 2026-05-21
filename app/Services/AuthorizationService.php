@@ -40,7 +40,7 @@ class AuthorizationService
             return true;
         }
 
-        if (!$result->prompt_id) {
+        if (! $result->prompt_id) {
             return $result->created_by === $user->id;
         }
 
@@ -77,11 +77,11 @@ class AuthorizationService
      */
     public static function apiKeyAllowsPrompt(?ApiKey $apiKey, Prompt $prompt): bool
     {
-        if (!$apiKey) {
+        if (! $apiKey) {
             return true;
         }
 
-        if (!$apiKey->prompts()->exists()) {
+        if (! $apiKey->prompts()->exists()) {
             return true;
         }
 
@@ -95,7 +95,7 @@ class AuthorizationService
     public static function enforceApiKeyScope(Request $request, Prompt $prompt): void
     {
         $apiKey = $request->attributes->get('api_key');
-        if ($apiKey instanceof ApiKey && !self::apiKeyAllowsPrompt($apiKey, $prompt)) {
+        if ($apiKey instanceof ApiKey && ! self::apiKeyAllowsPrompt($apiKey, $prompt)) {
             abort(403, 'API key does not have access to this prompt.');
         }
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\LlmProvider;
 use App\Models\Result;
 use App\Services\AuthorizationService;
 use App\Services\EvaluationService;
@@ -18,10 +19,10 @@ class EvaluationController extends ApiController
 
         $providerOverride = null;
         if ($providerName = $request->input('provider')) {
-            $providerOverride = \App\Models\LlmProvider::where('name', 'like', $providerName)
+            $providerOverride = LlmProvider::where('name', 'like', $providerName)
                 ->where('is_active', true)
                 ->first();
-            if (!$providerOverride) {
+            if (! $providerOverride) {
                 return $this->error("Provider '{$providerName}' not found or inactive.", 400);
             }
         }
@@ -61,7 +62,7 @@ class EvaluationController extends ApiController
         $user = $request->user();
         $result->loadMissing('prompt');
 
-        if (!AuthorizationService::userCanSeeResult($user, $result)) {
+        if (! AuthorizationService::userCanSeeResult($user, $result)) {
             abort(404);
         }
 
@@ -69,7 +70,7 @@ class EvaluationController extends ApiController
             AuthorizationService::enforceApiKeyScope($request, $result->prompt);
         }
 
-        if (!$user->can($ability, $result)) {
+        if (! $user->can($ability, $result)) {
             abort(403, "You do not have permission to {$ability} this result.");
         }
     }

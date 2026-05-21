@@ -7,7 +7,6 @@ use App\Models\PromptBranch;
 use App\Models\PromptVersion;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class VersioningService
 {
@@ -17,9 +16,9 @@ class VersioningService
     {
         return DB::transaction(function () use ($prompt, $data, $author, $branch) {
             // Resolve branch: provided > prompt default > auto-create "main"
-            if (!$branch) {
+            if (! $branch) {
                 $branch = $prompt->defaultBranch;
-                if (!$branch) {
+                if (! $branch) {
                     $branch = $this->ensureDefaultBranch($prompt, $author);
                 }
             }
@@ -44,16 +43,16 @@ class VersioningService
             }
 
             $version = PromptVersion::create([
-                'prompt_id'              => $prompt->id,
-                'branch_id'              => $branch->id,
-                'version_number'         => $nextNumber,
-                'branch_version_number'  => $nextBranchNumber,
-                'content'                => $data['content'],
-                'commit_message'         => $data['commit_message'] ?? null,
-                'variables'              => $variables,
-                'variable_metadata'      => $metadata,
-                'includes'               => !empty($includes) ? $includes : null,
-                'created_by'             => $author->id,
+                'prompt_id' => $prompt->id,
+                'branch_id' => $branch->id,
+                'version_number' => $nextNumber,
+                'branch_version_number' => $nextBranchNumber,
+                'content' => $data['content'],
+                'commit_message' => $data['commit_message'] ?? null,
+                'variables' => $variables,
+                'variable_metadata' => $metadata,
+                'includes' => ! empty($includes) ? $includes : null,
+                'created_by' => $author->id,
             ]);
 
             // Update branch HEAD
@@ -67,12 +66,12 @@ class VersioningService
     {
         return DB::transaction(function () use ($prompt, $name, $author, $fromVersion) {
             return PromptBranch::create([
-                'prompt_id'              => $prompt->id,
-                'name'                   => $name,
-                'head_version_id'        => $fromVersion?->id,
+                'prompt_id' => $prompt->id,
+                'name' => $name,
+                'head_version_id' => $fromVersion?->id,
                 'forked_from_version_id' => $fromVersion?->id,
-                'is_default'             => false,
-                'created_by'             => $author->id,
+                'is_default' => false,
+                'created_by' => $author->id,
             ]);
         });
     }
@@ -110,8 +109,8 @@ class VersioningService
         }
 
         $branch = PromptBranch::create([
-            'prompt_id'  => $prompt->id,
-            'name'       => 'main',
+            'prompt_id' => $prompt->id,
+            'name' => 'main',
             'is_default' => true,
             'created_by' => $author->id,
         ]);

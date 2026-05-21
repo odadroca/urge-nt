@@ -3,19 +3,19 @@
 use App\Http\Controllers\Api\ApiKeyController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BranchController;
-use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\EvaluationController;
 use App\Http\Controllers\Api\EvaluationSettingsController;
 use App\Http\Controllers\Api\GraphController;
-use App\Http\Controllers\Api\LlmProviderController;
-use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\HealthController;
+use App\Http\Controllers\Api\LlmProviderController;
+use App\Http\Controllers\Api\PipelineController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromptController;
 use App\Http\Controllers\Api\RenderController;
 use App\Http\Controllers\Api\ResultController;
+use App\Http\Controllers\Api\ShareLinkController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\VersionController;
@@ -175,4 +175,3 @@ Route::prefix('v1')->group(function () {
     Route::post('mcp', [McpController::class, 'handle']);
     Route::delete('mcp', [McpController::class, 'destroy']);
 });
-

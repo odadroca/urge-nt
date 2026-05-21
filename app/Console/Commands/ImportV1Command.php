@@ -19,24 +19,34 @@ use Illuminate\Support\Str;
 class ImportV1Command extends Command
 {
     protected $signature = 'urge:import-v1 {path : Path to v1 SQLite database file}';
+
     protected $description = 'Import data from a URGE v1 SQLite database';
 
     private array $userMap = [];
+
     private array $categoryMap = [];
+
     private array $promptMap = [];
+
     private array $versionMap = [];
+
     private array $providerMap = [];
+
     private array $apiKeyMap = [];
+
     private array $libraryEntryMap = [];
+
     private int $created = 0;
+
     private int $skipped = 0;
 
     public function handle(): int
     {
         $path = $this->argument('path');
 
-        if (!file_exists($path)) {
+        if (! file_exists($path)) {
             $this->error("Database file not found: {$path}");
+
             return self::FAILURE;
         }
 
@@ -51,6 +61,7 @@ class ImportV1Command extends Command
             DB::connection('v1')->getPdo();
         } catch (\Exception $e) {
             $this->error("Could not connect to v1 database: {$e->getMessage()}");
+
             return self::FAILURE;
         }
 
@@ -72,6 +83,7 @@ class ImportV1Command extends Command
         } catch (\Exception $e) {
             $this->error("Import failed: {$e->getMessage()}");
             $this->error($e->getTraceAsString());
+
             return self::FAILURE;
         }
 
@@ -112,8 +124,9 @@ class ImportV1Command extends Command
     {
         $this->info('Importing categories...');
 
-        if (!$this->v1TableExists('categories')) {
+        if (! $this->v1TableExists('categories')) {
             $this->line('  Categories table not found, skipping');
+
             return;
         }
 
@@ -160,7 +173,7 @@ class ImportV1Command extends Command
                 ]
             );
 
-            if ($row->deleted_at && !$prompt->trashed()) {
+            if ($row->deleted_at && ! $prompt->trashed()) {
                 $prompt->delete();
             }
 
@@ -183,7 +196,7 @@ class ImportV1Command extends Command
 
         foreach ($rows as $row) {
             $promptId = $this->promptMap[$row->prompt_id] ?? null;
-            if (!$promptId) {
+            if (! $promptId) {
                 continue;
             }
 
@@ -194,6 +207,7 @@ class ImportV1Command extends Command
             if ($existing) {
                 $this->versionMap[$row->id] = $existing->id;
                 $this->skipped++;
+
                 continue;
             }
 
@@ -251,12 +265,13 @@ class ImportV1Command extends Command
             if ($existing) {
                 $this->providerMap[$row->id] = $existing->id;
                 $this->skipped++;
+
                 continue;
             }
 
             // Try to decrypt v1 API key
             $apiKey = null;
-            if (!empty($row->api_key_encrypted)) {
+            if (! empty($row->api_key_encrypted)) {
                 try {
                     $apiKey = Crypt::decryptString($row->api_key_encrypted);
                 } catch (\Exception $e) {
@@ -284,8 +299,9 @@ class ImportV1Command extends Command
     {
         $this->info('Importing prompt runs + responses as results...');
 
-        if (!$this->v1TableExists('prompt_runs')) {
+        if (! $this->v1TableExists('prompt_runs')) {
             $this->line('  Prompt runs table not found, skipping');
+
             return;
         }
 
@@ -296,7 +312,7 @@ class ImportV1Command extends Command
             $promptId = $this->promptMap[$run->prompt_id] ?? null;
             $versionId = $this->versionMap[$run->prompt_version_id] ?? null;
 
-            if (!$promptId || !$versionId) {
+            if (! $promptId || ! $versionId) {
                 continue;
             }
 
@@ -317,6 +333,7 @@ class ImportV1Command extends Command
 
                 if ($exists) {
                     $this->skipped++;
+
                     continue;
                 }
 
@@ -356,8 +373,9 @@ class ImportV1Command extends Command
     {
         $this->info('Importing library entries as starred results...');
 
-        if (!$this->v1TableExists('library_entries')) {
+        if (! $this->v1TableExists('library_entries')) {
             $this->line('  Library entries table not found, skipping');
+
             return;
         }
 
@@ -368,7 +386,7 @@ class ImportV1Command extends Command
             $promptId = $this->promptMap[$row->prompt_id] ?? null;
             $versionId = $this->versionMap[$row->prompt_version_id] ?? null;
 
-            if (!$promptId || !$versionId) {
+            if (! $promptId || ! $versionId) {
                 continue;
             }
 
@@ -386,6 +404,7 @@ class ImportV1Command extends Command
                     ->where('response_hash', $rowHash)
                     ->update(['starred' => true, 'notes' => $row->notes]);
                 $this->skipped++;
+
                 continue;
             }
 
@@ -419,8 +438,9 @@ class ImportV1Command extends Command
     {
         $this->info('Importing stories as collections...');
 
-        if (!$this->v1TableExists('stories')) {
+        if (! $this->v1TableExists('stories')) {
             $this->line('  Stories table not found, skipping');
+
             return;
         }
 
@@ -458,7 +478,7 @@ class ImportV1Command extends Command
                 $collectionId = $storyMap[$step->story_id] ?? null;
                 $versionId = $this->versionMap[$step->prompt_version_id] ?? null;
 
-                if (!$collectionId || !$versionId) {
+                if (! $collectionId || ! $versionId) {
                     continue;
                 }
 
@@ -492,7 +512,7 @@ class ImportV1Command extends Command
 
         foreach ($rows as $row) {
             $userId = $this->userMap[$row->user_id] ?? null;
-            if (!$userId) {
+            if (! $userId) {
                 continue;
             }
 
@@ -542,6 +562,7 @@ class ImportV1Command extends Command
     {
         try {
             DB::connection('v1')->table($table)->limit(1)->get();
+
             return true;
         } catch (\Exception) {
             return false;

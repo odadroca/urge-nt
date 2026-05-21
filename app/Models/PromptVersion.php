@@ -9,6 +9,7 @@ class PromptVersion extends Model
     public $timestamps = false;
 
     const CREATED_AT = 'created_at';
+
     const UPDATED_AT = null;
 
     protected $fillable = [
@@ -45,7 +46,7 @@ class PromptVersion extends Model
             $dirty = $version->getDirty();
             $allowed = ['archived_at'];
             $disallowed = array_diff(array_keys($dirty), $allowed);
-            if (!empty($disallowed)) {
+            if (! empty($disallowed)) {
                 throw new \LogicException('PromptVersion is immutable. Only archived_at can be modified.');
             }
         });

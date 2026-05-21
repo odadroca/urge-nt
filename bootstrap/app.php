@@ -1,8 +1,14 @@
 <?php
 
+use App\Http\Middleware\ApiKeyAuthentication;
+use App\Http\Middleware\DualAuthentication;
+use App\Http\Middleware\NoCacheApi;
+use App\Http\Middleware\RequireRole;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,10 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'role'     => \App\Http\Middleware\RequireRole::class,
-            'api.auth' => \App\Http\Middleware\ApiKeyAuthentication::class,
-            'spa.auth'  => 'auth:sanctum',
-            'dual.auth' => \App\Http\Middleware\DualAuthentication::class,
+            'role' => RequireRole::class,
+            'api.auth' => ApiKeyAuthentication::class,
+            'spa.auth' => 'auth:sanctum',
+            'dual.auth' => DualAuthentication::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [
@@ -31,15 +37,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // INFRA-02: defense-in-depth security headers on every web
         // response. Internally skips /api/*, /oauth/*, /.well-known/*.
         $middleware->web(append: [
-            \App\Http\Middleware\SecurityHeaders::class,
+            SecurityHeaders::class,
         ]);
 
         $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            EnsureFrontendRequestsAreStateful::class,
         ]);
 
         $middleware->api(append: [
-            \App\Http\Middleware\NoCacheApi::class,
+            NoCacheApi::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

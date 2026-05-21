@@ -29,7 +29,7 @@ class Pipeline extends Model
                 $slug = $base;
                 $counter = 1;
                 while (static::where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . $counter++;
+                    $slug = $base.'-'.$counter++;
                 }
                 $pipeline->slug = $slug;
             }

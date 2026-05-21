@@ -15,7 +15,9 @@ class ResultApiTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Prompt $prompt;
+
     private array $headers;
 
     protected function setUp(): void
@@ -146,8 +148,8 @@ class ResultApiTest extends TestCase
 
         $body = $response->streamedContent();
         $this->assertStringStartsWith("---\n", $body);
-        $this->assertStringContainsString('prompt: ' . $this->prompt->slug, $body);
-        $this->assertStringContainsString('owner: ' . $this->user->slug, $body);
+        $this->assertStringContainsString('prompt: '.$this->prompt->slug, $body);
+        $this->assertStringContainsString('owner: '.$this->user->slug, $body);
         $this->assertStringContainsString('provider: OpenAI', $body);
         $this->assertStringContainsString('model: gpt-4', $body);
         $this->assertStringContainsString('starred: true', $body);
@@ -200,9 +202,9 @@ class ResultApiTest extends TestCase
     public function test_store_result_accepts_run_source_scheduled(): void
     {
         $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/results", [
-            'version'       => 1,
+            'version' => 1,
             'response_text' => 'Daily summary',
-            'run_source'    => 'scheduled',
+            'run_source' => 'scheduled',
         ], $this->headers);
 
         $response->assertStatus(201)
@@ -210,16 +212,16 @@ class ResultApiTest extends TestCase
 
         $this->assertDatabaseHas('results', [
             'response_hash' => hash('sha256', 'Daily summary'),
-            'run_source'    => 'scheduled',
+            'run_source' => 'scheduled',
         ]);
     }
 
     public function test_store_result_rejects_invalid_run_source(): void
     {
         $response = $this->postJson("/api/v1/prompts/{$this->user->slug}/{$this->prompt->slug}/results", [
-            'version'       => 1,
+            'version' => 1,
             'response_text' => 'X',
-            'run_source'    => 'cron',
+            'run_source' => 'cron',
         ], $this->headers);
 
         $response->assertStatus(422)->assertJsonValidationErrors(['run_source']);
@@ -229,19 +231,19 @@ class ResultApiTest extends TestCase
     {
         $version = $this->prompt->versions()->first();
         Result::create([
-            'prompt_id'         => $this->prompt->id,
+            'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $version->id,
-            'source'            => 'api',
-            'run_source'        => 'scheduled',
-            'response_text'     => 'cron run',
-            'created_by'        => $this->user->id,
+            'source' => 'api',
+            'run_source' => 'scheduled',
+            'response_text' => 'cron run',
+            'created_by' => $this->user->id,
         ]);
         Result::create([
-            'prompt_id'         => $this->prompt->id,
+            'prompt_id' => $this->prompt->id,
             'prompt_version_id' => $version->id,
-            'source'            => 'api',
-            'response_text'     => 'one-off',
-            'created_by'        => $this->user->id,
+            'source' => 'api',
+            'response_text' => 'one-off',
+            'created_by' => $this->user->id,
         ]);
 
         $response = $this->getJson(

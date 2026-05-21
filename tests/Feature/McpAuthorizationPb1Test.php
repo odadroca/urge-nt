@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\Pipeline;
 use App\Models\PipelineChannel;
 use App\Models\Prompt;
-use App\Models\PromptVersion;
 use App\Models\Result;
+use App\Models\Team;
 use App\Models\User;
 use App\Services\McpToolHandler;
 use App\Services\VersioningService;
@@ -28,7 +28,9 @@ class McpAuthorizationPb1Test extends TestCase
     use RefreshDatabase;
 
     private McpToolHandler $handler;
+
     private User $alice;
+
     private User $bob;
 
     protected function setUp(): void
@@ -176,7 +178,7 @@ class McpAuthorizationPb1Test extends TestCase
     {
         $result = $this->makeResult($this->alice);
         // Share the prompt with bob's team so bob has visibility but no ownership
-        $team = \App\Models\Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
+        $team = Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
         $team->members()->attach($this->alice->id, ['role' => 'owner']);
         $team->members()->attach($this->bob->id, ['role' => 'member']);
         $result->prompt->teams()->attach($team->id);
@@ -190,7 +192,7 @@ class McpAuthorizationPb1Test extends TestCase
     public function test_update_result_requires_ownership(): void
     {
         $result = $this->makeResult($this->alice);
-        $team = \App\Models\Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
+        $team = Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
         $team->members()->attach($this->alice->id, ['role' => 'owner']);
         $team->members()->attach($this->bob->id, ['role' => 'member']);
         $result->prompt->teams()->attach($team->id);
@@ -208,7 +210,7 @@ class McpAuthorizationPb1Test extends TestCase
         $prompt = Prompt::create(['name' => 'Shared', 'type' => 'prompt', 'created_by' => $this->alice->id, 'visibility' => 'shared']);
         app(VersioningService::class)->createVersion($prompt, ['content' => 'v1'], $this->alice);
         $version = $prompt->versions()->first();
-        $team = \App\Models\Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
+        $team = Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
         $team->members()->attach($this->alice->id, ['role' => 'owner']);
         $team->members()->attach($this->bob->id, ['role' => 'member']);
         $prompt->teams()->attach($team->id);
@@ -228,7 +230,7 @@ class McpAuthorizationPb1Test extends TestCase
         $prompt = Prompt::create(['name' => 'Shared', 'type' => 'prompt', 'created_by' => $this->alice->id, 'visibility' => 'shared']);
         app(VersioningService::class)->createVersion($prompt, ['content' => 'v1'], $this->alice);
         $version = $prompt->versions()->first();
-        $team = \App\Models\Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
+        $team = Team::create(['name' => 'T', 'slug' => 't', 'created_by' => $this->alice->id]);
         $team->members()->attach($this->alice->id, ['role' => 'owner']);
         $team->members()->attach($this->bob->id, ['role' => 'member']);
         $prompt->teams()->attach($team->id);

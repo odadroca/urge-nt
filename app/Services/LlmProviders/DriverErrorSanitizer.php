@@ -29,8 +29,9 @@ class DriverErrorSanitizer
         $msg = preg_replace('/AIza[0-9A-Za-z_\-]{20,}/', '[redacted-key]', $msg); // Google API keys
 
         if (strlen($msg) > self::MAX_BYTES) {
-            $msg = substr($msg, 0, self::MAX_BYTES) . '… [truncated]';
+            $msg = substr($msg, 0, self::MAX_BYTES).'… [truncated]';
         }
+
         return $msg;
     }
 
@@ -43,6 +44,6 @@ class DriverErrorSanitizer
     public static function generic(\Throwable $e): string
     {
         // Class name only — no message, no URL leak.
-        return 'LLM transport error: ' . class_basename($e);
+        return 'LLM transport error: '.class_basename($e);
     }
 }

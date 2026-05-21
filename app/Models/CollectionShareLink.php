@@ -15,9 +15,9 @@ class CollectionShareLink extends Model
     ];
 
     protected $casts = [
-        'expires_at'       => 'datetime',
+        'expires_at' => 'datetime',
         'last_accessed_at' => 'datetime',
-        'access_count'     => 'integer',
+        'access_count' => 'integer',
     ];
 
     public function collection()
@@ -37,7 +37,7 @@ class CollectionShareLink extends Model
 
     public function isValid(): bool
     {
-        return !$this->isExpired();
+        return ! $this->isExpired();
     }
 
     public function recordAccess(): void

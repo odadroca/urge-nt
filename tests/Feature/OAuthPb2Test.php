@@ -9,6 +9,7 @@ use App\Models\UserIdentity;
 use App\Services\OAuthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
@@ -21,15 +22,17 @@ class OAuthPb2Test extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private string $verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+
     private string $challenge;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->user = User::create([
-            'name'     => 'OAuth User',
-            'email'    => 'oauth@example.com',
+            'name' => 'OAuth User',
+            'email' => 'oauth@example.com',
             'password' => bcrypt('password'),
         ]);
         $this->challenge = rtrim(strtr(base64_encode(hash('sha256', $this->verifier, true)), '+/', '-_'), '=');
@@ -61,12 +64,12 @@ class OAuthPb2Test extends TestCase
         $clientId = $resp->json('client_id');
 
         $response = $this->actingAs($this->user)->post('/oauth/authorize', [
-            'client_id'             => $clientId,
-            'redirect_uri'          => 'https://evil.example.com/exfil', // not on allowlist
-            'scope'                 => 'mcp:read',
-            'code_challenge'        => $this->challenge,
+            'client_id' => $clientId,
+            'redirect_uri' => 'https://evil.example.com/exfil', // not on allowlist
+            'scope' => 'mcp:read',
+            'code_challenge' => $this->challenge,
             'code_challenge_method' => 'S256',
-            'decision'              => 'allow',
+            'decision' => 'allow',
         ]);
 
         $response->assertRedirect('/');
@@ -235,7 +238,7 @@ class OAuthPb2Test extends TestCase
         $code = $svc->generateAuthorizationCode(
             $this->user,
             $clientId,
-            $clientId . '/callback',
+            $clientId.'/callback',
             'mcp:read',
             $this->challenge,
             'S256',
@@ -243,7 +246,7 @@ class OAuthPb2Test extends TestCase
 
         // Try to exchange with empty verifier — must fail even for non-
         // confidential clients
-        $result = $svc->exchangeCode($code, '', $clientId, $clientId . '/callback');
+        $result = $svc->exchangeCode($code, '', $clientId, $clientId.'/callback');
         $this->assertNull($result);
     }
 
@@ -274,12 +277,12 @@ class OAuthPb2Test extends TestCase
         $code = $svc->generateAuthorizationCode(
             $this->user,
             $clientId,
-            $clientId . '/callback',
+            $clientId.'/callback',
             'mcp:read',
             $this->challenge,
             'S256',
         );
-        $token = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId . '/callback');
+        $token = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId.'/callback');
         $raw = $token->raw_refresh_token;
 
         // First use succeeds
@@ -300,16 +303,16 @@ class OAuthPb2Test extends TestCase
         $code = $svc->generateAuthorizationCode(
             $this->user,
             $clientId,
-            $clientId . '/callback',
+            $clientId.'/callback',
             'mcp:read',
             $this->challenge,
             'S256',
         );
 
-        $first = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId . '/callback');
+        $first = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId.'/callback');
         $this->assertNotNull($first);
 
-        $second = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId . '/callback');
+        $second = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId.'/callback');
         $this->assertNull($second);
     }
 
@@ -322,12 +325,12 @@ class OAuthPb2Test extends TestCase
         $code = $svc->generateAuthorizationCode(
             $this->user,
             $clientId,
-            $clientId . '/callback',
+            $clientId.'/callback',
             'mcp:read',
             $this->challenge,
             'S256',
         );
-        $token = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId . '/callback');
+        $token = $svc->exchangeCode($code, $this->verifier, $clientId, $clientId.'/callback');
 
         $response = $this->postJson('/oauth/revoke', [
             'token' => $token->raw_token,
@@ -338,7 +341,7 @@ class OAuthPb2Test extends TestCase
         // Token is gone, MCP returns 401
         $mcp = $this->postJson('/api/v1/mcp', [
             'jsonrpc' => '2.0', 'id' => '1', 'method' => 'initialize', 'params' => [],
-        ], ['Authorization' => 'Bearer ' . $token->raw_token]);
+        ], ['Authorization' => 'Bearer '.$token->raw_token]);
         $mcp->assertStatus(401);
 
         // Refresh token is also gone (sibling revoked)
@@ -361,9 +364,9 @@ class OAuthPb2Test extends TestCase
     {
         // Spy on the log channel; before PB-2 the controller emitted
         // Log::info('OAuth authorize request', ['client_id','redirect_uri','state',...]).
-        \Illuminate\Support\Facades\Log::spy();
+        Log::spy();
 
-        $this->actingAs($this->user)->get('/oauth/authorize?' . http_build_query([
+        $this->actingAs($this->user)->get('/oauth/authorize?'.http_build_query([
             'client_id' => 'http://localhost:3000',
             'redirect_uri' => 'http://localhost:3000/callback',
             'scope' => 'mcp:read',
@@ -372,6 +375,6 @@ class OAuthPb2Test extends TestCase
             'state' => 'sensitive-state-marker',
         ]));
 
-        \Illuminate\Support\Facades\Log::shouldNotHaveReceived('info');
+        Log::shouldNotHaveReceived('info');
     }
 }

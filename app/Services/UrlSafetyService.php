@@ -18,7 +18,7 @@ class UrlSafetyService
     /**
      * Validate a URL for use as an outbound HTTP destination.
      *
-     * @param array{allow_loopback?:bool, allow_http?:bool} $opts
+     * @param  array{allow_loopback?:bool, allow_http?:bool}  $opts
      */
     public static function assertSafe(string $url, array $opts = []): void
     {
@@ -26,12 +26,12 @@ class UrlSafetyService
         $allowHttp = $opts['allow_http'] ?? false;
 
         $parsed = parse_url($url);
-        if (!$parsed || empty($parsed['host'])) {
+        if (! $parsed || empty($parsed['host'])) {
             throw new \InvalidArgumentException('Invalid URL.');
         }
 
         $scheme = strtolower($parsed['scheme'] ?? '');
-        if ($scheme !== 'https' && !($allowHttp && $scheme === 'http')) {
+        if ($scheme !== 'https' && ! ($allowHttp && $scheme === 'http')) {
             throw new \InvalidArgumentException('Only https:// URLs are allowed for this provider.');
         }
 
@@ -42,7 +42,7 @@ class UrlSafetyService
             || self::ipIs($host, '127.0.0.0/8')
             || self::ipIs($host, '::1/128');
 
-        if ($loopback && !$allowLoopback) {
+        if ($loopback && ! $allowLoopback) {
             throw new \InvalidArgumentException('Loopback hosts are not allowed for this provider.');
         }
 

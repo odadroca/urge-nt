@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Prompt;
-use App\Models\PromptVersion;
 use App\Models\User;
 use App\Services\VersioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,7 +13,9 @@ class VersioningServiceTest extends TestCase
     use RefreshDatabase;
 
     private VersioningService $service;
+
     private User $user;
+
     private Prompt $prompt;
 
     protected function setUp(): void

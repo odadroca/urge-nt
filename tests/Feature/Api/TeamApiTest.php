@@ -13,7 +13,9 @@ class TeamApiTest extends TestCase
     use RefreshDatabase;
 
     private User $admin;
+
     private User $user;
+
     private array $headers;
 
     protected function setUp(): void

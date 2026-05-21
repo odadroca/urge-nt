@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Collection;
-use App\Models\CollectionItem;
 use App\Models\PromptVersion;
 use App\Models\Result;
 use App\Models\User;
@@ -76,14 +75,14 @@ class ImportExportService
 
         foreach ($collection->items->sortBy('sort_order') as $item) {
             $resolved = $item->item;
-            if (!$resolved) {
+            if (! $resolved) {
                 continue;
             }
 
             if ($item->item_type === 'prompt_version') {
                 $resolved->loadMissing('prompt');
                 $body .= "## [{$resolved->prompt->name}] v{$resolved->version_number}\n\n";
-                $body .= $resolved->content . "\n\n";
+                $body .= $resolved->content."\n\n";
             } elseif ($item->item_type === 'result') {
                 $provider = $resolved->provider_name ?: 'Manual';
                 $body .= "## Result: {$provider}";
@@ -91,7 +90,7 @@ class ImportExportService
                     $body .= " ({$resolved->model_name})";
                 }
                 $body .= "\n\n";
-                $body .= $resolved->response_text . "\n\n";
+                $body .= $resolved->response_text."\n\n";
             }
 
             if ($item->notes) {
@@ -108,7 +107,7 @@ class ImportExportService
     {
         $content = ltrim($content);
 
-        if (!str_starts_with($content, '---')) {
+        if (! str_starts_with($content, '---')) {
             return ['meta' => [], 'body' => $content];
         }
 
@@ -124,7 +123,7 @@ class ImportExportService
         $meta = [];
         foreach (explode("\n", $yamlBlock) as $line) {
             $line = trim($line);
-            if (empty($line) || !str_contains($line, ':')) {
+            if (empty($line) || ! str_contains($line, ':')) {
                 continue;
             }
             $colonPos = strpos($line, ':');
@@ -171,12 +170,12 @@ class ImportExportService
         $frontmatter = "---\n";
         foreach ($meta as $key => $value) {
             if (is_string($value) && (str_contains($value, ':') || str_contains($value, '#'))) {
-                $value = '"' . str_replace('"', '\\"', $value) . '"';
+                $value = '"'.str_replace('"', '\\"', $value).'"';
             }
             $frontmatter .= "{$key}: {$value}\n";
         }
         $frontmatter .= "---\n\n";
 
-        return $frontmatter . $body . "\n";
+        return $frontmatter.$body."\n";
     }
 }

@@ -25,7 +25,7 @@ class Collection extends Model
                 $slug = $base;
                 $counter = 1;
                 while (static::withTrashed()->where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . $counter++;
+                    $slug = $base.'-'.$counter++;
                 }
                 $collection->slug = $slug;
             }
