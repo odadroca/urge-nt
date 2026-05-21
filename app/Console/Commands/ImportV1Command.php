@@ -305,11 +305,13 @@ class ImportV1Command extends Command
                 ->get();
 
             foreach ($responses as $resp) {
-                // Deduplicate by checking existing results
+                // Deduplicate via response_hash (response_text is now an
+                // encrypted column — equality lookups would never match).
+                $respHash = $resp->response_text !== null ? hash('sha256', $resp->response_text) : null;
                 $exists = Result::where('prompt_id', $promptId)
                     ->where('prompt_version_id', $versionId)
                     ->where('source', 'api')
-                    ->where('response_text', $resp->response_text)
+                    ->where('response_hash', $respHash)
                     ->where('created_at', $resp->created_at)
                     ->exists();
 
@@ -370,17 +372,18 @@ class ImportV1Command extends Command
                 continue;
             }
 
-            // Deduplicate: check if this response_text already exists as a result
+            // Deduplicate via response_hash (response_text is encrypted)
+            $rowHash = $row->response_text !== null ? hash('sha256', $row->response_text) : null;
             $exists = Result::where('prompt_id', $promptId)
                 ->where('prompt_version_id', $versionId)
-                ->where('response_text', $row->response_text)
+                ->where('response_hash', $rowHash)
                 ->exists();
 
             if ($exists) {
                 // Star the existing result instead
                 Result::where('prompt_id', $promptId)
                     ->where('prompt_version_id', $versionId)
-                    ->where('response_text', $row->response_text)
+                    ->where('response_hash', $rowHash)
                     ->update(['starred' => true, 'notes' => $row->notes]);
                 $this->skipped++;
                 continue;

@@ -44,14 +44,17 @@ class AnthropicDriver implements LlmDriverInterface
                 'x-api-key'         => $this->apiKey,
                 'anthropic-version' => self::API_VERSION,
             ])
-                ->withOptions(['verify' => config('urge.curl_ssl_verify', true)])
+                ->withOptions(['verify' => config('urge.curl_ssl_verify', true), 'allow_redirects' => false])
                 ->timeout(120)
                 ->post(self::BASE_URL . '/v1/messages', $payload);
 
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
 
             if ($response->failed()) {
-                $error = $response->json('error.message') ?? $response->body();
+                $msg = $response->json('error.message');
+                $error = is_string($msg) && $msg !== ''
+                    ? DriverErrorSanitizer::trim($msg)
+                    : 'Anthropic request failed.';
                 return LlmResult::failure($error, $this->model, $durationMs);
             }
 
@@ -65,7 +68,7 @@ class AnthropicDriver implements LlmDriverInterface
             );
         } catch (\Throwable $e) {
             $durationMs = (int) ((hrtime(true) - $start) / 1_000_000);
-            return LlmResult::failure($e->getMessage(), $this->model, $durationMs);
+            return LlmResult::failure(DriverErrorSanitizer::generic($e), $this->model, $durationMs);
         }
     }
 }

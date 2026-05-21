@@ -8,6 +8,10 @@ return [
     'max_include_expansions' => (int) env('URGE_MAX_INCLUDE_EXPANSIONS', 500),
     // Total rendered output size budget in bytes.
     'max_render_bytes'       => (int) env('URGE_MAX_RENDER_BYTES', 5 * 1024 * 1024),
+    // Max combined size (system+user) of an LLM-dispatched prompt — PB-4
+    // pre-dispatch guard that bounds the workload of one HTTP request even
+    // if includes inflate to the size budget (LLM-07).
+    'max_prompt_bytes'       => (int) env('URGE_MAX_PROMPT_BYTES', 1024 * 1024),
 
     'curl_ssl_verify'    => env('CURL_SSL_VERIFY', true),
 
