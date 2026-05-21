@@ -7,7 +7,7 @@
     },
     "servers": [
         {
-            "url": "https://urge.acordado.org/api/v1"
+            "url": "{{APP_URL}}/api/v1"
         }
     ],
     "security": [
