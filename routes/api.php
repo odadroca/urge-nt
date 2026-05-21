@@ -176,11 +176,3 @@ Route::prefix('v1')->group(function () {
     Route::delete('mcp', [McpController::class, 'destroy']);
 });
 
-// Serve OpenAPI spec
-Route::get('openapi.json', function () {
-    $path = public_path('openapi.json');
-    if (!file_exists($path)) {
-        abort(404);
-    }
-    return response()->file($path, ['Content-Type' => 'application/json']);
-});

@@ -26,11 +26,9 @@
     </style>
 </head>
 <body>
-    <script
-        id="api-reference"
-        data-url="/openapi.json"
-        data-configuration='{"documentDownloadType":"none"}'
-    ></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <div id="api-reference" data-url="/openapi.json"></div>
+    {{-- PB-5 / INFRA-01: Scalar is bundled and version-pinned via
+         package.json + Vite; no CDN, no SRI required. --}}
+    @vite('resources/js/scalar.js')
 </body>
 </html>

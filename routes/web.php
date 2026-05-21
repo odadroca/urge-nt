@@ -8,8 +8,25 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect('/app/browse'));
 
+// Minimal health check (INFRA-11) — no framework branding, no external
+// resources. The richer app health endpoint is GET /api/v1/health.
+Route::get('/up', fn () => response()->json(['status' => 'ok']));
+
 // API documentation (public, no auth)
 Route::get('/docs', fn () => view('docs'));
+
+// OpenAPI spec — served from resources/ (not public/, which would shadow
+// this route as a static file) with the server URL injected from APP_URL
+// at request time so forks/self-hosted deployments don't bake the
+// upstream maintainer's domain into their published catalog (INFRA-05).
+Route::get('/openapi.json', function () {
+    $path = resource_path('openapi.json');
+    abort_unless(file_exists($path), 404);
+    $appUrl = rtrim((string) config('app.url'), '/');
+    $body = str_replace('{{APP_URL}}', $appUrl, file_get_contents($path));
+
+    return response($body, 200, ['Content-Type' => 'application/json']);
+});
 
 // Public share routes (no auth required) — throttled per IP (TPL-06)
 Route::get('/share/{token}', [ShareController::class, 'show'])

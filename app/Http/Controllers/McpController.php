@@ -238,31 +238,44 @@ class McpController
         return ['contents' => [$resource]];
     }
 
+    /**
+     * MCP-05: tight allowlist for the Origin header. Was: any HTTPS
+     * origin allowed (the comment claimed "auth is the real gate" but
+     * Origin is the defense for cookie-auth callers; degrading to any-
+     * HTTPS made the allowlist a tripwire that didn't trip). Now driven
+     * by config: same-origin, loopback (dev), config-listed MCP clients,
+     * and any extra origins the operator allows via
+     * MCP_ALLOWED_ORIGINS.
+     */
     private function isAllowedOrigin(string $origin): bool
     {
-        $appUrl = config('app.url');
-        if (str_starts_with($origin, $appUrl)) {
+        $appUrl = rtrim((string) config('app.url'), '/');
+        if ($appUrl && str_starts_with($origin, $appUrl)) {
             return true;
         }
-        if (str_starts_with($origin, 'http://localhost') || str_starts_with($origin, 'http://127.0.0.1')) {
+
+        if (
+            str_starts_with($origin, 'http://localhost')
+            || str_starts_with($origin, 'http://127.0.0.1')
+            || str_starts_with($origin, 'http://[::1]')
+        ) {
             return true;
         }
-        // Allow known MCP client origins (Claude.ai, Claude Desktop)
-        $allowedOrigins = [
+
+        $defaults = [
             'https://claude.ai',
             'https://www.claude.ai',
+            'https://chat.mistral.ai',
             'chrome-extension://',
         ];
-        foreach ($allowedOrigins as $allowed) {
-            if (str_starts_with($origin, $allowed)) {
+        $extra = array_filter(array_map('trim', explode(',', (string) env('MCP_ALLOWED_ORIGINS', ''))));
+
+        foreach (array_merge($defaults, $extra) as $allowed) {
+            if ($allowed !== '' && str_starts_with($origin, $allowed)) {
                 return true;
             }
         }
-        // Allow any HTTPS origin — MCP clients authenticate via OAuth/Bearer tokens,
-        // so Origin is a secondary check. Auth is the real gate.
-        if (str_starts_with($origin, 'https://')) {
-            return true;
-        }
+
         return false;
     }
 }

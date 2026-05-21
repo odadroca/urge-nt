@@ -1,4 +1,4 @@
-# /public/build
+/public/build
 .env
 .env.backup
 .env.production
@@ -26,6 +26,7 @@
 !/storage/framework/views/.gitkeep
 /storage/logs/*
 !/storage/logs/.gitkeep
+/storage/deploy-backups
 /vendor
 Homestead.json
 Homestead.yaml

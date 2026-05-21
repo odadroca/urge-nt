@@ -112,7 +112,7 @@ For local development with Claude Code (stdio, no auth):
 | [Architecture](documentation/architecture.md) | Data model, services, component hierarchy |
 | [MCP Client Setup](documentation/mcp-clients.md) | Claude Desktop, Claude.ai, Mistral Le Chat, stdio |
 | [API Reference (Claude Skill)](documentation/claude-skill.md) | API usage examples for LLM integration |
-| [OpenAPI Spec](public/openapi.json) | Full API spec, importable as a CustomGPT Action |
+| [OpenAPI Spec](resources/openapi.json) | Full API spec (served at `/openapi.json` with your APP_URL), importable as a CustomGPT Action |
 
 ## Built With
 

@@ -20,6 +20,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "@scalar/api-reference": "^1.57.3",
         "@tanstack/react-query": "^5.96.2",
         "@xyflow/react": "^12.10.2",
         "diff": "^9.0.0",

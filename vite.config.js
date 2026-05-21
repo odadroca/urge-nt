@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => ({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/spa/main.jsx',
+                'resources/js/scalar.js',
             ],
             refresh: true,
         }),
