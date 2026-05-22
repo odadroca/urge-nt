@@ -4,6 +4,11 @@
 **Branch:** `claude/audit-planning-ovwWc`
 **Status:** Report-only. No source changes (this file only).
 
+> **Closing state (Phase B complete, 2026-05-20):** test suite **417 →
+> 513 passing**; MCP tools **31** (unchanged); `composer audit` and
+> `npm audit` **clean** (vite 7.3.3, commonmark 2.8.2+, Symfony 7.4.12+).
+> All 4 CRIT + 18 HIGH findings fixed. See `docs/audit/pb-8-closure.md`.
+
 Purpose: establish verifiable baselines so later audit sprints cite measured
 facts rather than documentation claims.
 
