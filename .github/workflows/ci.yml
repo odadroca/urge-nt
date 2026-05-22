@@ -45,11 +45,8 @@ jobs:
       - name: Run tests
         run: php artisan test
 
-      # Advisory until PB-7 clears the open dependency advisories
-      # (DEP-03 league/commonmark). Flip to blocking once green.
       - name: Composer security audit
         run: composer audit --no-interaction
-        continue-on-error: true
 
   frontend:
     name: Build + npm audit
@@ -70,8 +67,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Advisory until PB-7 clears the open dependency advisories
-      # (DEP-01 vite, DEP-02 postcss). Flip to blocking once green.
       - name: npm audit (high+)
         run: npm audit --audit-level=high
-        continue-on-error: true
