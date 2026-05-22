@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\ApiKeyAuthentication;
 use App\Http\Middleware\DualAuthentication;
 use App\Http\Middleware\NoCacheApi;
 use App\Http\Middleware\RequireRole;
@@ -23,7 +22,6 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => RequireRole::class,
-            'api.auth' => ApiKeyAuthentication::class,
             'spa.auth' => 'auth:sanctum',
             'dual.auth' => DualAuthentication::class,
         ]);

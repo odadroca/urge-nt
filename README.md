@@ -16,7 +16,7 @@ URGE flips the direction: instead of you pushing prompts to LLMs, **LLMs pull pr
 
 - **Version control** -- immutable versions with auto-numbering, branching, and diff comparison
 - **Template engine** -- `{{variables}}` for substitution, `{{>slug}}` for includes, recursive resolution, strict validation of required variables
-- **MCP server** -- 29 tools, Streamable HTTP + stdio transports, works with Claude Desktop and Claude.ai out of the box
+- **MCP server** -- 31 tools, Streamable HTTP + stdio transports, works with Claude Desktop and Claude.ai out of the box
 - **REST API** -- full CRUD, Bearer token auth, OpenAPI 3.1 spec, [interactive docs](/docs) powered by Scalar
 - **React UI** -- Browse, Pipelines, Teams, Canvas (graph view), Workspace (3-panel editor), and Settings
 - **Workspace editor** -- inline autocomplete (`{{` variables, `{{>` fragments), visual composer (drag-drop blocks), version diff viewer (word/char mode), live preview
@@ -91,7 +91,7 @@ For local development with Claude Code (stdio, no auth):
 }
 ```
 
-29 tools cover prompts, results, evaluation, pipelines, branches, and teams. See the [MCP client setup guide](documentation/mcp-clients.md) for complete configuration details including Mistral Le Chat.
+31 tools cover prompts, results, evaluation, pipelines, branches, and teams. See the [MCP client setup guide](documentation/mcp-clients.md) for complete configuration details including Mistral Le Chat.
 
 ## Tech Stack
 
@@ -101,7 +101,7 @@ For local development with Claude Code (stdio, no auth):
 | Frontend | React 19, React Query, @xyflow/react, Tailwind CSS |
 | Database | SQLite |
 | Build | Vite 7 |
-| Tests | 386 passing (PHPUnit 11) |
+| Tests | 503 passing (PHPUnit 11) |
 
 ## Documentation
 
@@ -118,7 +118,7 @@ For local development with Claude Code (stdio, no auth):
 
 URGE is built on the shoulders of these open-source projects:
 
-[Laravel](https://laravel.com) -- [React](https://react.dev) -- [React Query](https://tanstack.com/query) -- [@xyflow/react](https://reactflow.dev) -- [ELK.js](https://github.com/kieler/elkjs) -- [Tailwind CSS](https://tailwindcss.com) -- [Vite](https://vite.dev) -- [Scalar](https://scalar.com) -- [Alpine.js](https://alpinejs.dev) -- [diff](https://github.com/kpdecker/jsdiff) -- [SortableJS](https://sortablejs.github.io/Sortable) -- [SQLite](https://sqlite.org)
+[Laravel](https://laravel.com) -- [React](https://react.dev) -- [React Query](https://tanstack.com/query) -- [@xyflow/react](https://reactflow.dev) -- [ELK.js](https://github.com/kieler/elkjs) -- [Tailwind CSS](https://tailwindcss.com) -- [Vite](https://vite.dev) -- [Scalar](https://scalar.com) -- [diff](https://github.com/kpdecker/jsdiff) -- [SortableJS](https://sortablejs.github.io/Sortable) -- [SQLite](https://sqlite.org)
 
 ## License
 

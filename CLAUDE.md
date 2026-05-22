@@ -16,7 +16,7 @@ URGE is the prompt memory layer that sits behind any LLM. LLMs pull prompts, fil
 composer install && npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate
-php artisan test         # 410 tests
+php artisan test         # 503 tests
 php artisan serve        # http://127.0.0.1:8000
 npm run dev              # Vite HMR
 npm run build            # Production
@@ -84,7 +84,7 @@ Collection → CollectionItem[] (polymorphic: prompt_version|result|collection) 
 
 Both transports share the same tool dispatch layer — the handler resolves tool calls to service layer methods identically.
 
-**Tools (29):**
+**Tools (31):**
 
 Prompt:
 - `create_prompt(name, content, type?, category?, tags?, description?)` — create a new prompt with initial version
@@ -190,8 +190,8 @@ Auth: Bearer token → SHA-256 hash lookup. Keys scoped to specific prompts via 
 - **VersioningService** — transactional version creation, auto-numbering (global + per-branch), variable/include extraction, metadata filtering, branch CRUD (create, delete, set-default)
 - **ApiKeyService** — key generation (prefix + random bytes), SHA-256 hash storage, preview
 - **ImportExportService** — .md with YAML frontmatter import/export (regex-based parsing, no Symfony YAML dependency)
-- **LlmDispatchService** — resolves LlmProvider driver to concrete driver class, dispatches prompt. Supports `dispatch()` and `dispatchWithSystem()`.
-- **AiAssistantService** — meta-prompts via `dispatchWithSystem()` for diff summarization (`summarizeDifferences`) and prompt improvement suggestions (`suggestImprovements`)
+- **LlmDispatchService** — resolves LlmProvider driver to concrete driver class, dispatches prompt. Supports `dispatch()` and `dispatchWithSystem()`. SSRF-validates custom endpoints (`UrlSafetyService`) and enforces a pre-dispatch prompt-size cap.
+- **AuthorizationService** — single source of truth for prompt/result/pipeline visibility & ownership and API-key prompt-scope; wrapped by Policies (`app/Policies`) for REST and called directly by the MCP tool handler.
 - **CollectionNestingService** — circular reference detection (BFS ancestor walk), depth validation (configurable max depth with unlimited toggle), validates nesting before creating collection-type CollectionItems
 - **EvaluationService** — LLM-powered result scoring with 6 configurable dimensions, versioned evaluations, composite score calculation, auto-evaluate support
 
@@ -348,7 +348,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 
 ## Current Status
 
-**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 410 tests passing. 29 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code).
+**All phases complete. React SPA is the sole frontend (Livewire fully removed).** 503 tests passing. 31 MCP tools. OAuth 2.1 with refresh tokens. Verified MCP connectivity: Claude.ai, Claude Desktop, Mistral Le Chat, stdio (Claude Code). A full security audit + remediation (Phase B, PB-1..8) is recorded under `docs/audit/`.
 
 ### Phase Roadmap
 
@@ -370,7 +370,7 @@ State: `showPreview`, `previewVariables`, `previewResult`, `previewError` on Edi
 - **Nested collections** — collections inside collections (DAG), circular ref detection, configurable depth, recursive API/share rendering
 - **React SPA** — React 19 at `/app/*` with Browse, Canvas, Workspace, Settings, Teams pages. Slim icon-rail sidebar, mobile bottom tab bar.
 - **OAuth 2.1** — PKCE (S256), confidential client support, Dynamic Client Registration (RFC 7591), scoped tokens, GitHub external identity provider, OIDC discovery. Verified with Claude.ai/Desktop, Mistral Le Chat.
-- **Streamable HTTP MCP** — Protocol version 2025-06-18, 29 tools. Verified with Claude.ai, Claude Desktop, Mistral Le Chat, stdio.
+- **Streamable HTTP MCP** — Protocol version 2025-06-18, 31 tools. Verified with Claude.ai, Claude Desktop, Mistral Le Chat, stdio.
 - **Result evaluation** — LLM-powered scoring with 6 configurable dimensions, versioned evaluations, composite scores, auto-evaluate option.
 - **Pipeline management** — Full CRUD via MCP: create/update/delete pipelines, add/update/remove channels. Channel system prompts support `{{>slug}}` template includes for versioned, composable context (e.g., personas, output formats).
 - **Client-side execution** — LLMs fetch prompts/pipelines, run natively (free), store results back.
