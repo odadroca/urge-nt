@@ -5,7 +5,7 @@ URGE is a prompt registry and version control system with user namespaces and te
 ## Base URL
 
 ```
-https://urge-next.acordado.org/api/v1
+https://your-urge-instance.example.com/api/v1
 ```
 
 ## Authentication
@@ -39,7 +39,7 @@ Prompts are scoped to users via `{username}/{slug}` URLs (like GitHub repos). Pr
 ### 1. Check API health
 
 ```bash
-curl https://urge-next.acordado.org/api/v1/health
+curl https://your-urge-instance.example.com/api/v1/health
 ```
 
 ### 2. List available prompts
@@ -47,18 +47,18 @@ curl https://urge-next.acordado.org/api/v1/health
 ```bash
 # List your own prompts (default scope: all visible)
 curl -H "Authorization: Bearer urge_YOUR_KEY" \
-  https://urge-next.acordado.org/api/v1/prompts
+  https://your-urge-instance.example.com/api/v1/prompts
 
 # Filter by scope: mine, shared, all
 curl -H "Authorization: Bearer urge_YOUR_KEY" \
-  "https://urge-next.acordado.org/api/v1/prompts?scope=mine"
+  "https://your-urge-instance.example.com/api/v1/prompts?scope=mine"
 ```
 
 ### 3. Get a specific prompt
 
 ```bash
 curl -H "Authorization: Bearer urge_YOUR_KEY" \
-  https://urge-next.acordado.org/api/v1/prompts/alexandre/my-prompt-slug
+  https://your-urge-instance.example.com/api/v1/prompts/alexandre/my-prompt-slug
 ```
 
 ### 4. Render a prompt with variables
@@ -68,7 +68,7 @@ curl -X POST \
   -H "Authorization: Bearer urge_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"variables": {"name": "Claude", "task": "code review"}}' \
-  https://urge-next.acordado.org/api/v1/prompts/alexandre/my-prompt-slug/render
+  https://your-urge-instance.example.com/api/v1/prompts/alexandre/my-prompt-slug/render
 ```
 
 ### 5. Save a result
@@ -78,7 +78,7 @@ curl -X POST \
   -H "Authorization: Bearer urge_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"version": 1, "response_text": "The LLM output...", "provider_name": "Anthropic", "model_name": "claude-3.5-sonnet"}' \
-  https://urge-next.acordado.org/api/v1/prompts/alexandre/my-prompt-slug/results
+  https://your-urge-instance.example.com/api/v1/prompts/alexandre/my-prompt-slug/results
 ```
 
 ### 6. Manage teams
@@ -86,21 +86,21 @@ curl -X POST \
 ```bash
 # List your teams
 curl -H "Authorization: Bearer urge_YOUR_KEY" \
-  https://urge-next.acordado.org/api/v1/teams
+  https://your-urge-instance.example.com/api/v1/teams
 
 # Create a team
 curl -X POST \
   -H "Authorization: Bearer urge_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "My Team"}' \
-  https://urge-next.acordado.org/api/v1/teams
+  https://your-urge-instance.example.com/api/v1/teams
 
 # Share a prompt with a team
 curl -X POST \
   -H "Authorization: Bearer urge_YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"team_slug": "my-team"}' \
-  https://urge-next.acordado.org/api/v1/prompts/alexandre/my-prompt-slug/share
+  https://your-urge-instance.example.com/api/v1/prompts/alexandre/my-prompt-slug/share
 ```
 
 ## Available Endpoints
@@ -183,15 +183,15 @@ For pipelines: `get_pipeline` → run each channel → `store_result` per channe
 # Server-side evaluation (uses URGE's configured LLM provider)
 curl -X POST \
   -H "Authorization: Bearer urge_YOUR_KEY" \
-  https://urge-next.acordado.org/api/v1/results/42/evaluate
+  https://your-urge-instance.example.com/api/v1/results/42/evaluate
 
 # Get evaluations for a result
 curl -H "Authorization: Bearer urge_YOUR_KEY" \
-  https://urge-next.acordado.org/api/v1/results/42/evaluations
+  https://your-urge-instance.example.com/api/v1/results/42/evaluations
 
 # Get latest evaluation
 curl -H "Authorization: Bearer urge_YOUR_KEY" \
-  https://urge-next.acordado.org/api/v1/results/42/evaluations/latest
+  https://your-urge-instance.example.com/api/v1/results/42/evaluations/latest
 ```
 
 ### MCP Resources (6)
@@ -213,7 +213,7 @@ Just provide the MCP server URL. Auth is handled automatically via OAuth Dynamic
 {
   "mcpServers": {
     "urge": {
-      "url": "https://urge-next.acordado.org/api/v1/mcp"
+      "url": "https://your-urge-instance.example.com/api/v1/mcp"
     }
   }
 }

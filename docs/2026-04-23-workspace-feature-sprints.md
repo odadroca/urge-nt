@@ -1,5 +1,9 @@
 # Workspace Feature Sprints: Diff Viewer, Autocomplete, Visual Composer
 
+> **Status: DELIVERED.** All three shipped — `DiffViewer.jsx`,
+> `AutocompleteDropdown.jsx`, `VisualComposer.jsx` under
+> `resources/js/spa/components/workspace/`. Kept for history.
+
 ## Context
 
 Three workspace features from the Livewire era were not ported during the React migration. They enhance the editor experience but were not migration blockers. Now it's time to bring them back.

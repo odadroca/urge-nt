@@ -40,15 +40,11 @@ class SecurityHeaders
             $headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
         }
 
-        // CSP — same-origin only by default, no inline JS, no eval.
-        // /docs has its own slightly looser policy because Scalar
-        // injects styles at runtime; rest of the app uses Vite-bundled
-        // hashed assets with no inline JS.
-        if ($request->is('docs')) {
-            $headers['Content-Security-Policy'] = $this->csp(allowInlineStyle: true);
-        } else {
-            $headers['Content-Security-Policy'] = $this->csp(allowInlineStyle: true);
-        }
+        // CSP — same-origin scripts only, no eval. `style-src` keeps
+        // 'unsafe-inline' because the Breeze auth Blade layout has an
+        // inline <style> for dark-mode bootstrap and Scalar (/docs)
+        // injects styles at runtime.
+        $headers['Content-Security-Policy'] = $this->csp(allowInlineStyle: true);
 
         foreach ($headers as $name => $value) {
             // Don't clobber values another middleware deliberately set

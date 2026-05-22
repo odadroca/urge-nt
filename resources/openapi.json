@@ -2,8 +2,8 @@
     "openapi": "3.1.0",
     "info": {
         "title": "URGE v2 API",
-        "description": "Prompt registry and version control API. Manage prompts, versions, render templates, store LLM results, run evaluation pipelines, and score results with LLM-based quality evaluations.",
-        "version": "4.0.0"
+        "description": "Prompt registry and version control API. Manage prompts, versions, render templates, store LLM results, run evaluation pipelines, and score results. NOTE: this document covers the core public endpoints; additional routes (providers, api-keys, users, graph, share-links, OAuth discovery) are defined and enforced in routes/api.php.",
+        "version": "2.0.0"
     },
     "servers": [
         {

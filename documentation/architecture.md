@@ -220,7 +220,7 @@ Two transports, one shared handler layer:
 
 Both transports dispatch to the same `McpToolHandler` service, which maps tool calls to TemplateEngine, VersioningService, and Eloquent queries.
 
-**Tools (29):**
+**Tools (31):**
 | Tool | Purpose |
 |---|---|
 | `create_prompt` | Create a new prompt with initial version |
@@ -330,7 +330,6 @@ app/Services/
 ├── ImportExportService.php        # .md with YAML frontmatter import/export
 ├── McpToolHandler.php             # MCP tool dispatch (shared by SSE + stdio transports)
 ├── LlmDispatchService.php        # Resolve driver, dispatch prompt
-├── AiAssistantService.php        # Meta-prompts: diff summarization, improvement suggestions
 ├── CollectionNestingService.php   # Circular ref detection, depth validation for nested collections
 ├── EvaluationService.php          # LLM-powered result scoring, 6 dimensions, versioned evaluations, composite scores
 ├── ShareLinkService.php           # Create/revoke/find share links for collections
@@ -369,7 +368,7 @@ app/Services/
 | Post-7 (done) | Version branching | Non-linear version history with PromptBranch, branch CRUD, MCP/API support |
 | Post-7 (done) | Nested collections | Collections inside collections (DAG), circular ref detection, configurable depth, public share rendering |
 | Post-7 (done) | OAuth 2.1 | PKCE (S256), scoped tokens, GitHub provider, discovery endpoints |
-| Post-7 (done) | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 29 tools |
+| Post-7 (done) | Streamable HTTP MCP | Protocol 2025-06-18, session via Mcp-Session-Id, 31 tools |
 | Post-7 (done) | Result evaluation | LLM-powered scoring, versioned evaluations, composite scores, auto-evaluate |
 | Post-7 (done) | Pipeline management | Pipeline CRUD via MCP, channel management |
 | Post-7 (done) | Client-side execution | LLMs fetch prompts/pipelines, run natively, store results back |

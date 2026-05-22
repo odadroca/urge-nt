@@ -1,5 +1,9 @@
 # OAuth 2.1 Refresh Token Support
 
+> **Status: DELIVERED.** Implemented (migration `create_oauth_refresh_tokens_table`,
+> `OAuthService::refreshToken`); rotation hardened in audit Phase B / PB-2
+> (atomic single-use — see `docs/audit/pb-2-oauth.md`). Kept for history.
+
 ## Context
 
 URGE's OAuth access tokens expire after 1 hour with no refresh mechanism. This forces Claude Desktop / Claude.ai users to re-authenticate every hour, breaking MCP sessions. Services like Supabase avoid this by issuing refresh tokens that silently renew access tokens in the background.

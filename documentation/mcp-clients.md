@@ -220,7 +220,7 @@ OAuth tokens can be scoped to limit tool access:
 
 API keys (legacy `urge_...` tokens) bypass scope checks and have full access.
 
-## Available Tools (29)
+## Available Tools (31)
 
 ### Prompt Tools
 
@@ -231,6 +231,8 @@ API keys (legacy `urge_...` tokens) bypass scope checks and have full access.
 | `list_prompts` | List/search prompts (scope: mine/shared/all) | read |
 | `render_prompt` | Render template with variable substitution | read |
 | `save_version` | Create a new version of a prompt | write |
+| `pin_version` | Pin a specific version as active (owner) | write |
+| `archive_version` | Archive/unarchive a version (owner) | write |
 | `delete_prompt` | Soft-delete a prompt (owner/admin) | admin |
 
 ### Result Tools
