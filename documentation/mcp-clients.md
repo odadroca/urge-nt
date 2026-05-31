@@ -167,6 +167,27 @@ echo json_encode(\$client->redirect_uris, JSON_PRETTY_PRINT);
 "
 ```
 
+## Claude Code (HTTP — desktop, web, mobile)
+
+**Type:** Public client with Dynamic Client Registration (same flow as Claude.ai)
+
+Claude Code's MCP registry is **separate** from Claude.ai chat's Connectors. Adding URGE under Settings → Integrations / Connectors in Claude.ai chat makes it available in chat only — Claude Code (CLI, `claude.ai/code`, and the Claude Code mobile app) does not read that list. URGE must be registered with Claude Code as a distinct step.
+
+### Recommended: add once via the desktop CLI with user scope
+
+From a desktop terminal where the Claude Code CLI is installed and signed in to the same Anthropic account as your other devices:
+
+```bash
+claude mcp add --transport http --scope user urge https://your-urge-instance.com/api/v1/mcp
+```
+
+Then open any Claude Code session and run `/mcp` to trigger the OAuth consent flow. `--scope user` writes the entry to your account-level Claude Code config, so it propagates to `claude.ai/code` and the Claude Code mobile app on the same account.
+
+Notes:
+- URGE's Dynamic Client Registration (RFC 7591) means each Claude Code instance self-registers as a new OAuth client, so you may see the consent screen again the first time you open Claude Code on a different device.
+- Don't confuse this with Claude.ai's Connectors UI — that path only configures chat, not Claude Code.
+- For local development against URGE running on the same machine without OAuth, use the **Claude Code (stdio — local)** section below instead.
+
 ## Claude Code (stdio — local)
 
 **Type:** No auth (local process, runs as a specific user)
