@@ -136,8 +136,9 @@ Designer's calls the owner did not contradict (open to override):
 - **Schema-validated outputs are optional per channel**, never mandatory.
 - **Prose is first-class.** The research record is mostly prose. Nothing may force
   prose into `{ "text": "..." }`.
-- **No outbound calls except to configured LLM providers and the configured
-  identity provider.**
+- **No outbound calls except to configured LLM providers, the configured
+  identity provider, and an OpenTelemetry collector the operator explicitly
+  configures.** Telemetry export is off by default.
 - **Web access is a capability a channel declares and a provider either has or
   lacks.** Routing is decided per channel at run time; it is never silent.
 - **The v2 instance and the Calane repo are not modified by this work.**
@@ -346,6 +347,12 @@ Adaptations:
 - **Stuck client items.** `finalize_run(run_id)` marks every `pending_client`
   item `skipped`, proceeds to synthesis over what exists, and ends the run as
   `partial`. There is no expiry; URGE never changes a run on its own clock.
+- **Telemetry.** Calane's `TelemetrySink` interface and its run/channel events
+  are carried with the executor (no-op sink by default). The OpenTelemetry
+  exporter is a separate optional package, enabled only by configuration, so a
+  stuck `pending_client` or a slow judge call can be followed in the operator's
+  own collector. `Run` and `ChannelResult` keep `trace_id`. No metrics or trace
+  UI inside URGE.
 - **Recursion** (Calane's bounded depth) is carried as a pipeline option but is
   not required for any v3 milestone.
 - **Synthesis variants and carry-forward strategies** (labels with no code in
@@ -503,7 +510,7 @@ examples. Health endpoint. No worker, no queue, no cron inside.
 
 | From | Carried as-is or adapted | Rebuilt from concept | Dropped |
 |---|---|---|---|
-| **Calane** | TypeBox specs discipline; ChannelExecutor/PipelineExecutor (concurrency, retry, repair, topological levels); Ajv validation; content hashing; bundle exporter; SQLite store; OAuth resource-server auth; Streamable HTTP + stdio MCP transport; RunDiffer | — | federation, signing, canonical refs, A2A, ModelSelector, StatsQueries, filesystem/git registries (prompts live in the DB), delegated_agent placeholder, synthesis variants, carryForwardStrategy, governance docs |
+| **Calane** | TypeBox specs discipline; ChannelExecutor/PipelineExecutor (concurrency, retry, repair, topological levels); Ajv validation; content hashing; bundle exporter; SQLite store; OAuth resource-server auth; Streamable HTTP + stdio MCP transport; RunDiffer; TelemetrySink interface + OTel exporter as an opt-in package | — | federation, signing, canonical refs, A2A, ModelSelector, StatsQueries, filesystem/git registries (prompts live in the DB), delegated_agent placeholder, synthesis variants, carryForwardStrategy, governance docs |
 | **URGE v2** | — | slug-addressed prompts; immutable versions; branches with fork point; `{{var}}` + `{{>ref}}` templating with strict mode and budgets; Result archive with provenance; client-side execution; `run_source`; `result_history` input; provider drivers (3 of 6) | React SPA, editor, visual composer, canvas, collections, share links, teams, namespaces, OAuth authorization server, DCR, refresh rotation, GitHub IdP, per-prompt API-key scoping, evaluation settings tables (evaluation becomes an ordinary pipeline), 31-tool MCP surface, Laravel |
 
 ---
