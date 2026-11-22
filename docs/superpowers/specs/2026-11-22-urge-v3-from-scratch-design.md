@@ -58,7 +58,7 @@ Owner decisions, verbatim intent:
 
 | # | Topic | Decision |
 |---|---|---|
-| 1 | Audience | Single operator per instance ("you, plus others who self-host"). Door kept open to multi-user later; not built. |
+| 1 | Audience | A **shared instance for a small allowlist of people** (the owner and family), **private by default with one visibility flag**. No teams. Others may self-host their own copy. (Revised 2026-11-22 from "single operator"; see §7.6 and Appendix D.) |
 | 2 | Hosting | Small container or VPS. Language unconstrained. PHP not required. |
 | 3 | Human UI | No full editor. Authoring happens through LLM clients over MCP. |
 | 4 | Data | Clean start. v2 instance stays up as an archive. No importer. |
@@ -74,9 +74,11 @@ Designer's calls the owner did not contradict (open to override):
 - Read-only web viewer exists, but after the machine surface, not before.
 - Launch providers: OpenRouter, Anthropic, one OpenAI-compatible driver.
 - No outbound telemetry by default. Provider keys stay on the box.
-- "Door kept open" means: every record carries an owner reference; authorization
-  lives in one layer; no code path assumes exactly one human. No accounts,
-  teams, sharing, or per-user isolation are built.
+- "Door kept open" means: visibility is modelled as an **audience reference**,
+  not a boolean, and the only audience built in v3 is `instance` (everyone on
+  the allowlist). A Team later is one more audience kind plus a membership table,
+  with no change to prompt, result, or run columns. No team CRUD, roles, or
+  namespaces are built.
 - The manual paste-with-provenance path survives as one API/MCP call
   (`store_result`), with no form built for it.
 
@@ -102,7 +104,8 @@ Designer's calls the owner did not contradict (open to override):
 
 ### Non-goals (for v3; may be revisited by the owner only)
 
-- Multi-tenant anything. Teams, sharing, per-user isolation, roles beyond one operator.
+- Multi-tenancy. Teams, team CRUD, roles, per-user namespaces in slugs or URLs.
+  (Sharing between allowlisted people on one instance *is* in scope: §7.6.)
 - An authorization server. URGE validates tokens; it never issues them to third parties.
 - A prompt editor UI, visual composer, canvas, drag-and-drop pipeline builder.
 - An internal scheduler. URGE never initiates a run on its own clock.
@@ -126,8 +129,11 @@ Designer's calls the owner did not contradict (open to override):
 
 ## 4. Constraints
 
-- **Single operator.** One human owns all data. There is no notion of another
-  user's data existing on the instance.
+- **Small allowlist, private by default.** Every record has one owner. A record
+  is visible to its owner, or to everyone on the instance allowlist when its
+  prompt or pipeline is marked `shared_with: [instance]`. There are no other
+  audiences in v3. Every read goes through the one visibility filter in
+  `authorize()`; no query may bypass it.
 - **TypeScript / Node 22+.** Chosen because the reusable executor is TypeScript.
 - **TypeBox is the single schema source** for internal contracts, REST
   validation, MCP tool descriptors, OpenAPI, and user-authored output schemas
@@ -207,11 +213,27 @@ authorization, or builds a run on its own.
 
 ### 7.1 Domain model
 
-All entities carry `id`, `created_at`, `owner_ref` (single operator today; the
-column exists so multi-user is an addition, not a migration).
+All entities carry `id`, `created_at`, `owner_id` (a **Person** on the instance
+allowlist).
 
-**Prompt** — `slug` (unique), `name`, `type` (`prompt` | `fragment`), `description`,
-`tags[]`, `archived_at?`. A fragment is a prompt whose purpose is to be included.
+**Person** — `id`, `display_name`, `identity_claims[]` (IdP `sub` or email values
+that map to this person), `is_admin` (may edit the allowlist and providers),
+`created_at`. Configured by the admin via CLI or REST; there is no sign-up.
+
+**Visibility** (on Prompt and Pipeline) — `private` (owner only) or
+`shared_with: [audience...]`. The only audience kind in v3 is `instance`. Results
+and ChannelResults inherit visibility from their prompt's version; Runs are
+visible to their requester and to anyone who can see **every** target and the
+pipeline. Providers are instance-wide and admin-managed; their keys are never
+returned. Writes (new version, new branch, new run) on a shared prompt are
+allowed to anyone who can see it; delete, archive, and visibility changes are
+owner-only. Every write records who did it.
+
+**Prompt** — `slug` (unique per instance; no owner prefix in refs), `name`,
+`type` (`prompt` | `fragment`), `description`, `tags[]`, `visibility`,
+`archived_at?`. A fragment is a prompt whose purpose is to be included. An
+include of a prompt the reader cannot see fails the render with a clear error;
+sharing a composite does not implicitly share its fragments.
 
 **Branch** — `prompt_id`, `name` (slug-safe, unique per prompt), `head_version_id`,
 `forked_from_version_id?`, `is_default`. Exactly one default per prompt.
@@ -247,9 +269,9 @@ bool, json_schema: bool }`, `active`.
 **Run** — `pipeline_id`, `pipeline_hash`, `targets[]` (resolved prompt refs with
 version ids and content hashes), `variables{}`, `status`
 (`running` | `awaiting_client` | `completed` | `partial` | `failed`),
-`run_source` (`manual` | `scheduled`), `requested_by` (client name from MCP
-`initialize`, API key name, or `cli`), `started_at`, `finished_at?`,
-`synthesis_result_id?`.
+`run_source` (`manual` | `scheduled`), `requested_by` (Person id) and
+`requested_via` (client name from MCP `initialize`, API key name, or `cli`),
+`started_at`, `finished_at?`, `synthesis_result_id?`.
 
 **ChannelResult** — one per (run, channel, target). `status`
 (`ok` | `invalid_json` | `schema_error` | `refused` | `timeout` | `error` |
@@ -404,9 +426,9 @@ resource)` function. Adapters never bypass it.
 
 | Tool | Purpose |
 |---|---|
-| `list_prompts(type?, tag?, search?)` | browse |
+| `list_prompts(type?, tag?, search?, scope?: mine \| shared \| all)` | browse what the actor can see |
 | `get_prompt(ref, render?: {variables, strict})` | content, metadata, branches summary; optionally rendered |
-| `save_prompt(slug, content, commit_message?, branch?, fork_from?, type?, tags?)` | create prompt, new version, or new branch in one call |
+| `save_prompt(slug, content, commit_message?, branch?, fork_from?, type?, tags?, visibility?)` | create prompt, new version, or new branch in one call; `visibility` on create or by owner |
 | `render_prompt(ref, variables, strict?)` | rendered text + used/missing variables + resolved includes |
 | `list_pipelines()` | browse |
 | `get_pipeline(slug)` | channels, routing preview for current providers |
@@ -443,7 +465,8 @@ REST or in-process services.
   publishes RFC 9728 Protected Resource Metadata at
   `/.well-known/oauth-protected-resource` pointing at an external identity
   provider, validates bearer JWTs against the IdP's JWKS (or introspection),
-  checks audience/resource (RFC 8707), and maps the single operator identity.
+  checks audience/resource (RFC 8707), and maps the token's identity claim to a
+  Person on the allowlist. Unknown identities are rejected; there is no sign-up.
   Calane's R2 implementation is the starting point.
 - **Client registration happens at the IdP, not in URGE.** The three launch
   clients each accept a pre-registered client id, so Dynamic Client Registration
@@ -451,18 +474,23 @@ REST or in-process services.
   ChatGPT accepts static credentials; Codex takes `--oauth-client-id`. If the
   chosen IdP supports DCR or Client ID Metadata Documents, clients may use them;
   URGE does not care. (Verified against vendor docs on 2026-11-22; see Appendix B.)
-- **API keys** (`urge_` prefix, sha256 at rest, per-key rate limit) for cron,
-  CLI, and scripts. Full operator access; no per-prompt scoping (it was
-  unenforced on MCP in v2 and buys nothing for one operator).
-- **stdio has no auth.** It runs on the operator's machine as the operator.
+- **API keys** (`urge_` prefix, sha256 at rest, per-key rate limit) belong to a
+  Person and act as that person, for cron, CLI, and scripts. No per-prompt
+  scoping (it was unenforced on MCP in v2); `read`/`write` only.
+- **stdio has no auth.** It runs on a person's machine with `--as <person>`
+  (required when the allowlist has more than one entry; it never defaults to
+  "the first user", which the v2 audit flagged).
 - **Identity, not scopes, on OAuth tokens.** A token is accepted when its
-  signature, audience and expiry check out and its `sub` (or configured claim)
-  matches the pinned operator identity. Such a token has full access. The IdP
-  therefore needs no custom scope or API definition; it must issue JWT access
-  tokens with a configurable audience and accept three redirect URIs.
+  signature, audience and expiry check out and its identity claim maps to a
+  Person. The IdP therefore needs no custom scope or API definition; it must
+  issue JWT access tokens with a configurable audience, accept three redirect
+  URIs, and let each allowlisted person sign in (a shared hosted IdP tenant, or
+  a self-hosted one with two accounts).
 - **`read` / `write` exist only on API keys**, chosen at key creation, for cron
-  jobs that should never write. One `Actor` type (`operator | key(read|write)`)
-  is resolved by every adapter and checked by one `authorize()`.
+  jobs that should never write. One `Actor` type
+  (`person(id, admin) | key(person_id, read|write)`) is resolved by every adapter
+  and checked by one `authorize(actor, action, resource)` that applies the
+  visibility rule in §7.1. Every list query is built from the same filter.
 - **Mixed mode is not offered.** `initialize` and `tools/list` require auth like
   everything else, except over stdio.
 - IdP choice is the operator's (any OIDC provider that issues JWTs with a
@@ -529,7 +557,9 @@ Each milestone ends with a runnable check the owner can perform with a real clie
 **M0 — Skeleton.** Repo, pnpm workspace, TypeBox specs for every entity in §7.1,
 SQLite store with migrations, application services with `authorize()`, stdio
 MCP with `list_prompts`, `get_prompt`, `save_prompt`, `render_prompt`.
-Check: from Claude Code, create `escritorio`, fork two branches, render each.
+Check: from Claude Code as person A, create `escritorio`, fork two branches,
+render each; as person B (`--as`), `list_prompts` does not show it until A marks
+it `shared_with: [instance]`, after which B can render it and save a version.
 
 **M1 — Runs with client execution.** Pipeline/Channel specs, `run`,
 `complete_channel`, `get_run`, `list_runs`, `get_results`, `store_result`.
@@ -546,8 +576,9 @@ client-produced candidates.
 **M3 — Remote.** Streamable HTTP transport, RFC 9728 metadata, JWT validation
 against one IdP, API keys, Docker image, volume, deploy to the container host.
 Check: Claude.ai connector, ChatGPT connector, and Codex each complete M1's
-flow against the hosted instance. This milestone is done only when all three
-pass; it is where the previous knot was.
+flow against the hosted instance, and a second allowlisted person signs in
+through Claude.ai and sees only shared prompts. This milestone is done only
+when all pass; it is where the previous knot was.
 
 **M4 — Mirror and export.** REST 1:1 with OpenAPI from TypeBox, CLI, run and
 prompt export bundles, run diff.
@@ -573,7 +604,9 @@ transport.
 - SQLite driver (`node:sqlite` vs `better-sqlite3`) and migration mechanism.
 - ID format (ULID suggested), hash canonicalization details.
 - Exact TypeBox shapes, within §7.1.
-- How `requested_by` is derived from MCP `initialize` client info per client.
+- How `requested_via` is derived from MCP `initialize` client info per client.
+- Allowlist administration surface (CLI only vs REST too) and the exact
+  identity-claim matching rules.
 - Rate-limit numbers, timeouts, concurrency defaults.
 - Repository name and licence (Calane is AGPL-3.0; the owner chooses for v3).
 - Which hosted and which self-hosted IdP the deploy guide documents.
@@ -671,3 +704,16 @@ override any of them.
 | 4 | How does the owner get a verdict when one client item never returns? | `finalize_run` MCP tool (14th); no expiry | §7.3, §7.5 |
 | 5 | How does a browser authenticate to the viewer? | API key pasted once into an `HttpOnly` cookie; no OIDC RP login in v3 | §7.9 |
 | 6 | Must the IdP issue `read`/`write` scopes? What identifies the operator? | Pinned identity claim, full access; scopes only on API keys | §7.6 |
+
+## Appendix D — Audience revision (2026-11-22)
+
+After the draft, the owner clarified that prompts and results must be shareable
+with one other household member. Options weighed: (a) shared instance, everyone
+sees everything; (b) one instance per person, share by export; (c) shared
+instance, private by default, one visibility flag; (d) Teams built now. Owner
+chose (c). Teams were declined for now because with two people a team is the
+whole instance, and team semantics (membership changes, multi-team prompts,
+edit vs read) would be decided with no case to test them against. To keep that
+door open cheaply, visibility is an **audience reference** whose only v3 kind is
+`instance`; a Team later is a new audience kind plus a membership table.
+Consequences folded into §2, §3, §4, §7.1, §7.5, §7.6, §9, §10.
