@@ -288,6 +288,26 @@ Carried from URGE v2, tightened:
   versions, variables). The run record stores the hash of the rendered text and
   the ids of every version that participated.
 
+**Composition ("object-oriented prompts", carried from v2 by owner request):**
+
+- A prompt of `type: fragment` is a reusable piece. Any prompt may be included;
+  the type marks intent and filters listings.
+- **Binding.** `{{>slug}}` is late-bound: it follows the fragment's default
+  branch head as it evolves. `{{>slug@branch}}` and `{{>slug#n}}` are early-bound.
+  History is safe either way because every render records the participating
+  version ids and hashes.
+- **Variable propagation.** A fragment's `{{var}}` becomes a required variable of
+  the composite that includes it. Defaults declared on the fragment's version
+  apply unless the composite declares its own. There is no argument passing at
+  the include site in v3; a fragment that needs different values in two places
+  is two fragments or two branches.
+- **Reverse lookup.** Each Version stores its extracted `includes[]`, so
+  `get_prompt` returns `used_by` (prompts whose current heads include this one),
+  and `save_prompt` on a fragment reports which composites' default renders it
+  shifts.
+- Channel system prompts compose the same way, so a persona or an output format
+  is one versioned fragment shared across pipelines.
+
 ### 7.3 Execution kernel (carried from Calane, adapted)
 
 Pipeline execution follows Calane's executor: build a plan from `depends_on`
