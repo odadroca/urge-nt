@@ -294,10 +294,15 @@ Provenance. A channel declares `archive_as` (`answer` default, `score`,
 default; `kind` filters. A synthesis Result is listed under every prompt its
 run targeted.
 
-**Provenance** (embedded) — `executed_by` (`server` | `client` | `manual`),
-`provider` (free text or provider slug), `model`, `client_name?` (e.g.
-"claude-ai", "chatgpt", "codex", "claude-code"), `web_used: bool?`,
-`tokens_in?`, `tokens_out?`, `recorded_at`.
+**Provenance** (embedded) — who produced the text and who recorded it are kept
+apart. `executed_by` (`server`: URGE dispatched it; `client`: the connected LLM
+ran it itself; `external`: produced elsewhere and relayed, the paste path),
+`provider` and `model` (always the producer; free text or provider slug),
+`web_used: bool?`, `tokens_in?`, `tokens_out?`, `recorded_via` (the MCP client
+name, API key name, or `cli` that made the call), `recorded_by` (Person id),
+`recorded_at`. Example: "record this result for `escritorio@sem-banho`, sourced
+via web from ChatGPT 5.4 thinking" → `executed_by: external, provider: openai,
+model: chatgpt-5.4-thinking, web_used: true, recorded_via: claude-code`.
 
 **Research tree** is not an entity. It is the view "all branch heads of prompt X
 plus the runs that targeted them". The owner's workflow is served by letting a
