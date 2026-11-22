@@ -726,3 +726,18 @@ edit vs read) would be decided with no case to test them against. To keep that
 door open cheaply, visibility is an **audience reference** whose only v3 kind is
 `instance`; a Team later is a new audience kind plus a membership table.
 Consequences folded into §2, §3, §4, §7.1, §7.5, §7.6, §9, §10.
+
+## Appendix E — Parked ideas (owner-raised, not scheduled)
+
+**E1 — External-run envelope (raised 2026-11-22).** When a prompt or a
+`pending_client` item is to be run by hand on another model via its web UI,
+`render_prompt` / `run` can wrap the rendered text in a standard contract: a
+header the external model must fill (its model name and version, run date,
+whether it used the web), then the answer, then a closing marker.
+`store_result` recognises the envelope and fills `provider`, `model`,
+`web_used`, and `executed_by: external` from it, so the paste path needs no
+hand-typed provenance. The envelope is itself a versioned fragment in URGE
+(e.g. `{{>external-run-envelope}}`), so its wording can be tuned and every
+result records which envelope version it came through. A model's self-reported
+version is a claim: provenance marks it `self_reported`. Earliest sensible
+place: after M4, once `store_result` and export are stable. Not a milestone.
