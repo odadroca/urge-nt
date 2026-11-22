@@ -8,8 +8,9 @@ Supersedes: nothing. urge-nt (v2) and calane-claude remain as they are; this des
 
 ## 1. Intent
 
-URGE v3 is a **research-record system for LLM work**, operated by one person, used
-by the LLMs that person talks to.
+URGE v3 is a **research-record system for LLM work**, self-hosted by a household
+or a very small group, used by the LLMs its people talk to. Each person's work is
+private unless they choose to share it with the others on the instance.
 
 The artifact it protects is a *research tree with a verdict*: one root prompt
 holding the shared parameters, branches per variant, every branch run on one or
@@ -17,18 +18,21 @@ more models, every answer archived against the exact version that produced it,
 and a judge or distiller that reads the whole archive and arbitrates. Months
 later the full record, including the verdict and who contributed what, is still
 retrievable and legible, by a human or by an LLM, without the conversation that
-produced it.
+produced it. When it is shared, another person on the instance can re-enter the
+same record, build on it, and run their own branches against it.
 
 Everything else in this document exists to make that artifact reliable to
-create, reliable to re-enter, and cheap to host.
+create, reliable to re-enter, safe to share within the instance, and cheap to
+host.
 
 ### 1.1 Why now
 
 The owner re-read a tiny-house research tree in URGE v2 months after producing
 it and found the record intact and useful, but had forgotten the system could do
 this. The code that produced the record is roughly 10–15% of URGE v2; the rest
-was built for a hypothetical multi-user product and then had to be security
-hardened. Calane, a separate kernel the owner built afterwards, solved the parts
+was built for a hypothetical multi-tenant product (namespaces, teams, roles, an
+OAuth authorization server) and then had to be security hardened. The real
+sharing need is one other household member. Calane, a separate kernel the owner built afterwards, solved the parts
 URGE v2 does badly (reliable fan-out, linked run records) and by contract refuses
 to do the parts URGE does well (prompt memory). v3 puts the two halves in one
 process.
