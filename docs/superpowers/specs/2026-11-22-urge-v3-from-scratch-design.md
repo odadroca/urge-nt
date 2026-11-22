@@ -217,6 +217,11 @@ column exists so multi-user is an addition, not a migration).
 `slug#7`, `slug@branch#2`. Resolution: explicit version → branch head → default
 branch head. Every API that takes a prompt takes a ref.
 
+**Target ref** — what a Run may target: a prompt ref (render it as `{{input}}`),
+`result:<id>` (the text of one archived Result as `{{input}}`, for scoring or
+distilling a single answer), or `run:<id>` (every archive Result of a past run,
+one target each). The `evaluation` and `best-of` pipelines target Results.
+
 **Provider** — `slug`, `driver` (`openrouter` | `anthropic` | `openai_compatible`),
 `model`, `endpoint?`, `api_key` (encrypted at rest), `capabilities{ web_search:
 bool, json_schema: bool }`, `active`.
@@ -246,9 +251,14 @@ version ids and content hashes), `variables{}`, `status`
 
 **Result** — the archive row a human or LLM reads later. Every ChannelResult
 with output produces one. A Result may also exist without a run (the paste
-path, or a single ad-hoc `store_result`). Fields: `prompt_version_id`,
-`run_id?`, `channel_result_id?`, `text`, `rating?`, `starred`, `notes?`,
-`run_source`, Provenance.
+path, or a single ad-hoc `store_result`). Fields: `kind`
+(`answer` | `score` | `synthesis`), `prompt_version_id?` (null for a synthesis
+over several targets; the run carries the targets), `run_id?`,
+`channel_result_id?`, `text`, `rating?`, `starred`, `notes?`, `run_source`,
+Provenance. A channel declares `archive_as` (`answer` default, `score`,
+`synthesis`, or `none`). `get_results` returns `answer` and `synthesis` by
+default; `kind` filters. A synthesis Result is listed under every prompt its
+run targeted.
 
 **Provenance** (embedded) — `executed_by` (`server` | `client` | `manual`),
 `provider` (free text or provider slug), `model`, `client_name?` (e.g.
@@ -304,6 +314,18 @@ Adaptations:
   synthesis channel routes to the server, otherwise the run returns the rendered
   synthesis prompt and awaits one more `complete_channel`. This is the fix for
   the v2 linkage gap.
+- **Persisted state machine, not an in-memory function.** Unlike Calane's
+  executor, a v3 run lives in the database as per-channel×target rows and must
+  survive a process restart and a `complete_channel` that arrives days later.
+  Server-side work runs in-process, asynchronously. `run`, `complete_channel`
+  and `finalize_run` accept `wait_ms` (default 20 000, cap 55 000): they return
+  as soon as server work for that step finishes or the wait expires, with the
+  run snapshot; the caller polls `get_run` for the rest. On startup, any
+  channel×target left in `running` becomes `interrupted` and is re-dispatched by
+  `run(resume=run_id)`; nothing is silently re-run.
+- **Stuck client items.** `finalize_run(run_id)` marks every `pending_client`
+  item `skipped`, proceeds to synthesis over what exists, and ends the run as
+  `partial`. There is no expiry; URGE never changes a run on its own clock.
 - **Recursion** (Calane's bounded depth) is carried as a pipeline option but is
   not required for any v3 milestone.
 - **Synthesis variants and carry-forward strategies** (labels with no code in
@@ -344,7 +366,7 @@ If an OpenRouter model with web search is later configured, step 4 routes
 its own authorization check through a single `authorize(actor, action,
 resource)` function. Adapters never bypass it.
 
-**MCP tools** (target 13, hard cap 16; coarse, verbs not nouns):
+**MCP tools** (14 at launch, hard cap 16; coarse, verbs not nouns):
 
 | Tool | Purpose |
 |---|---|
@@ -361,8 +383,9 @@ resource)` function. Adapters never bypass it.
 | `list_runs(pipeline?, prompt?, since?, status?)` | browse runs |
 | `get_results(ref, run_source?, since?, limit?, starred?)` | history for a prompt (any branch/version) |
 | `store_result(ref, text, provenance, notes?, rating?, run_source?)` | the paste / ad-hoc path |
+| `finalize_run(run_id)` | skip outstanding client items, synthesize over what exists, end as `partial` |
 
-`export(run_id | ref)` is the 14th if the owner wants it as a tool; otherwise
+`export(run_id | ref)` is the 15th if the owner wants it as a tool; otherwise
 export is REST/CLI only. Provider CRUD and rating/starring are REST/CLI only;
 they are configuration, not conversation.
 
@@ -398,8 +421,14 @@ REST or in-process services.
   CLI, and scripts. Full operator access; no per-prompt scoping (it was
   unenforced on MCP in v2 and buys nothing for one operator).
 - **stdio has no auth.** It runs on the operator's machine as the operator.
-- **Scopes**: `read`, `write`. Enforced identically on MCP and REST because both
-  resolve to the same `Actor`.
+- **Identity, not scopes, on OAuth tokens.** A token is accepted when its
+  signature, audience and expiry check out and its `sub` (or configured claim)
+  matches the pinned operator identity. Such a token has full access. The IdP
+  therefore needs no custom scope or API definition; it must issue JWT access
+  tokens with a configurable audience and accept three redirect URIs.
+- **`read` / `write` exist only on API keys**, chosen at key creation, for cron
+  jobs that should never write. One `Actor` type (`operator | key(read|write)`)
+  is resolved by every adapter and checked by one `authorize()`.
 - **Mixed mode is not offered.** `initialize` and `tools/list` require auth like
   everything else, except over stdio.
 - IdP choice is the operator's (any OIDC provider that issues JWTs with a
@@ -434,8 +463,10 @@ REST or in-process services.
 
 ### 7.9 Human viewer (later phase)
 
-Read-only, server-rendered or a small static SPA, no auth UI of its own (it sits
-behind the same bearer/session as REST). Screens: prompt list; prompt page with
+Read-only, server-rendered or a small static SPA. Browser access: the operator
+pastes an API key once; it is stored in an `HttpOnly` cookie and checked by the
+same `authorize()` as REST. No OIDC relying-party login, no fourth redirect URI,
+no session store. An IdP-backed browser login may be added later as a module. Screens: prompt list; prompt page with
 branch graph and versions; version diff; run list; run page showing targets ×
 channels grid with provenance and the verdict; result page; export buttons.
 No forms except "rate / star / note" on a result. Everything else is MCP/CLI.
@@ -591,3 +622,18 @@ URGE.
 
 Consequence: no launch client requires URGE to implement DCR or an authorization
 server. Pre-registered clients at an external IdP satisfy all three.
+
+## Appendix C — Builder-check resolutions (2026-11-22)
+
+A fresh reviewer read the draft as a builder and asked six questions. Each was
+settled as a designer's call and folded into the sections above; the owner may
+override any of them.
+
+| # | Question | Resolution | Where |
+|---|---|---|---|
+| 1 | Does `run` block until server work finishes, or poll? Can a run survive restarts and a completion days later? | Persisted state machine; async in-process work; `wait_ms` hybrid; `interrupted` on restart, explicit resume | §7.3 |
+| 2 | Can a run target a Result (score one answer)? Which version does a multi-target synthesis Result carry? | Target refs grow with `result:<id>` and `run:<id>`; `prompt_version_id` nullable on synthesis; listed under every targeted prompt | §7.1 |
+| 3 | Do scorer JSON blobs pollute prompt history? | `Result.kind` + channel `archive_as`; `get_results` defaults to `answer,synthesis` | §7.1 |
+| 4 | How does the owner get a verdict when one client item never returns? | `finalize_run` MCP tool (14th); no expiry | §7.3, §7.5 |
+| 5 | How does a browser authenticate to the viewer? | API key pasted once into an `HttpOnly` cookie; no OIDC RP login in v3 | §7.9 |
+| 6 | Must the IdP issue `read`/`write` scopes? What identifies the operator? | Pinned identity claim, full access; scopes only on API keys | §7.6 |
