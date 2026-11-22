@@ -158,9 +158,16 @@ consistent; the escritório linkage already broke across a process boundary.
 Carry roughly 2.5k lines of Calane (specs, channel/pipeline executor with
 concurrency and retries, Ajv validation, hashing, bundle export, SQLite store).
 Rebuild from URGE only the concepts that proved themselves. One MCP server,
-coarse tools. Calane stays untouched as the signed-off kernel; v3 takes its core
-as a starting point, not as a dependency. Cost: imported code brings its shape;
-each piece must be re-justified, not copied.
+coarse tools. Cost: imported code brings its shape; each piece must be
+re-justified, not copied.
+
+**Calane's fate (owner decision, 2026-11-22):** v3 is the single tool. Calane is
+frozen as an archive and reference; it is not developed in parallel and nothing
+merges back into it. The separation that survives is a **package boundary, not
+a runtime switch**: the execution kernel (specs, executor, validator, hashing,
+bundle, telemetry sink) is its own package inside the v3 monorepo with no
+dependency on the prompt store, so it stays inspectable and could be published
+standalone later. There is no "kernel-only" mode of the running server.
 
 **C. Concept-only rewrite, no code reuse.** Rejected: slowest, discards a tested
 executor, and a third hand-written version of the same executor would re-derive
@@ -510,7 +517,7 @@ examples. Health endpoint. No worker, no queue, no cron inside.
 
 | From | Carried as-is or adapted | Rebuilt from concept | Dropped |
 |---|---|---|---|
-| **Calane** | TypeBox specs discipline; ChannelExecutor/PipelineExecutor (concurrency, retry, repair, topological levels); Ajv validation; content hashing; bundle exporter; SQLite store; OAuth resource-server auth; Streamable HTTP + stdio MCP transport; RunDiffer; TelemetrySink interface + OTel exporter as an opt-in package | — | federation, signing, canonical refs, A2A, ModelSelector, StatsQueries, filesystem/git registries (prompts live in the DB), delegated_agent placeholder, synthesis variants, carryForwardStrategy, governance docs |
+| **Calane** (frozen; kernel carried as a standalone package inside v3, see §5) | TypeBox specs discipline; ChannelExecutor/PipelineExecutor (concurrency, retry, repair, topological levels); Ajv validation; content hashing; bundle exporter; SQLite store; OAuth resource-server auth; Streamable HTTP + stdio MCP transport; RunDiffer; TelemetrySink interface + OTel exporter as an opt-in package | — | federation, signing, canonical refs, A2A, ModelSelector, StatsQueries, filesystem/git registries (prompts live in the DB), delegated_agent placeholder, synthesis variants, carryForwardStrategy, governance docs |
 | **URGE v2** | — | slug-addressed prompts; immutable versions; branches with fork point; `{{var}}` + `{{>ref}}` templating with strict mode and budgets; Result archive with provenance; client-side execution; `run_source`; `result_history` input; provider drivers (3 of 6) | React SPA, editor, visual composer, canvas, collections, share links, teams, namespaces, OAuth authorization server, DCR, refresh rotation, GitHub IdP, per-prompt API-key scoping, evaluation settings tables (evaluation becomes an ordinary pipeline), 31-tool MCP surface, Laravel |
 
 ---
@@ -561,7 +568,7 @@ transport.
 
 ## 10. Left to the builder
 
-- Package layout inside the monorepo (one package vs core/server/cli split).
+- Package layout inside the monorepo, subject to one rule: the execution kernel is a package with no dependency on the prompt store (§5).
 - HTTP framework (Calane used Fastify; keep unless there is a reason).
 - SQLite driver (`node:sqlite` vs `better-sqlite3`) and migration mechanism.
 - ID format (ULID suggested), hash canonicalization details.
