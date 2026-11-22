@@ -412,7 +412,7 @@ models, then judge."
    - Router: `research` has no web-capable provider → three `pending_client`
      items returned with rendered prompts. `judge` routes to server.
 5. The client executes the three research prompts with its own web search and
-   calls `complete_channel` three times with provenance (`client_name:
+   calls `complete_channel` three times with provenance (`recorded_via:
    "claude-code"`, `model`, `web_used: true`).
 6. The server runs `judge` over the three results, stores the synthesis Result,
    marks the run `completed`.
