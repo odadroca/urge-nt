@@ -1,8 +1,9 @@
 # URGE v3 — From-Scratch Design
 
-Date: 2026-11-22
+Date: 2026-11-22 (revision 2, 2026-11-23, after independent audit)
 Status: DRAFT for owner approval. Nothing is built until this document is approved.
 Supersedes: nothing. urge-nt (v2) and calane-claude remain as they are; this describes a new repository.
+Companion: `2026-11-22-urge-v3-design-audit.md` (four-lens audit; every disposition there is folded in here).
 
 ---
 
@@ -32,10 +33,10 @@ it and found the record intact and useful, but had forgotten the system could do
 this. The code that produced the record is roughly 10–15% of URGE v2; the rest
 was built for a hypothetical multi-tenant product (namespaces, teams, roles, an
 OAuth authorization server) and then had to be security hardened. The real
-sharing need is one other household member. Calane, a separate kernel the owner built afterwards, solved the parts
-URGE v2 does badly (reliable fan-out, linked run records) and by contract refuses
-to do the parts URGE does well (prompt memory). v3 puts the two halves in one
-process.
+sharing need is one other household member. Calane, a separate kernel the owner
+built afterwards, solved the parts URGE v2 does badly (reliable fan-out, linked
+run records) and by contract refuses to do the parts URGE does well (prompt
+memory). v3 puts the two halves in one process.
 
 ### 1.2 What happened in practice (ground truth from the live v2 instance)
 
@@ -56,35 +57,32 @@ process.
 
 ---
 
-## 2. Decisions recorded from the owner interview (2026-11-22)
-
-Owner decisions, verbatim intent:
+## 2. Decisions recorded from the owner interview (2026-11-22/23)
 
 | # | Topic | Decision |
 |---|---|---|
-| 1 | Audience | A **shared instance for a small allowlist of people** (the owner and family), **private by default with one visibility flag**. No teams. Others may self-host their own copy. (Revised 2026-11-22 from "single operator"; see §7.6 and Appendix D.) |
-| 2 | Hosting | Small container or VPS. Language unconstrained. PHP not required. |
-| 3 | Human UI | No full editor. Authoring happens through LLM clients over MCP. |
+| 1 | Audience | Shared instance for a small allowlist of people (owner and family), private by default with one visibility flag. No teams. Others may self-host their own copy. |
+| 2 | Hosting | Small container or VPS, **always-on** (paid tier or the owner's own always-on hardware). Language unconstrained. PHP not required. |
+| 3 | Human UI | No full editor. Authoring happens through LLM clients over MCP. Read-only viewer later. |
 | 4 | Data | Clean start. v2 instance stays up as an archive. No importer. |
 | 5 | Launch clients | Claude Code, Claude.ai, ChatGPT/Codex. Mistral and others later. |
-| 6 | Output contracts | Optional JSON Schema per channel. |
-| 7 | Cadence | Passive at launch. External schedulers trigger; URGE tags and stores. |
+| 6 | Output contracts | Optional JSON Schema per channel. Prose is first-class. |
+| 7 | Cadence | Passive. External schedulers trigger; URGE tags and stores. |
 | 8 | Web access | Declared per channel. Server dispatches to providers whose search tool is configured; otherwise hands the channel to the client. |
-| 9 | Build approach | B: one new TypeScript repo absorbing Calane's kernel and rebuilding URGE's memory layer. |
-| 10 | Store | Owner delegated; designer's call is SQLite (see §7.7). |
+| 9 | Build approach | B: one TypeScript repo absorbing Calane's kernel and rebuilding URGE's memory layer. Calane frozen. |
+| 10 | Store | SQLite (designer's call, owner delegated). |
+| 11 | Admin visibility | An admin manages the allowlist and providers and **cannot read other people's private records**. |
+| 12 | Telemetry | Keep the small sink interface; the OTel exporter is parked (Appendix E2). |
+| 13 | Audit | Four-lens independent audit run; all dispositions folded into this revision. |
 
 Designer's calls the owner did not contradict (open to override):
 
-- Read-only web viewer exists, but after the machine surface, not before.
 - Launch providers: OpenRouter, Anthropic, one OpenAI-compatible driver.
-- No outbound telemetry by default. Provider keys stay on the box.
-- "Door kept open" means: visibility is modelled as an **audience reference**,
-  not a boolean, and the only audience built in v3 is `instance` (everyone on
-  the allowlist). A Team later is one more audience kind plus a membership table,
-  with no change to prompt, result, or run columns. No team CRUD, roles, or
-  namespaces are built.
-- The manual paste-with-provenance path survives as one API/MCP call
-  (`store_result`), with no form built for it.
+- No outbound calls except configured providers and the configured IdP.
+- Visibility is modelled as an **audience reference**; the only audience in v3 is
+  `instance`. A Team later is one more audience kind plus a membership table.
+- The paste-with-provenance path survives as one call (`store_result`).
+- Tool hard cap raised from 16 to 20 after the audit; launch surface is 16.
 
 ---
 
@@ -98,118 +96,114 @@ Designer's calls the owner did not contradict (open to override):
 2. Reliable multi-model fan-out executed by the server when a provider is
    configured, with real concurrency, retries, and optional schema validation.
 3. Client execution as a first-class mode: when the calling LLM is the best
-   executor (it has web search, or no provider key exists), URGE hands back the
-   rendered channel and accepts the completion **into the same run**.
-4. A run record that is self-describing and exportable as Markdown plus JSON,
-   with content hashes of every prompt and schema that shaped it.
+   executor, URGE hands back the rendered channel and accepts the completion
+   **into the same run**, even days later, across restarts.
+4. A run record that is self-describing and exportable, with content hashes of
+   every prompt, pipeline spec, and schema that shaped it.
 5. One remote MCP server that Claude.ai, ChatGPT, and Codex each accept, with
    auth that is a thin resource-server layer and nothing more.
-6. One-process deployment on a small container with a single SQLite file.
+6. **Structural authorization**: no code path can read or mutate a record
+   without an actor, enforced by the store API and by a build-failing test.
+7. One-process deployment, always-on, with a single SQLite file and a tested
+   backup/restore.
 
-### Non-goals (for v3; may be revisited by the owner only)
+### Non-goals (v3; owner may revisit)
 
 - Multi-tenancy. Teams, team CRUD, roles, per-user namespaces in slugs or URLs.
-  (Sharing between allowlisted people on one instance *is* in scope: §7.6.)
-- An authorization server. URGE validates tokens; it never issues them to third parties.
-- A prompt editor UI, visual composer, canvas, drag-and-drop pipeline builder.
-- An internal scheduler. URGE never initiates a run on its own clock.
-- Federation, signing, A2A agent cards, model-selection harness (Calane features
-  that stay in Calane unless a concrete run needs them).
-- Importing v2 data.
-- Collections, nested collections, share links.
-- Billing, marketplace, hosted SaaS.
+  Sharing between allowlisted people on one instance *is* in scope.
+- An authorization server. URGE validates tokens; it never issues them.
+- A prompt editor UI, visual composer, canvas, pipeline builder.
+- An internal scheduler.
+- Federation, signing, A2A, model selection, run diff, bounded recursion, OTel
+  exporter (all parked or dropped; Appendix E).
+- Importing v2 data. Collections, share links. Billing, marketplace, SaaS.
 
-### Anti-goals (would make v3 a failure even if it works)
+### Anti-goals
 
-- A tool surface that grows past what OpenAI-style callers accept (~30) or that
-  makes an LLM guess which of several near-identical tools to call.
-- Results that exist without a link to the run, branch, and version that produced them.
-- An MCP layer and a REST layer that disagree (the v2 failure: separate lookup,
-  separate scope enforcement, separate rate limits).
-- A deployment that needs a second always-on process to be correct.
+- A tool surface past ~20, or tools an LLM must guess between.
+- Results without a link to run, branch, version, and provenance.
+- MCP and REST disagreeing on lookup, authorization, or limits.
+- A deployment that needs a second always-on process.
 - Hardening work that exists only because surface area was added speculatively.
+- Authorization that depends on a developer remembering to check.
 
 ---
 
 ## 4. Constraints
 
-- **Small allowlist, private by default.** Every record has one owner. A record
-  is visible to its owner, or to everyone on the instance allowlist when its
-  prompt or pipeline is marked `shared_with: [instance]`. There are no other
-  audiences in v3. Every read goes through the one visibility filter in
-  `authorize()`; no query may bypass it.
-- **TypeScript / Node 22+.** Chosen because the reusable executor is TypeScript.
+- **Small allowlist, private by default.** Every record has one owner. Visibility
+  rules are in §7.1 and are the only rules; every read goes through them.
+- **Actor-scoped data access.** Stores expose `get(actor, id)` and
+  `list(actor, filter)` only. The single unscoped path is a `system` actor used
+  by executor resume on startup. A test fails the build if any service or store
+  method lacks an `Actor` parameter.
+- **TypeScript / Node 24 LTS.** One Node version pinned in `engines`, the
+  Dockerfile, and the platform config.
 - **TypeBox is the single schema source** for internal contracts, REST
-  validation, MCP tool descriptors, OpenAPI, and user-authored output schemas
-  (which are JSON Schema files or inline JSON Schema). No second schema library.
-  (Carried from Calane; it worked.)
-- **Schema-validated outputs are optional per channel**, never mandatory.
-- **Prose is first-class.** The research record is mostly prose. Nothing may force
-  prose into `{ "text": "..." }`.
-- **No outbound calls except to configured LLM providers, the configured
-  identity provider, and an OpenTelemetry collector the operator explicitly
-  configures.** Telemetry export is off by default.
-- **Web access is a capability a channel declares and a provider either has or
-  lacks.** Routing is decided per channel at run time; it is never silent.
-- **The v2 instance and the Calane repo are not modified by this work.**
+  validation, MCP tool descriptors, OpenAPI, and the shape of user-authored
+  output schemas. No second schema library.
+- **Prose is first-class.** Validation runs only when a channel declares
+  `output_schema`. Nothing forces prose into JSON.
+- **No outbound calls except to configured LLM providers and the configured IdP.**
+  Backups are pulled, never pushed.
+- **Web access is a declared capability**, routed per channel at run time, never
+  silently.
+- **Stateless Streamable HTTP.** No server-side MCP session state; the actor is
+  resolved per HTTP request from the bearer token or API key.
+- **Always-on host.** Background server work must not be killed by platform idling.
+- **The v2 instance and the Calane repo are not modified.**
 
 ---
 
 ## 5. Approaches considered
 
-**A. URGE as a thin layer over Calane, two repos.** Calane unchanged; new URGE
-holds prompt memory and MCP, plugs into Calane's registry interface. Rejected:
-Calane channels reference prompts by file path with no variables or includes, so
-either Calane's frozen contract breaks or URGE pre-renders everything and the run
-record loses the template lineage. Two codebases, two MCP servers to keep
-consistent; the escritório linkage already broke across a process boundary.
+**A. URGE as a thin layer over Calane, two repos.** Rejected: Calane's channels
+reference prompts by file path with no variables or includes, so either its
+frozen contract breaks or the run record loses template lineage. Two MCP
+servers to keep consistent; the escritório linkage already broke across a
+process boundary.
 
 **B. One new repo absorbing Calane's kernel and URGE's memory.** Chosen.
-Carry roughly 2.5k lines of Calane (specs, channel/pipeline executor with
-concurrency and retries, Ajv validation, hashing, bundle export, SQLite store).
-Rebuild from URGE only the concepts that proved themselves. One MCP server,
-coarse tools. Cost: imported code brings its shape; each piece must be
-re-justified, not copied.
+Honest carry accounting after audit: roughly 800–1,000 lines of Calane are
+reusable as-is (topological execution plan, retry/repair loop, Ajv wrapper,
+hashing, TypeBox spec discipline, telemetry sink interface, RFC 9728 metadata
+and JWKS verification skeleton). The validator, renderer, bundle exporter, HTTP
+transport, and auth code are **adapted** with specific changes listed in §7.3,
+§7.5, §7.6. The run loop and the store are **rebuilt** (§7.3: persisted state
+machine). Cost: imported code brings its shape; each piece is re-justified.
 
-**Calane's fate (owner decision, 2026-11-22):** v3 is the single tool. Calane is
-frozen as an archive and reference; it is not developed in parallel and nothing
-merges back into it. The separation that survives is a **package boundary, not
-a runtime switch**: the execution kernel (specs, executor, validator, hashing,
-bundle, telemetry sink) is its own package inside the v3 monorepo with no
-dependency on the prompt store, so it stays inspectable and could be published
-standalone later. There is no "kernel-only" mode of the running server.
+**C. Concept-only rewrite.** Rejected: slowest, discards a tested executor core.
 
-**C. Concept-only rewrite, no code reuse.** Rejected: slowest, discards a tested
-executor, and a third hand-written version of the same executor would re-derive
-the same shape.
+**Calane's fate (owner decision):** v3 is the single tool. Calane is frozen as
+an archive and reference. The separation that survives is a **package boundary,
+not a runtime switch**: the execution kernel is its own package inside the v3
+monorepo with no dependency on the prompt store. There is no kernel-only mode.
 
 ---
 
 ## 6. The system in one picture
 
 ```
-Claude Code (stdio) ─┐
-Claude.ai (HTTP) ────┤                           ┌─ Memory ──────────────────────┐
-ChatGPT (HTTP) ──────┼─► MCP server ─┐           │ Prompt · Version · Branch      │
-Codex (HTTP) ────────┘               │           │ Fragment (= prompt, type)      │
-                                     ├─► Application services ─┤ Pipeline · Channel             │
-cron / Routine / CLI ─► REST (mirror)┘   (one layer, one       │ Run · ChannelResult · Result   │
-                                          authorization check)  │ Provenance                     │
-                                                 │              └────────────────────────────────┘
-                                                 ▼
-                                   ┌─ Execution kernel (from Calane) ─┐
-                                   │ render → route (server|client)   │
-                                   │ → provider call (concurrent)     │
-                                   │ → parse → validate (optional)    │
-                                   │ → repair → store → synthesis     │
-                                   └──────────────────────────────────┘
-                                                 │
-                                        SQLite (WAL) + bundle export
+Claude Code (stdio, --as person) ─┐
+Claude.ai (HTTP, OAuth) ──────────┤                     ┌─ Memory ────────────────────────┐
+ChatGPT (HTTP, OAuth) ────────────┼─► MCP (stateless) ─┐ │ Person · Prompt · Branch        │
+Codex (HTTP, OAuth) ──────────────┘                    │ │ Version · Provider · Pipeline   │
+                                                       ├─► Application services ───┤ Run · ChannelResult · Result    │
+cron / Routine / CLI ─► REST (mirror, API key) ────────┘   (Actor on every call;   │ Provenance · VisibilityChange   │
+                                                           actor-scoped stores)    └─────────────────────────────────┘
+                                                                  │
+                                                                  ▼
+                                           ┌─ Execution kernel (package, no store dependency) ─┐
+                                           │ render → route (server|client) → provider call   │
+                                           │ → optional parse+validate → repair → synthesis   │
+                                           └───────────────────────────────────────────────────┘
+                                                                  │
+                                                 SQLite (WAL) · backups · export bundles
 ```
 
 One rule above all: **MCP, REST, and CLI are thin adapters over the same
-application services.** No adapter looks up a prompt, resolves a version, checks
-authorization, or builds a run on its own.
+application services.** No adapter looks up a record, resolves a ref, checks
+authorization, or drives a run on its own.
 
 ---
 
@@ -217,184 +211,200 @@ authorization, or builds a run on its own.
 
 ### 7.1 Domain model
 
-All entities carry `id`, `created_at`, `owner_id` (a **Person** on the instance
-allowlist).
+All entities carry `id` (ULID), `created_at`, `owner_id` (Person).
 
-**Person** — `id`, `display_name`, `identity_claims[]` (IdP `sub` or email values
-that map to this person), `is_admin` (may edit the allowlist and providers),
-`created_at`. Configured by the admin via CLI or REST; there is no sign-up.
+**Person** — `display_name`, `identities[]` of `(iss, sub)` pairs (email is never
+an identity; it may be shown as a label), `is_admin`, `created_at`. Admins manage
+the allowlist and providers. **Admins have no read-through on private records.**
+Configured by CLI or REST; no sign-up.
 
-**Visibility** (on Prompt and Pipeline) — `private` (owner only) or
-`shared_with: [audience...]`. The only audience kind in v3 is `instance`. Results
-and ChannelResults inherit visibility from their prompt's version; Runs are
-visible to their requester and to anyone who can see **every** target and the
-pipeline. Providers are instance-wide and admin-managed; their keys are never
-returned. Writes (new version, new branch, new run) on a shared prompt are
-allowed to anyone who can see it; delete, archive, and visibility changes are
-owner-only. Every write records who did it.
+**Visibility** (field on Prompt and Pipeline) — `private` or
+`shared_with: [audience...]`; the only audience kind in v3 is `instance`.
 
-**Prompt** — `slug` (unique per instance; no owner prefix in refs), `name`,
-`type` (`prompt` | `fragment`), `description`, `tags[]`, `visibility`,
-`archived_at?`. A fragment is a prompt whose purpose is to be included. An
-include of a prompt the reader cannot see fails the render with a clear error;
-sharing a composite does not implicitly share its fragments.
+**Visibility rules (complete; `authorize()` implements exactly these):**
+1. A Prompt, its Branches and Versions: visible to the owner, or to everyone on
+   the instance when `shared_with` includes `instance`.
+2. A Pipeline: same rule as Prompt.
+3. A Run: visible to its `requested_by`, or to anyone who can see the pipeline
+   **and every target**. A run over mixed-visibility targets is requester-only.
+4. A Result with `run_id`: takes its Run's visibility. A Result without `run_id`:
+   visible to its `recorded_by`, or to anyone who can see its prompt version.
+5. **A recorder always sees what they recorded**, regardless of later visibility
+   changes by the prompt owner.
+6. Writes: anyone who can see a shared Prompt may add Versions, Branches, and
+   Results to it and run pipelines against it. Delete, archive, rename, and
+   visibility changes are owner-only. `complete_channel`, `finalize_run`, and
+   `run_pipeline(resume=…)` require actor = the run's requester.
+7. Invisible and missing are indistinguishable: uniform 404. Exception: a
+   `save_prompt` slug collision returns "slug taken" (accepted existence leak at
+   household scale).
+8. Providers are instance-wide, admin-managed; keys are never returned.
 
-**Branch** — `prompt_id`, `name` (slug-safe, unique per prompt), `head_version_id`,
-`forked_from_version_id?`, `is_default`. Exactly one default per prompt.
+**VisibilityChange** — audit row: `entity`, `id`, `from`, `to`, `by`, `at`.
+
+**Prompt** — `slug` (instance-unique; **tombstoned on delete, never reusable**),
+`name`, `type` (`prompt` | `fragment`), `description`, `tags[]`, `visibility`,
+`archived_at?`. An include of a prompt the reader cannot see fails the render
+with a clear error; sharing a composite does not share its fragments.
+
+**Branch** — `prompt_id`, `name`, `description` (why this branch exists),
+`head_version_id`, `forked_from_version_id?`, `is_default`, `created_by`.
 
 **Version** — immutable. `prompt_id`, `branch_id`, `number` (global per prompt),
-`branch_number` (per branch), `content`, `commit_message?`, `variables[]`
-(extracted), `includes[]` (extracted refs), `content_hash` (sha256 of content),
-`variable_defaults{}?`. Display: `escritorio@sem-banho#2 (v7)`.
+`branch_number` (display only), `content`, `commit_message?`, `variables[]`,
+`includes[]` (resolved to **prompt ids** at save time, plus the ref text),
+`content_hash`, `variable_defaults{}?`, `created_by`.
 
-**Prompt ref** — a string the whole surface uses: `slug`, `slug@branch`,
-`slug#7`, `slug@branch#2`. Resolution: explicit version → branch head → default
-branch head. Every API that takes a prompt takes a ref.
+**Prompt ref grammar (one grammar everywhere, URL-safe):** `slug`,
+`slug@branch`, `slug~7`, `slug@branch~7`. `~N` is **always the global version
+number**. Resolution: explicit `~N` → branch head → default-branch head.
+Display may add the branch-local number: `escritorio@sem-banho~7 (#2)`.
 
-**Target ref** — what a Run may target: a prompt ref (render it as `{{input}}`),
-`result:<id>` (the text of one archived Result as `{{input}}`, for scoring or
-distilling a single answer), or `run:<id>` (every archive Result of a past run,
-one target each). The `evaluation` and `best-of` pipelines target Results.
+**Target ref** — what a Run may target:
+- a prompt ref → `{{input}}` is the rendered prompt;
+- `result:<id>` → `{{input}}` is that Result's text; `{{target.prompt}}` is the
+  rendered prompt that produced it when known;
+- `run:<id>[?kind=answer]` → one target per archive Result of that run;
+  `synthesis` excluded by default;
+- `results:<prompt ref>?since&limit&run_source&kind` → **one** target whose
+  `{{input}}` is a serialized batch of matching Results (this replaces v2's
+  `result_history` input source). Every selector is resolved through the actor's
+  visibility.
 
 **Provider** — `slug`, `driver` (`openrouter` | `anthropic` | `openai_compatible`),
-`model`, `endpoint?`, `api_key` (encrypted at rest), `capabilities{ web_search:
-bool, json_schema: bool }`, `active`.
+`model`, `endpoint?` (validated: https only, hostname allowlist, no private IPs,
+checked at save and at dispatch), `api_key` (encrypted at rest, key in env),
+`capabilities{ web_search, json_schema }`, `active`.
 
-**Pipeline** — `slug`, `name`, `description`, `channels[]`, `synthesis?`
-(a channel), `defaults{ retry, repair, concurrency }`.
+**Pipeline** — `slug`, `name`, `description`, `visibility`, `channels[]`,
+`synthesis?`, `defaults{ retry, repair, concurrency }`, `spec_hash`.
+`save_pipeline` replaces the spec and takes `expected_hash` to prevent silent
+overwrite between two people. A Run **snapshots the resolved spec**; later edits
+never change a run in flight or its record.
 
-**Channel** — `id` (stable within pipeline), `role_label`, `system_prompt`
-(may use `{{>slug}}` includes and run-context variables), `execution`
-(`server` | `client` | `auto`), `provider_ref?`, `needs_web: bool`,
-`output_schema?` (inline JSON Schema or a stored schema ref), `depends_on[]`,
-`retry?`, `repair?`, `input_source` (`prompt` | `result_history`),
-`input_filters?` (since, limit, run_source, prompt refs).
+**Channel** — `id`, `role_label`, `system_prompt` (may include fragments and
+run-context variables), `execution` (`server` | `client` | `auto`),
+`provider_ref?`, `intended_executor?` (free text shown on pending items, e.g.
+"chatgpt-5.4-thinking", so the calling LLM knows a slot is not for it),
+`needs_web`, `output_schema?` (inline JSON Schema; remote `$ref` disabled),
+`depends_on[]`, `retry?`, `repair?`, `archive_as` (`answer` default | `score` |
+`synthesis` | `none`).
 
-**Run** — `pipeline_id`, `pipeline_hash`, `targets[]` (resolved prompt refs with
-version ids and content hashes), `variables{}`, `status`
-(`running` | `awaiting_client` | `completed` | `partial` | `failed`),
-`run_source` (`manual` | `scheduled`), `requested_by` (Person id) and
-`requested_via` (client name from MCP `initialize`, API key name, or `cli`),
-`started_at`, `finished_at?`, `synthesis_result_id?`.
+**Run** — `pipeline_id`, `pipeline_snapshot` (resolved spec JSON), `spec_hash`,
+`targets[]` (resolved: ref text, version id, content hash), `variables{}`,
+`status` (`running` | `awaiting_client` | `completed` | `partial` | `failed`),
+`run_source` (`manual` | `scheduled`), `requested_by` (Person),
+`requested_via` (derived server-side: token `client_id`/`azp`, API-key name, or
+`cli`), `started_at`, `finished_at?`, `finalized_by?`, `synthesis_result_id?`.
 
-**ChannelResult** — one per (run, channel, target). `status`
-(`ok` | `invalid_json` | `schema_error` | `refused` | `timeout` | `error` |
-`pending_client` | `skipped`), `raw_output` (always kept), `parsed_output?`,
-`validation_errors?`, `repair_attempted`, `rendered_prompt_hash`,
-`system_prompt_hash`, `latency_ms?`, `usage?`, **Provenance** (below).
+**ChannelResult** — one per (run, channel, target); `item_id` (stable, returned
+on pending items). `status` (`pending_server` | `running` | `pending_client` |
+`ok` | `invalid_json` | `schema_error` | `refused` | `timeout` | `error` |
+`interrupted` | `skipped`), `skipped_reason?`, `raw_output` (always kept),
+`parsed_output?` (only when a schema exists), `validation_errors?`,
+`repair_attempted`, `rendered_prompt_hash`, `system_prompt_hash`,
+`latency_ms?`, `usage?`, Provenance.
 
-**Result** — the archive row a human or LLM reads later. Every ChannelResult
-with output produces one. A Result may also exist without a run (the paste
-path, or a single ad-hoc `store_result`). Fields: `kind`
-(`answer` | `score` | `synthesis`), `prompt_version_id?` (null for a synthesis
-over several targets; the run carries the targets), `run_id?`,
-`channel_result_id?`, `text`, `rating?`, `starred`, `notes?`, `run_source`,
-Provenance. A channel declares `archive_as` (`answer` default, `score`,
-`synthesis`, or `none`). `get_results` returns `answer` and `synthesis` by
-default; `kind` filters. A synthesis Result is listed under every prompt its
-run targeted.
+**Result** — the archive row. `kind` (`answer` | `score` | `synthesis`),
+`prompt_version_id?` (null for synthesis over several targets), `run_id?`,
+`channel_result_id?`, `scored_result_id?` (for `score`), `text`,
+`variables{}?`, `rendered_hash?`, `rating?`, `starred`, `notes?`, `run_source`,
+`recorded_by`, Provenance. `get_results` returns `answer` and `synthesis` by
+default; a synthesis is listed under every prompt its run targeted, subject to
+rule 4.
 
-**Provenance** (embedded) — who produced the text and who recorded it are kept
-apart. `executed_by` (`server`: URGE dispatched it; `client`: the connected LLM
-ran it itself; `external`: produced elsewhere and relayed, the paste path),
-`provider` and `model` (always the producer; free text or provider slug),
-`web_used: bool?`, `tokens_in?`, `tokens_out?`, `recorded_via` (the MCP client
-name, API key name, or `cli` that made the call), `recorded_by` (Person id),
-`recorded_at`. Example: "record this result for `escritorio@sem-banho`, sourced
-via web from ChatGPT 5.4 thinking" → `executed_by: external, provider: openai,
-model: chatgpt-5.4-thinking, web_used: true, recorded_via: claude-code`.
-
-**Research tree** is not an entity. It is the view "all branch heads of prompt X
-plus the runs that targeted them". The owner's workflow is served by letting a
-Run target several refs at once (§7.4).
+**Provenance** — who produced the text and who recorded it are separate.
+`executed_by` (`server` | `client` default | `external`), `provider`, `model`
+(always the producer), `web_used?`, `tokens_in?`, `tokens_out?`,
+`produced_at?`, `source_url?`, `self_reported: bool` (true for anything the
+client asserted rather than the server observed), `recorded_via`,
+`recorded_by`, `recorded_at`. Example: "record this result for
+`escritorio@sem-banho`, sourced via web from ChatGPT 5.4 thinking" →
+`executed_by: external, provider: openai, model: chatgpt-5.4-thinking,
+web_used: true, self_reported: true`.
 
 ### 7.2 Templating
 
-Carried from URGE v2, tightened:
+- `{{name}}` user variable. Strict by default; `strict=false` for preview.
+- `{{>slug}}`, `{{>slug@branch}}`, `{{>slug~N}}` includes, recursive, cycle
+  detection, depth cap (10), expansion budget. Includes are resolved to prompt
+  ids when a version is saved, so a tombstoned or re-created slug can never be
+  substituted later.
+- **Values are inert.** Substitution is single-pass; variable values, `{{input}}`
+  and `{{channel_results}}` are never re-scanned for syntax. A web-sourced answer
+  containing `{{>private-fragment}}` is text.
+- **Fragment defaults** apply only to variables the fragment itself introduces
+  (v2 TPL-05 rule kept).
+- Run-context variables in channel system prompts: `{{input}}`,
+  `{{channel_results}}`, `{{channel_results.<id>.raw|parsed}}`,
+  `{{previous_synthesis}}`, `{{run_id}}`, `{{target.ref}}`, `{{target.branch}}`,
+  `{{target.prompt}}`. Prose channels render as `raw`; `parsed` is null without
+  a schema. (Calane's renderer is adapted: it had one template, not a
+  system/user split, so the provider adapter interface gains `system`.)
+- Composition: fragments are reusable pieces; late binding by default, early
+  binding with `~N`; `get_prompt` returns `used_by`; `save_prompt` on a fragment
+  reports which composites' default renders shift.
+- Rendering is a pure function of (version content, resolved includes,
+  variables); every render records participating version ids and a hash.
 
-- `{{name}}` user variable. Strict by default: a missing variable with no default
-  fails the render with a list of missing names. `strict=false` renders
-  placeholders for preview.
-- `{{>slug}}`, `{{>slug@branch}}`, `{{>slug#n}}` includes, recursive, cycle
-  detection, depth cap (default 10), expansion budget (characters) to stop
-  include bombs.
-- Run-context variables available in channel system prompts (carried from
-  Calane): `{{input}}` (the rendered target), `{{channel_results}}`,
-  `{{channel_results.<id>.raw|parsed}}`, `{{previous_synthesis}}`, `{{run_id}}`,
-  plus v3 additions `{{target.ref}}` and `{{target.branch}}` so a judge can name
-  which branch said what.
-- Rendering is a pure function of (version content, includes at their resolved
-  versions, variables). The run record stores the hash of the rendered text and
-  the ids of every version that participated.
+### 7.3 Execution
 
-**Composition ("object-oriented prompts", carried from v2 by owner request):**
+**Kernel (package, no store dependency).** Carried from Calane: topological
+levels from `depends_on`, concurrency caps (global and per provider), transient
+retry with exponential backoff, schema-repair re-prompting, Ajv validation, raw
+output always kept. **Adapted:** validation only when `output_schema` is set;
+otherwise `parsed_output = null`, status `ok`, `{{channel_results}}` renders
+raw. Synthesis is a normal channel over the level's results.
 
-- A prompt of `type: fragment` is a reusable piece. Any prompt may be included;
-  the type marks intent and filters listings.
-- **Binding.** `{{>slug}}` is late-bound: it follows the fragment's default
-  branch head as it evolves. `{{>slug@branch}}` and `{{>slug#n}}` are early-bound.
-  History is safe either way because every render records the participating
-  version ids and hashes.
-- **Variable propagation.** A fragment's `{{var}}` becomes a required variable of
-  the composite that includes it. Defaults declared on the fragment's version
-  apply unless the composite declares its own. There is no argument passing at
-  the include site in v3; a fragment that needs different values in two places
-  is two fragments or two branches.
-- **Reverse lookup.** Each Version stores its extracted `includes[]`, so
-  `get_prompt` returns `used_by` (prompts whose current heads include this one),
-  and `save_prompt` on a fragment reports which composites' default renders it
-  shifts.
-- Channel system prompts compose the same way, so a persona or an output format
-  is one versioned fragment shared across pipelines.
+**Routing per channel×target** (`execution: auto`): server if the channel's
+provider is active and (`needs_web` is false or the provider has `web_search`);
+otherwise `pending_client` with the rendered system and user prompt returned.
+`server` fails loudly instead of falling back; `client` never dispatches.
 
-### 7.3 Execution kernel (carried from Calane, adapted)
+**Dependencies resolve within one target.** A level for a target is released
+when every prior-level item for that same target is terminal. Pending client
+items park the DAG for that target only.
 
-Pipeline execution follows Calane's executor: build a plan from `depends_on`
-(topological levels), run each level's channels concurrently under a global cap
-and per-provider caps, retry transient errors with exponential backoff, parse
-JSON when a schema exists, validate with Ajv, attempt repair re-prompts when
-configured, always keep raw output, aggregate status, then run synthesis as a
-normal channel over the level's results.
+**Persisted state machine.** A run is rows, not a function. Transition table
+for a ChannelResult:
 
-Adaptations:
+| From | Event | To |
+|---|---|---|
+| (new) | plan | `pending_server` or `pending_client` |
+| `pending_server` | dispatch | `running` |
+| `running` | provider ok (+ validation ok or no schema) | `ok` |
+| `running` | invalid JSON / schema error after repairs | `invalid_json` / `schema_error` |
+| `running` | refusal / timeout / error after retries | `refused` / `timeout` / `error` |
+| `running` | process restart | `interrupted` |
+| `pending_client` | `complete_channel(item_id)` | `ok` (or `invalid_json`/`schema_error` if a schema exists; no repair for client items) |
+| `pending_client` | `finalize_run` | `skipped` (reason `finalized`) |
+| any terminal | `complete_channel` again | no-op, returns existing result |
+| `interrupted` / `error` / `timeout` | `run_pipeline(resume, retry_failed)` | `pending_server` |
 
-- **Targets.** A run executes each channel once per target. Channel × target is
-  the unit of work. Synthesis sees all of them with `{{target.ref}}` labels.
-- **Routing per channel×target** (`execution: auto`):
-  1. If the channel's provider is configured and active, and (`needs_web` is
-     false or the provider has `web_search`), execute on the server.
-  2. Otherwise mark `pending_client` and return the rendered system prompt and
-     user prompt for that channel×target to the caller.
-  `execution: server` fails loudly instead of falling back. `execution: client`
-  never dispatches.
-- **Client completion.** `complete_channel(run_id, channel_id, target_ref,
-  output, provenance)` records the result into the run. When all parallel
-  channel×targets are in, the run proceeds to synthesis: server-side if the
-  synthesis channel routes to the server, otherwise the run returns the rendered
-  synthesis prompt and awaits one more `complete_channel`. This is the fix for
-  the v2 linkage gap.
-- **Persisted state machine, not an in-memory function.** Unlike Calane's
-  executor, a v3 run lives in the database as per-channel×target rows and must
-  survive a process restart and a `complete_channel` that arrives days later.
-  Server-side work runs in-process, asynchronously. `run`, `complete_channel`
-  and `finalize_run` accept `wait_ms` (default 20 000, cap 55 000): they return
-  as soon as server work for that step finishes or the wait expires, with the
-  run snapshot; the caller polls `get_run` for the rest. On startup, any
-  channel×target left in `running` becomes `interrupted` and is re-dispatched by
-  `run(resume=run_id)`; nothing is silently re-run.
-- **Stuck client items.** `finalize_run(run_id)` marks every `pending_client`
-  item `skipped`, proceeds to synthesis over what exists, and ends the run as
-  `partial`. There is no expiry; URGE never changes a run on its own clock.
-- **Telemetry.** Calane's `TelemetrySink` interface and its run/channel events
-  are carried with the executor (no-op sink by default). The OpenTelemetry
-  exporter is a separate optional package, enabled only by configuration, so a
-  stuck `pending_client` or a slow judge call can be followed in the operator's
-  own collector. `Run` and `ChannelResult` keep `trace_id`. No metrics or trace
-  UI inside URGE.
-- **Recursion** (Calane's bounded depth) is carried as a pipeline option but is
-  not required for any v3 milestone.
-- **Synthesis variants and carry-forward strategies** (labels with no code in
-  Calane) are not carried.
+Run status is derived: `running` while any item is `pending_server`/`running`;
+`awaiting_client` while none is running and some are `pending_client`;
+`completed` when all terminal and all `ok`; `partial` when all terminal with
+some not `ok` (including `skipped`); `failed` when synthesis could not run.
+Dispatch is owned by one in-process coordinator; `complete_channel`,
+`run_pipeline(resume)`, and polls only enqueue work for it, so overlapping calls
+cannot double-dispatch. On startup the coordinator marks `running` items
+`interrupted`; nothing is re-run silently, and `get_run` carries a resume hint.
+
+**Waiting.** `run_pipeline`, `complete_channel`, `finalize_run`, and `get_run`
+accept `wait_ms` (default 20 000, cap 45 000, below Fly's fixed 60 s proxy
+timeout and the 60 s drops clients report). The server sends SSE progress
+notifications while waiting so bytes flow. Clients that cannot sleep poll
+`get_run` with `wait_ms`.
+
+**Client completion.** `complete_channel(run_id, item_id, output, provenance?)`
+records the result into the run. `provenance.executed_by` defaults to
+`client`; `recorded_via` is derived server-side. When every parallel item is
+terminal, synthesis runs server-side if it routes there, otherwise one more
+pending item is returned.
+
+**Limits.** Max channel×target items per run (configurable, default 50); body
+size caps on `output`/`text`; per-run cost ceiling using provider usage
+reports; per-actor rate limiting in the adapter layer for every auth kind.
 
 ### 7.4 The owner's workflow, end to end
 
@@ -402,342 +412,367 @@ Adaptations:
 `sem-isolamento` and `sem-banho`, run all branches against the configured
 models, then judge."
 
-1. `save_prompt(slug="escritorio", content, commit_message)` → v1 on `main`.
-2. `save_prompt(slug="escritorio", branch="sem-isolamento", fork_from="escritorio#1", content)` → branch created, v2.
-3. Same for `sem-banho` → v3.
-4. `run(pipeline="research-fanout", targets=["escritorio@main", "escritorio@sem-isolamento", "escritorio@sem-banho"], variables={...})`.
-   - The pipeline has one channel `research` with `needs_web: true`,
-     `execution: auto`, provider `openrouter` (no web), and a synthesis channel
-     `judge` with `execution: auto`, provider `anthropic`.
-   - Router: `research` has no web-capable provider → three `pending_client`
-     items returned with rendered prompts. `judge` routes to server.
+1. `save_prompt(slug="escritorio", content, commit_message)` → `escritorio~1` on `main`.
+2. `save_prompt(slug="escritorio", branch="sem-isolamento", fork_from="escritorio~1", content)` → `~2`.
+3. Same for `sem-banho` → `~3`.
+4. `run_pipeline(pipeline="research-fanout", targets=["escritorio@main", "escritorio@sem-isolamento", "escritorio@sem-banho"], variables={…})`.
+   The pipeline has channel `research` (`needs_web: true`, `execution: auto`,
+   provider `openrouter` without web) and synthesis `judge` (`execution: auto`,
+   provider `anthropic`). Router: three `pending_client` items with `item_id`s
+   and rendered prompts; `judge` routes to server.
 5. The client executes the three research prompts with its own web search and
-   calls `complete_channel` three times with provenance (`recorded_via:
-   "claude-code"`, `model`, `web_used: true`).
-6. The server runs `judge` over the three results, stores the synthesis Result,
-   marks the run `completed`.
-7. Months later: `get_run(run_id)` or `get_results("escritorio")` returns the
-   tree, every branch's answer, who produced it, and the verdict. `export(run_id)`
+   calls `complete_channel(run_id, item_id, output)` three times.
+6. The coordinator runs `judge` over the three results, stores the synthesis
+   Result, marks the run `completed`; the third `complete_channel` call returns
+   the finished snapshot within `wait_ms`, or the client polls `get_run`.
+7. `update_result(id, starred=true)` on the winner.
+8. Months later: `get_run(run_id)` or `get_results("escritorio")` returns the
+   tree, every branch's answer, who produced it, and the verdict; REST/CLI export
    writes a Markdown bundle.
 
-If an OpenRouter model with web search is later configured, step 4 routes
-`research` to the server with no change to the pipeline.
+If one external slot never comes back: `finalize_run(run_id)` → judge runs over
+what exists → `partial`. If the judge times out: `run_pipeline(resume=run_id,
+retry_failed=true)` re-runs only the judge.
 
 ### 7.5 Machine surface
 
-**One application-service layer.** Services: `PromptService`, `RenderService`,
-`PipelineService`, `RunService`, `ResultService`, `ProviderService`,
-`ExportService`. Each takes an `Actor` (resolved once by the adapter) and does
-its own authorization check through a single `authorize(actor, action,
-resource)` function. Adapters never bypass it.
+**Application services** (`PromptService`, `RenderService`, `PipelineService`,
+`RunService`, `ResultService`, `ProviderService`, `PersonService`,
+`ExportService`) take an `Actor` on every method and call actor-scoped stores.
+`Actor` = `person(id, is_admin) | key(person_id, read|write) | system`.
 
-**MCP tools** (14 at launch, hard cap 16; coarse, verbs not nouns):
+**MCP tools** (16 at launch, hard cap 20):
 
 | Tool | Purpose |
 |---|---|
-| `list_prompts(type?, tag?, search?, scope?: mine \| shared \| all)` | browse what the actor can see |
-| `get_prompt(ref, render?: {variables, strict})` | content, metadata, branches summary; optionally rendered |
-| `save_prompt(slug, content, commit_message?, branch?, fork_from?, type?, tags?, visibility?)` | create prompt, new version, or new branch in one call; `visibility` on create or by owner |
-| `render_prompt(ref, variables, strict?)` | rendered text + used/missing variables + resolved includes |
-| `list_pipelines()` | browse |
-| `get_pipeline(slug)` | channels, routing preview for current providers |
-| `save_pipeline(slug, spec)` | create or replace (whole spec; TypeBox-validated) |
-| `run(pipeline, targets[], variables?, run_source?)` | start a run; returns run id, server results so far, pending client items with rendered prompts |
-| `complete_channel(run_id, channel_id, target_ref, output, provenance)` | client hands back a result into the run |
-| `get_run(run_id)` | full run record |
-| `list_runs(pipeline?, prompt?, since?, status?)` | browse runs |
-| `get_results(ref, run_source?, since?, limit?, starred?)` | history for a prompt (any branch/version) |
-| `store_result(ref, text, provenance, notes?, rating?, run_source?)` | the paste / ad-hoc path |
-| `finalize_run(run_id)` | skip outstanding client items, synthesize over what exists, end as `partial` |
-
-`export(run_id | ref)` is the 15th if the owner wants it as a tool; otherwise
-export is REST/CLI only. Provider CRUD and rating/starring are REST/CLI only;
-they are configuration, not conversation.
+| `list_prompts(type?, tag?, search?, scope?: mine\|shared\|all)` | browse what the actor can see |
+| `get_prompt(ref)` | content, metadata, branches, `used_by`, unshared-include warnings |
+| `save_prompt(slug, content, commit_message?, branch?, fork_from?, type?, tags?, visibility?)` | create prompt / new version / new branch; defined error matrix (§10) |
+| `update_prompt(slug, name?, description?, tags?, visibility?, archived?)` | metadata without a new version; visibility owner-only |
+| `render_prompt(ref, variables, strict?)` | rendered text, `resolved_ref`, `rendered_hash`, used/missing variables, resolved includes |
+| `list_pipelines(scope?)` | browse |
+| `get_pipeline(slug)` | spec, `spec_hash`, routing preview against current providers |
+| `save_pipeline(slug, spec, expected_hash?, visibility?)` | create or replace |
+| `run_pipeline(pipeline?, targets?, variables?, run_source?, resume?, retry_failed?, include_rendered?, wait_ms?)` | start or resume; returns snapshot + pending items (`item_id`, `intended_executor`, prompts) |
+| `complete_channel(run_id, item_id, output, provenance?, wait_ms?)` | client hands back a result into its run |
+| `finalize_run(run_id, wait_ms?)` | skip outstanding client items, synthesize, end `partial` |
+| `get_run(run_id, include_rendered?, wait_ms?)` | full run record; the tool that is polled |
+| `list_runs(pipeline?, target?, status?, run_source?, since?)` | browse runs |
+| `get_results(ref, kind?, run_source?, since?, limit?, starred?)` | history for a prompt |
+| `store_result(ref, text, provenance, variables?, rendered_hash?, notes?, rating?, run_source?)` | ad-hoc / paste path |
+| `update_result(id, rating?, starred?, notes?)` | act on a verdict |
 
 **MCP resources**: `urge://prompts`, `urge://prompts/{ref}`, `urge://runs/{id}`.
 
-**Transports**: stdio (no auth, local, Claude Code) and Streamable HTTP at
-`/mcp` (remote). Both call the same JSON-RPC dispatcher; one switch, not two.
+**Transports**: stdio (`--as <person>`, required when the allowlist has more
+than one entry) and **stateless** Streamable HTTP at `/mcp`. Both call one
+JSON-RPC dispatcher. Over HTTP, authentication happens at the HTTP layer before
+any JSON-RPC dispatch, `initialize` and `tools/list` included; header-only
+bearer; no token in `params._meta`.
 
-**REST** mirrors the services 1:1 (`/prompts`, `/prompts/{ref}`, `/pipelines`,
-`/runs`, `/results`, `/providers`, `/export/...`, `/health`), with an OpenAPI 3.1
-document generated from the same TypeBox schemas. It exists for cron, CLI, and
-a Custom GPT Action if the owner still wants one after the MCP connector works.
+**REST** mirrors the services 1:1 with OpenAPI 3.1 generated from TypeBox:
+`/prompts`, `/prompts/{ref}`, `/pipelines`, `/runs`, `/results`, `/providers`,
+`/people`, `/export/...`, `/export/backup` (admin key), `/health`.
 
-**CLI** (`urge`): `serve`, `mcp-stdio`, `prompt get|save|render`, `run`,
-`complete`, `results`, `export`, `provider add|list`, `key create`. Thin over
-REST or in-process services.
+**CLI** (`urge`) is thin over REST only (no in-process mode): `serve`,
+`mcp-stdio`, `doctor`, `backup`, `person add|list`, `key create`, `provider
+add|list`, `prompt get|save|render`, `run`, `complete`, `results`, `export`.
 
 ### 7.6 Authentication and authorization
 
 - **URGE is an OAuth 2.1 resource server, never an authorization server.** It
-  publishes RFC 9728 Protected Resource Metadata at
-  `/.well-known/oauth-protected-resource` pointing at an external identity
-  provider, validates bearer JWTs against the IdP's JWKS (or introspection),
-  checks audience/resource (RFC 8707), and maps the token's identity claim to a
-  Person on the allowlist. Unknown identities are rejected; there is no sign-up.
-  Calane's R2 implementation is the starting point.
-- **Client registration happens at the IdP, not in URGE.** The three launch
-  clients each accept a pre-registered client id, so Dynamic Client Registration
-  is not a requirement: Claude.ai accepts a custom client id and secret;
-  ChatGPT accepts static credentials; Codex takes `--oauth-client-id`. If the
-  chosen IdP supports DCR or Client ID Metadata Documents, clients may use them;
-  URGE does not care. (Verified against vendor docs on 2026-11-22; see Appendix B.)
-- **API keys** (`urge_` prefix, sha256 at rest, per-key rate limit) belong to a
-  Person and act as that person, for cron, CLI, and scripts. No per-prompt
-  scoping (it was unenforced on MCP in v2); `read`/`write` only.
-- **stdio has no auth.** It runs on a person's machine with `--as <person>`
-  (required when the allowlist has more than one entry; it never defaults to
-  "the first user", which the v2 audit flagged).
-- **Identity, not scopes, on OAuth tokens.** A token is accepted when its
-  signature, audience and expiry check out and its identity claim maps to a
-  Person. The IdP therefore needs no custom scope or API definition; it must
-  issue JWT access tokens with a configurable audience, accept three redirect
-  URIs, and let each allowlisted person sign in (a shared hosted IdP tenant, or
-  a self-hosted one with two accounts).
-- **`read` / `write` exist only on API keys**, chosen at key creation, for cron
-  jobs that should never write. One `Actor` type
-  (`person(id, admin) | key(person_id, read|write)`) is resolved by every adapter
-  and checked by one `authorize(actor, action, resource)` that applies the
-  visibility rule in §7.1. Every list query is built from the same filter.
-- **Mixed mode is not offered.** `initialize` and `tools/list` require auth like
-  everything else, except over stdio.
-- IdP choice is the operator's (any OIDC provider that issues JWTs with a
-  configurable audience and lets the operator register three redirect URIs).
-  The deploy guide lists one hosted option and one self-hosted option with the
-  exact three callback URLs to register.
+  publishes RFC 9728 Protected Resource Metadata (with `scopes_supported`)
+  pointing at an external IdP, validates bearer JWTs (RS256 and ES256) against
+  the IdP's JWKS with pinned `iss`, required `exp`, clock skew, bounded JWKS
+  refresh with timeout, and checks `aud` against the configured audience. An
+  introspection fallback exists for IdPs that issue opaque tokens.
+- **Identity is `(iss, sub)` → Person.** Unknown identities are rejected. No sign-up.
+- **IdP requirements, stated honestly:** the IdP must issue JWT access tokens
+  with a configurable audience. On Auth0 and Entra that means registering an API
+  (and, on Auth0, a default audience, because at least one connector omits the
+  RFC 8707 `resource` parameter). The deploy guide documents this step for one
+  hosted and one self-hosted IdP, lists the redirect URIs **as each connector
+  reveals them** (ChatGPT may use a per-connector callback; Codex uses a
+  localhost port that must be fixed with `mcp_oauth_callback_port`), and notes
+  that the IdP must allow `localhost` redirects for Codex.
+- **Client registration happens at the IdP.** Pre-registered client ids satisfy
+  Claude.ai (custom client id and secret), ChatGPT (static credentials), and
+  Codex (`--oauth-client-id`). DCR and CIMD are the IdP's business.
+- **API keys** (`urge_` prefix, sha256 at rest) belong to a Person, carry
+  `read` or `write`, never admin. Used by cron, CLI, the viewer cookie, and the
+  backup pull.
+- **Rate limiting** per actor in the adapter layer, for OAuth and key callers alike.
+- **Required changes to carried Calane auth code:** refuse to start the HTTP
+  transport without an auth config (no fail-open); authenticate before dispatch;
+  header-only bearer; require `exp`; bound JWKS refetches; no in-memory MCP
+  sessions.
+- **Error redaction**: provider error bodies are size-capped and redacted
+  before reaching any client or log.
 
 ### 7.7 Storage
 
-- **SQLite, WAL mode, one file on the mounted volume.** Reasons: one operator,
-  hundreds to low thousands of text-heavy rows, reads dominate; one process,
-  one volume; backup is a file copy; privacy premise kept; Calane already has a
-  store behind an interface; Node 22+ ships an SQLite module. FTS5 if the viewer
-  wants search.
-- **Store interface** (`RunStore`, `PromptStore`, `ResultStore`) so a Postgres
-  module can be added later without touching the domain.
-- **Provider keys** encrypted at rest with a key from the environment.
-- **Export bundle** per run: `manifest.json`, `pipeline.resolved.json`,
-  `targets/<ref>.md` (rendered inputs), `channel_results/<channel>__<target>.md`,
-  `raw_outputs/`, `validation/`, `synthesis.md`, `provenance.json`. Also
-  per-prompt export: all versions as Markdown with YAML frontmatter.
+- **SQLite, WAL mode, one file**, `better-sqlite3` on Node 24 LTS,
+  `busy_timeout = 5000`. Synchronous driver means in-process async runs
+  serialize safely; the CLI never opens the file while the server runs (it uses
+  REST). FTS5 for viewer search with quoted queries.
+- **Store interface** per entity, actor-scoped; a Postgres module later is an
+  addition.
+- **Provider keys** encrypted at rest with a key from the environment, **never
+  on the volume**; the key is recorded in the operator's password manager.
+- **Backup**: `urge backup` runs `VACUUM INTO /data/backups/<ts>.sqlite`;
+  `GET /export/backup` (admin key) lets a home cron **pull** it. Restore removes
+  stale `-wal`/`-shm` files. Backups are plaintext prompts and results; the
+  guide says so.
+- **Export bundle** per run: `manifest.json`, `pipeline.snapshot.json`,
+  `targets/`, `channel_results/`, `raw_outputs/`, `validation/`, `synthesis.md`,
+  `provenance.json`, filenames sanitized. Per-prompt export: all versions as
+  Markdown with YAML frontmatter.
 
 ### 7.8 Cadence and history
 
-- URGE never schedules. `run_source: scheduled` is set by the caller (Routine,
-  cron). `get_results` and `list_runs` filter on it.
-- `input_source: result_history` channels (carried from v2) consume a batch of
-  past Results selected by `input_filters`, so a weekly recap can later feed a
-  monthly trend channel without a scheduler inside URGE.
-- Calane's run diff (`RunDiffer`) is carried as a REST/CLI operation on two runs
-  of the same pipeline; it is not an MCP tool.
+URGE never schedules. `run_source: scheduled` is set by the caller. History
+feeds a channel through the `results:<ref>?…` target selector (§7.1), resolved
+through the actor's visibility; this is the M6 feature and needs no second
+execution path.
 
-### 7.9 Human viewer (later phase)
+### 7.9 Human viewer (M5)
 
-Read-only, server-rendered or a small static SPA. Browser access: the operator
-pastes an API key once; it is stored in an `HttpOnly` cookie and checked by the
-same `authorize()` as REST. No OIDC relying-party login, no fourth redirect URI,
-no session store. An IdP-backed browser login may be added later as a module. Screens: prompt list; prompt page with
-branch graph and versions; version diff; run list; run page showing targets ×
-channels grid with provenance and the verdict; result page; export buttons.
-No forms except "rate / star / note" on a result. Everything else is MCP/CLI.
+Read-only, server-rendered or small static SPA. Browser access: the operator
+pastes a `read` API key once; stored in an `HttpOnly`, `SameSite=Strict` cookie
+honoured only on viewer routes; the three write actions (rate, star, note)
+require a custom header; CSP set; Markdown rendered sanitized. Screens: prompt
+list; prompt page with branch graph and descriptions; version diff; run list;
+run page with targets × channels grid, provenance, verdict; result page; export
+buttons.
 
-### 7.10 Deployment
+### 7.10 Deployment and operations
 
-One Docker image, one process serving MCP HTTP + REST + viewer, one volume for
-`urge.sqlite`, keys, and bundles. `render.yaml`/`fly.toml`/`compose.yaml`
-examples. Health endpoint. No worker, no queue, no cron inside.
+One Docker image, one process (MCP HTTP + REST + viewer), one volume for
+`urge.sqlite` and `backups/`. **Always-on**: a paid tier that does not sleep
+(e.g. Render Starter, Fly with one machine kept running) or the owner's own
+always-on hardware behind an HTTPS tunnel (the guide documents one tunnel
+option). `/health`. `urge doctor` checks env, DB opens, JWKS reachable, one
+minimal call per active provider; it is the first command after a long pause.
+Single Node pin. No worker, no queue, no cron inside.
+
+### 7.11 Security hardening carried from the v2 audit
+
+Theme A (authorization): §4 actor-scoped stores. Theme B (identity): §7.6.
+Theme C (SSRF and leakage): endpoint allowlist at save and dispatch, no private
+IPs, Ajv remote `$ref` disabled, central error redaction. Theme D (DoS):
+include depth and expansion budgets, per-actor rate limits, item and body caps,
+per-run cost ceiling. Theme E (transport): CSP, HSTS, no-cache on API, stateless
+sessions. OTel spans, if ever enabled, never carry prompt or output text.
 
 ---
 
-## 8. What is carried, rebuilt, dropped
+## 8. What is carried, adapted, rebuilt, dropped
 
-| From | Carried as-is or adapted | Rebuilt from concept | Dropped |
-|---|---|---|---|
-| **Calane** (frozen; kernel carried as a standalone package inside v3, see §5) | TypeBox specs discipline; ChannelExecutor/PipelineExecutor (concurrency, retry, repair, topological levels); Ajv validation; content hashing; bundle exporter; SQLite store; OAuth resource-server auth; Streamable HTTP + stdio MCP transport; RunDiffer; TelemetrySink interface + OTel exporter as an opt-in package | — | federation, signing, canonical refs, A2A, ModelSelector, StatsQueries, filesystem/git registries (prompts live in the DB), delegated_agent placeholder, synthesis variants, carryForwardStrategy, governance docs |
-| **URGE v2** | — | slug-addressed prompts; immutable versions; branches with fork point; `{{var}}` + `{{>ref}}` templating with strict mode and budgets; Result archive with provenance; client-side execution; `run_source`; `result_history` input; provider drivers (3 of 6) | React SPA, editor, visual composer, canvas, collections, share links, teams, namespaces, OAuth authorization server, DCR, refresh rotation, GitHub IdP, per-prompt API-key scoping, evaluation settings tables (evaluation becomes an ordinary pipeline), 31-tool MCP surface, Laravel |
+| From | Carried as-is (~800–1,000 lines) | Adapted | Rebuilt from concept | Dropped or parked |
+|---|---|---|---|---|
+| **Calane** (frozen) | TypeBox spec discipline; topological execution plan; retry/repair loop; Ajv wrapper; content hashing; TelemetrySink interface; RFC 9728 metadata and JWKS verification skeleton | PromptRenderer (system/user split, prose path); ChannelExecutor (optional validation); bundle exporter (prose, new layout); Streamable HTTP transport (stateless, auth-before-dispatch); auth (fail-closed, `exp`, bounded JWKS) | run loop as persisted state machine; store as actor-scoped per-entity interfaces | federation, signing, canonical refs, A2A, ModelSelector, StatsQueries, RunDiffer, bounded recursion, OTel exporter (parked), registries, delegated_agent, synthesis variants, carryForwardStrategy |
+| **URGE v2** | — | — | slug-addressed prompts; immutable versions; branches with fork point and description; templating with strict mode, budgets, inert values; Result archive with provenance; client-side execution; `run_source`; history as a target selector; 3 provider drivers | React SPA, editor, canvas, collections, share links, teams, namespaces, OAuth AS, DCR, refresh rotation, GitHub IdP, per-prompt key scoping, evaluation tables, 31-tool surface, Laravel |
 
 ---
 
-## 9. Early plan (milestones, not sprints)
+## 9. Milestones
 
-Each milestone ends with a runnable check the owner can perform with a real client.
+Each ends with a check the owner performs with a real client.
 
-**M0 — Skeleton.** Repo, pnpm workspace, TypeBox specs for every entity in §7.1,
-SQLite store with migrations, application services with `authorize()`, stdio
-MCP with `list_prompts`, `get_prompt`, `save_prompt`, `render_prompt`.
-Check: from Claude Code as person A, create `escritorio`, fork two branches,
-render each; as person B (`--as`), `list_prompts` does not show it until A marks
-it `shared_with: [instance]`, after which B can render it and save a version.
+**M0 — Skeleton.** Repo, pnpm workspace, TypeBox specs for every entity in
+§7.1, SQLite with migrations, actor-scoped stores, services with `Actor`, the
+build-failing "every method has an Actor" test, Person/allowlist CLI, stdio MCP
+with `list_prompts`, `get_prompt`, `save_prompt`, `update_prompt`,
+`render_prompt`.
+Check: as person A, create `escritorio`, fork two branches, render each; as
+person B (`--as`), nothing is visible until A shares it; then B renders and
+saves a version; A sees B's version; A flips to private; B still sees B's own
+version and nothing else.
 
-**M1 — Runs with client execution.** Pipeline/Channel specs, `run`,
-`complete_channel`, `get_run`, `list_runs`, `get_results`, `store_result`.
-No providers yet: every channel routes to client.
-Check: rebuild the escritório tree end to end from Claude Code, with Claude
-doing the research and the judging, and every result linked to the run.
+**M1 — Runs with client execution and the persisted state machine.**
+Pipeline/Channel specs, snapshot on run, `run_pipeline`, `complete_channel`
+with `item_id`, `finalize_run`, `get_run`, `list_runs`, `get_results`,
+`store_result`, `update_result`, `interrupted` and resume, `wait_ms`. No
+providers yet.
+Check: rebuild the escritório tree end to end from Claude Code with Claude doing
+research and judging; restart the process between two completions and finish the
+run; finalize a run with one item outstanding.
 
-**M2 — Server execution.** Provider model and three drivers, router with
-`needs_web` and `output_schema`, concurrency, retry, repair, Ajv.
-Check: the `evaluation` pipeline (five JSON scorers) runs server-side on
-OpenRouter; the `best-of` distiller runs server-side on Anthropic over three
-client-produced candidates.
+**M2 — Server execution.** Providers and three drivers, router with `needs_web`
+and `output_schema`, concurrency, retry, repair, Ajv, limits, endpoint
+validation, error redaction.
+Check: `evaluation` runs server-side on OpenRouter over `result:<id>`; `best-of`
+runs server-side on Anthropic over `run:<id>`; a prose channel and a schema
+channel in one pipeline both end `ok`.
 
-**M3 — Remote.** Streamable HTTP transport, RFC 9728 metadata, JWT validation
-against one IdP, API keys, Docker image, volume, deploy to the container host.
-Check: Claude.ai connector, ChatGPT connector, and Codex each complete M1's
-flow against the hosted instance, and a second allowlisted person signs in
-through Claude.ai and sees only shared prompts. This milestone is done only
-when all pass; it is where the previous knot was.
+**M3a — Hosted, keyed.** Stateless HTTP transport, API keys, Docker, volume,
+always-on deploy, `/health`, `urge backup` and `/export/backup`, per-run export,
+minimal REST (`/results`, `/runs`, `/export`).
+Check: Claude Code over HTTP with an API key completes M1's flow against the
+hosted instance; a restart mid-run survives; a backup restores on a laptop.
 
-**M4 — Mirror and export.** REST 1:1 with OpenAPI from TypeBox, CLI, run and
-prompt export bundles, run diff.
-Check: a cron job stores a `scheduled` result via REST; `export` of the
-escritório run opens as readable Markdown.
+**M3b — IdP and Claude.ai.** RFC 9728, JWT validation, IdP setup guide, second
+person.
+Check: raw-token `curl` first; then Claude.ai connector completes M1's flow; a
+second allowlisted person signs in through Claude.ai and sees only shared prompts.
 
-**M5 — Viewer.** Read-only screens in §7.9.
-Check: the owner re-enters the escritório run cold in a browser.
+**M3c — ChatGPT.** Check: ChatGPT connector completes M1's flow including
+`complete_channel`.
 
-**M6 (optional) — History channels.** `result_history` input source and a
-monthly trend pipeline over the weekly recap.
+**M3d — Codex.** Check: Codex completes M1's flow.
 
-Tests: unit tests on services and renderer; executor tests with a mock provider
-(Calane's); one end-to-end test per milestone check, offline, against the stdio
-transport.
+**M4 — Full REST mirror, CLI, exports.** OpenAPI from TypeBox, `urge` CLI over
+REST, prompt export, `urge doctor`.
+Check: a cron job stores a `scheduled` result via REST with a `read`-only key
+refused and a `write` key accepted; the escritório run exports as readable Markdown.
+
+**M5 — Viewer.** Check: the owner re-enters the escritório run cold in a browser.
+
+**M6 — History selector.** `results:<ref>?…` targets; a monthly trend pipeline
+over the weekly recap.
+
+Tests: unit tests on services, renderer, visibility rules (owner, sharer,
+stranger triples), state machine transitions; executor tests with the mock
+provider; one offline end-to-end test per milestone check over stdio.
 
 ---
 
 ## 10. Left to the builder
 
-- Package layout inside the monorepo, subject to one rule: the execution kernel is a package with no dependency on the prompt store (§5).
-- HTTP framework (Calane used Fastify; keep unless there is a reason).
-- SQLite driver (`node:sqlite` vs `better-sqlite3`) and migration mechanism.
-- ID format (ULID suggested), hash canonicalization details.
-- Exact TypeBox shapes, within §7.1.
-- How `requested_via` is derived from MCP `initialize` client info per client.
-- Allowlist administration surface (CLI only vs REST too) and the exact
-  identity-claim matching rules.
-- Rate-limit numbers, timeouts, concurrency defaults.
-- Repository name and licence (Calane is AGPL-3.0; the owner chooses for v3).
-- Which hosted and which self-hosted IdP the deploy guide documents.
-- Viewer technology (M5), provided it adds no auth UI and no editor.
+- Package layout, subject to: the kernel package has no dependency on the store.
+- HTTP framework (Fastify unless there is a reason).
+- Migration mechanism; exact TypeBox shapes within §7.1; hash canonicalization.
+- `save_prompt` error matrix: `branch` without `fork_from` on a new branch;
+  `type` on an existing prompt; `tags` replace vs merge; collision with a
+  tombstoned slug.
+- Coordinator implementation (in-process queue), SSE progress format.
+- Rate-limit numbers, timeouts, concurrency defaults, cost-ceiling source.
+- Repository name and licence (Calane is AGPL-3.0).
+- Which hosted and which self-hosted IdP the deploy guide documents; which tunnel.
+- Viewer technology (M5), within §7.9.
 
 ---
 
-## 11. Risks and open questions for the owner
+## 11. Risks
 
-1. **IdP dependency.** Login for remote clients depends on a third-party identity
-   provider. Trade-off accepted to avoid building an authorization server; the
-   fallback if that proves painful is a minimal built-in AS as a later module,
-   explicitly out of v3 scope.
-2. **Client write-back reliability.** M3 is gated on all three clients completing
-   `complete_channel`. If one client cannot call tools with large payloads, the
-   fallback is server-side execution for that channel, which requires a provider
-   with web search. This is why `needs_web` routing exists.
-3. **Scope creep from Calane.** The carried code is roughly a quarter of Calane.
-   Anything from the "Dropped" column needs a written reason before it enters.
-4. **Reproducibility vs web.** A web-searching channel is not reproducible by
-   construction. The run record stores what was produced and by whom, not a
-   claim that re-running would match. The viewer should say so.
+1. **IdP and connector drift.** Client auth requirements changed between the
+   v2 build and this audit and will change again. M3b–d are gated per client so
+   one regression does not block the others.
+2. **Client write-back payloads.** If a client cannot call `complete_channel`
+   with large outputs, the fallback is a web-capable server provider for that
+   channel; `needs_web` routing exists for this.
+3. **Scope creep from Calane.** Anything in the dropped column needs a written
+   reason before it enters.
+4. **Reproducibility vs web.** A web-searching channel is not reproducible. The
+   record stores what was produced and by whom; the viewer says so.
+5. **Shared provider spend.** One person can spend another's key; the per-run
+   cost ceiling and per-actor limits bound it, they do not allocate it.
 
 ---
 
 ## Appendix A — Assessment of the existing repositories (2026-11-22, read-only)
 
-**Most recent URGE repo:** urge-nt (last commit 2026-06-02, 70 commits) supersedes
-urge-next (2026-03-27, 50 commits); urge-nt carries urge-next's later migrations.
+**Most recent URGE repo:** urge-nt (last commit 2026-06-02, 70 commits)
+supersedes urge-next (2026-03-27, 50 commits); urge-nt carries urge-next's later
+migrations.
 
 **urge-nt (v2):** Laravel 12 + React 19; ~11.2k lines PHP, ~7.4k lines JSX, 22
 models, 40 migrations, 54 test files (~511 methods). Core path: Prompt →
 immutable Version (branches) → Result; TemplateEngine with includes and budgets;
 pipelines with parallel/synthesis channels, client-side execution, and
-`result_history` input; pipelines run synchronously in the request, "parallel"
-channels run sequentially. MCP: 31 tools in one 1,998-line class; HTTP and stdio
-have separate JSON-RPC switches; OAuth scopes enforced only on HTTP; per-prompt
-API-key scope unenforced on MCP; client-run results cannot be linked to a
-pipeline run. Auth: Sanctum → OAuth 2.1 (PKCE, DCR, refresh rotation, GitHub
-IdP) → API key, cascade implemented twice. Security audit (June 2026): 77
-findings, 4 Critical (IDORs), all Critical/High closed; open: DNS-rebind in SSRF
-guard, CSP unverified in a browser, API keys bypass MCP scopes. CLAUDE.md drifts
-from the code in several places. Settings is ~30% of the frontend.
+`result_history` input; pipelines run synchronously in the request. MCP: 31
+tools in one 1,998-line class; two JSON-RPC switches; OAuth scopes enforced only
+on HTTP; per-prompt API-key scope unenforced on MCP; client-run results not
+linked to a pipeline run. Auth cascade implemented twice. Security audit (June
+2026): 77 findings, 4 Critical (IDORs), all Critical/High closed; open: DNS
+rebind in SSRF guard, CSP unverified, API keys bypass MCP scopes. CLAUDE.md
+drifts from the code.
 
 **calane-claude:** TypeScript pnpm monorepo, ~9.3k lines; phases 1–7 signed off.
-Entities: PipelineSpec (YAML), ChannelSpec (prompt path + JSON Schema path +
-provider + dependsOn), ChannelResult (status enum, raw always kept), RunResult
-with content hashes and git SHA. No per-prompt versioning, no includes, five
-fixed template variables. Exactly 8 MCP tools (confirmed); `rerun_channel`
-re-runs the whole pipeline. Real concurrency, retries, repair, bounded
-recursion, cost policies, OTel, signed bundles, federation, A2A. Synthesis is a
-channel; `variant` and `carryForwardStrategy` are labels without code. Defensible
-kernel ≈ 2.5k lines. Governance docs are heavy relative to source.
+PipelineSpec (YAML), ChannelSpec (prompt path + JSON Schema path + provider +
+dependsOn), ChannelResult (status enum, raw always kept), RunResult with content
+hashes and git SHA. No per-prompt versioning, no includes, five fixed template
+variables, one template (no system/user split), JSON parsing unconditional.
+Exactly 8 MCP tools; `rerun_channel` re-runs the whole pipeline. Real
+concurrency, retries, repair, bounded recursion, cost policies, OTel, signed
+bundles, federation, A2A. Auth fails open when unconfigured; MCP sessions held
+in memory. Defensible, reusable-as-is core ≈ 800–1,000 lines.
 
 **Overlap:** the two repos split one idea. URGE owns prompt memory and the human
 loop; Calane owns reproducible execution and the run record. Both converged on
 "parallel candidates → synthesis channel", which is the owner's distillation.
-Calane's non-goal "no prompt-management product" exists to keep it from becoming
-URGE.
 
-## Appendix B — Launch-client auth facts (checked 2026-11-22)
+## Appendix B — Launch-client auth facts (checked 2026-11-22/23)
 
-- **Claude.ai custom connectors**: OAuth 2.0; Dynamic Client Registration
-  supported; a custom client id and secret may be supplied for servers without
-  DCR; callback `https://claude.ai/api/mcp/auth_callback`. Sources:
+- **Claude.ai custom connectors**: OAuth 2.0; DCR supported; custom client id
+  and secret accepted; callback `https://claude.ai/api/mcp/auth_callback`.
   https://www.claude.com/docs/connectors/building/authentication ,
-  https://support.claude.com/en/articles/11503834 ,
-  https://claude.com/docs/connectors/custom/remote-mcp
-- **ChatGPT custom MCP servers**: remote HTTPS only (SSE or Streamable HTTP);
-  auth options OAuth, none, or mixed; static credentials accepted; Client ID
-  Metadata Documents supported when the AS advertises them. Source:
-  https://developers.openai.com/api/docs/guides/custom-mcp-server
-- **Codex**: Streamable HTTP servers with `codex mcp login`; supports CIMD and
-  DCR; `--oauth-client-id` accepted, after which Codex shows the callback URL to
-  register. Source: https://developers.openai.com/codex/mcp
-- **MCP spec**: MCP servers are OAuth resource servers (RFC 9728 metadata);
-  resource indicators (RFC 8707) required; the 2026-07-28 revision deprecates
-  DCR in favour of CIMD. Source:
+  https://support.claude.com/en/articles/11503834
+- **ChatGPT custom MCP servers**: remote HTTPS only; OAuth, none, or mixed;
+  static credentials accepted; CIMD when advertised; callback may be a fixed
+  legacy URI or a per-connector `https://chatgpt.com/connector/oauth/{id}`;
+  reports that the connector omits the RFC 8707 `resource` parameter.
+  https://developers.openai.com/api/docs/guides/custom-mcp-server ,
+  https://developers.openai.com/apps-sdk/build/auth
+- **Codex**: Streamable HTTP with `codex mcp login`; CIMD and DCR; client id
+  configurable; localhost callback port fixed via `mcp_oauth_callback_port`.
+  https://developers.openai.com/codex/mcp
+- **IdPs**: Auth0 issues JWT access tokens only with a registered API/audience
+  (or a tenant default audience); Entra requires "Expose an API".
+  https://support.auth0.com/center/s/article/opaque-versus-jwt-access-token ,
+  https://learn.microsoft.com/entra/identity-platform/claims-validation
+- **MCP spec**: servers are OAuth resource servers (RFC 9728); RFC 8707 resource
+  indicators required of clients; 2026-07-28 revision deprecates DCR for CIMD.
   https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
+- **Platform limits**: Fly 60 s idle proxy timeout (fixed); Render free tier
+  spins down and has no disk; both snapshot volumes but warn against
+  disk-restore for databases. https://community.fly.io/t/60-second-timeout-for-http-server/1243 ,
+  https://render.com/docs/free , https://render.com/docs/disks
+- **SQLite**: `node:sqlite` experimental on Node 22; WAL backup requires
+  `VACUUM INTO` or the backup API. https://sqlite.org/backup.html
 
-Consequence: no launch client requires URGE to implement DCR or an authorization
-server. Pre-registered clients at an external IdP satisfy all three.
+Consequence: no launch client requires URGE to implement DCR or an
+authorization server; the IdP must be configured with an API/audience; redirect
+URIs are discovered per connector.
 
 ## Appendix C — Builder-check resolutions (2026-11-22)
 
-A fresh reviewer read the draft as a builder and asked six questions. Each was
-settled as a designer's call and folded into the sections above; the owner may
-override any of them.
-
-| # | Question | Resolution | Where |
-|---|---|---|---|
-| 1 | Does `run` block until server work finishes, or poll? Can a run survive restarts and a completion days later? | Persisted state machine; async in-process work; `wait_ms` hybrid; `interrupted` on restart, explicit resume | §7.3 |
-| 2 | Can a run target a Result (score one answer)? Which version does a multi-target synthesis Result carry? | Target refs grow with `result:<id>` and `run:<id>`; `prompt_version_id` nullable on synthesis; listed under every targeted prompt | §7.1 |
-| 3 | Do scorer JSON blobs pollute prompt history? | `Result.kind` + channel `archive_as`; `get_results` defaults to `answer,synthesis` | §7.1 |
-| 4 | How does the owner get a verdict when one client item never returns? | `finalize_run` MCP tool (14th); no expiry | §7.3, §7.5 |
-| 5 | How does a browser authenticate to the viewer? | API key pasted once into an `HttpOnly` cookie; no OIDC RP login in v3 | §7.9 |
-| 6 | Must the IdP issue `read`/`write` scopes? What identifies the operator? | Pinned identity claim, full access; scopes only on API keys | §7.6 |
+| # | Question | Resolution |
+|---|---|---|
+| 1 | Block or poll? Survive restarts? | Persisted state machine; `wait_ms` hybrid; `interrupted` + explicit resume (§7.3) |
+| 2 | Target a Result? Version of a multi-target synthesis? | `result:` / `run:` / `results:` targets; `prompt_version_id` nullable (§7.1) |
+| 3 | Scorer JSON in prompt history? | `Result.kind` + `archive_as` (§7.1) |
+| 4 | Verdict when a client item never returns? | `finalize_run` (§7.5) |
+| 5 | Browser auth to the viewer? | API key cookie, hardened (§7.9) |
+| 6 | Must the IdP issue scopes? | Identity-pinned tokens; scopes on API keys only (§7.6) |
 
 ## Appendix D — Audience revision (2026-11-22)
 
-After the draft, the owner clarified that prompts and results must be shareable
-with one other household member. Options weighed: (a) shared instance, everyone
-sees everything; (b) one instance per person, share by export; (c) shared
-instance, private by default, one visibility flag; (d) Teams built now. Owner
-chose (c). Teams were declined for now because with two people a team is the
-whole instance, and team semantics (membership changes, multi-team prompts,
-edit vs read) would be decided with no case to test them against. To keep that
-door open cheaply, visibility is an **audience reference** whose only v3 kind is
-`instance`; a Team later is a new audience kind plus a membership table.
-Consequences folded into §2, §3, §4, §7.1, §7.5, §7.6, §9, §10.
+Options weighed: shared-everything; one instance each; shared instance private
+by default with one flag; Teams now. Owner chose private-by-default with one
+flag. Teams declined: with two people a team is the whole instance, and team
+semantics would be decided with no case to test them. Visibility is an audience
+reference whose only v3 kind is `instance`.
 
-## Appendix E — Parked ideas (owner-raised, not scheduled)
+## Appendix E — Parked ideas (owner-raised or audit-raised, not scheduled)
 
-**E1 — External-run envelope (raised 2026-11-22).** When a prompt or a
-`pending_client` item is to be run by hand on another model via its web UI,
-`render_prompt` / `run` can wrap the rendered text in a standard contract: a
-header the external model must fill (its model name and version, run date,
-whether it used the web), then the answer, then a closing marker.
-`store_result` recognises the envelope and fills `provider`, `model`,
-`web_used`, and `executed_by: external` from it, so the paste path needs no
-hand-typed provenance. The envelope is itself a versioned fragment in URGE
-(e.g. `{{>external-run-envelope}}`), so its wording can be tuned and every
-result records which envelope version it came through. A model's self-reported
-version is a claim: provenance marks it `self_reported`. Earliest sensible
-place: after M4, once `store_result` and export are stable. Not a milestone.
+**E1 — External-run envelope.** Wrap a rendered prompt for hand execution on
+another model in a contract the model fills (model, version, date, web used),
+parsed by `store_result`; itself a versioned fragment; self-reports marked
+`self_reported`. Earliest after M4.
+
+**E2 — OTel exporter.** The `TelemetrySink` interface is in the kernel; the
+exporter package is parked until a run needs tracing. Spans must never carry
+prompt or output text.
+
+**E3 — Run diff.** Calane's `RunDiffer` is bound to the old `RunResult` shape;
+a v3 diff over two runs of one pipeline is parked until the viewer wants it.
+
+**E4 — Bounded recursion.** Parked; no v3 workload needs it.
+
+## Appendix F — Audit
+
+See `2026-11-22-urge-v3-design-audit.md`. Owner decisions taken on it
+(2026-11-23): admins cannot read private records; hosting is always-on; the OTel
+exporter is parked. Every other disposition in that file is folded into this
+revision.
