@@ -1,6 +1,6 @@
 # URGE v3 — From-Scratch Design
 
-Date: 2026-11-22 (revision 2, 2026-11-23, after independent audit)
+Date: 2026-11-22 (revision 3, 2026-11-23: audit dispositions + second builder check)
 Status: DRAFT for owner approval. Nothing is built until this document is approved.
 Supersedes: nothing. urge-nt (v2) and calane-claude remain as they are; this describes a new repository.
 Companion: `2026-11-22-urge-v3-design-audit.md` (four-lens audit; every disposition there is folded in here).
@@ -82,7 +82,7 @@ Designer's calls the owner did not contradict (open to override):
 - Visibility is modelled as an **audience reference**; the only audience in v3 is
   `instance`. A Team later is one more audience kind plus a membership table.
 - The paste-with-provenance path survives as one call (`store_result`).
-- Tool hard cap raised from 16 to 20 after the audit; launch surface is 16.
+- Tool hard cap raised from 16 to 20 after the audit; launch surface is 17.
 
 ---
 
@@ -135,7 +135,7 @@ Designer's calls the owner did not contradict (open to override):
   rules are in §7.1 and are the only rules; every read goes through them.
 - **Actor-scoped data access.** Stores expose `get(actor, id)` and
   `list(actor, filter)` only. The single unscoped path is a `system` actor used
-  by executor resume on startup. A test fails the build if any service or store
+  by the coordinator and by `urge init`. A test fails the build if any service or store
   method lacks an `Actor` parameter.
 - **TypeScript / Node 24 LTS.** One Node version pinned in `engines`, the
   Dockerfile, and the platform config.
@@ -184,7 +184,7 @@ monorepo with no dependency on the prompt store. There is no kernel-only mode.
 ## 6. The system in one picture
 
 ```
-Claude Code (stdio, --as person) ─┐
+Claude Code (stdio→HTTP proxy, key) ┐
 Claude.ai (HTTP, OAuth) ──────────┤                     ┌─ Memory ────────────────────────┐
 ChatGPT (HTTP, OAuth) ────────────┼─► MCP (stateless) ─┐ │ Person · Prompt · Branch        │
 Codex (HTTP, OAuth) ──────────────┘                    │ │ Version · Provider · Pipeline   │
@@ -229,11 +229,15 @@ Configured by CLI or REST; no sign-up.
    **and every target**. A run over mixed-visibility targets is requester-only.
 4. A Result with `run_id`: takes its Run's visibility. A Result without `run_id`:
    visible to its `recorded_by`, or to anyone who can see its prompt version.
-5. **A recorder always sees what they recorded**, regardless of later visibility
-   changes by the prompt owner.
+5. **A creator always sees what they created**: Versions, Branches, and Results
+   authored by a person stay readable to that person after the owner withdraws
+   sharing. For such a person, `get_prompt` returns a shell marked
+   `visibility: withdrawn` listing only their own versions and branches; the
+   prompt does not appear in `list_prompts`; refs to their own versions resolve.
 6. Writes: anyone who can see a shared Prompt may add Versions, Branches, and
-   Results to it and run pipelines against it. Delete, archive, rename, and
-   visibility changes are owner-only. `complete_channel`, `finalize_run`, and
+   Results to it and run pipelines against it; anyone who can see a shared
+   Pipeline may replace its spec (with `expected_hash`). Delete, archive,
+   rename, and visibility changes are owner-only for both. `complete_channel`, `finalize_run`, and
    `run_pipeline(resume=…)` require actor = the run's requester.
 7. Invisible and missing are indistinguishable: uniform 404. Exception: a
    `save_prompt` slug collision returns "slug taken" (accepted existence leak at
@@ -297,8 +301,8 @@ run-context variables), `execution` (`server` | `client` | `auto`),
 `requested_via` (derived server-side: token `client_id`/`azp`, API-key name, or
 `cli`), `started_at`, `finished_at?`, `finalized_by?`, `synthesis_result_id?`.
 
-**ChannelResult** — one per (run, channel, target); `item_id` (stable, returned
-on pending items). `status` (`pending_server` | `running` | `pending_client` |
+**ChannelResult** — one per (run, channel, target), except synthesis: one per
+run with `target_id = null`; `item_id` (stable, returned on pending items). `status` (`pending_server` | `running` | `pending_client` |
 `ok` | `invalid_json` | `schema_error` | `refused` | `timeout` | `error` |
 `interrupted` | `skipped`), `skipped_reason?`, `raw_output` (always kept),
 `parsed_output?` (only when a schema exists), `validation_errors?`,
@@ -308,8 +312,12 @@ on pending items). `status` (`pending_server` | `running` | `pending_client` |
 **Result** — the archive row. `kind` (`answer` | `score` | `synthesis`),
 `prompt_version_id?` (null for synthesis over several targets), `run_id?`,
 `channel_result_id?`, `scored_result_id?` (for `score`), `text`,
-`variables{}?`, `rendered_hash?`, `rating?`, `starred`, `notes?`, `run_source`,
-`recorded_by`, Provenance. `get_results` returns `answer` and `synthesis` by
+`variables{}?`, `rendered_hash?`, `run_source`, `recorded_by`, Provenance.
+
+**Annotation** — per (result, person): `rating?`, `starred`, `notes?`,
+`updated_at`. Two people may star different winners on one shared run;
+`update_result` writes the actor's own annotation and `get_results(starred)`
+filters by the actor's stars. The viewer shows all annotations with names. `get_results` returns `answer` and `synthesis` by
 default; a synthesis is listed under every prompt its run targeted, subject to
 rule 4.
 
@@ -329,7 +337,11 @@ web_used: true, self_reported: true`.
 - `{{>slug}}`, `{{>slug@branch}}`, `{{>slug~N}}` includes, recursive, cycle
   detection, depth cap (10), expansion budget. Includes are resolved to prompt
   ids when a version is saved, so a tombstoned or re-created slug can never be
-  substituted later.
+  substituted later. **Save is rejected** if an included slug does not exist or
+  is not visible to the saver; the LLM authors fragments before composites.
+  Saving a version on a shared prompt that includes a fragment **not visible to
+  the prompt's audience** is rejected with the fragment named, so a shared
+  composite never renders differently per reader.
 - **Values are inert.** Substitution is single-pass; variable values, `{{input}}`
   and `{{channel_results}}` are never re-scanned for syntax. A web-sourced answer
   containing `{{>private-fragment}}` is text.
@@ -356,14 +368,31 @@ output always kept. **Adapted:** validation only when `output_schema` is set;
 otherwise `parsed_output = null`, status `ok`, `{{channel_results}}` renders
 raw. Synthesis is a normal channel over the level's results.
 
+**What a channel sends.** The **system message** is the channel's
+`system_prompt` rendered with run-context variables (`{{target.prompt}}`,
+`{{channel_results}}`, …). The **user message** is `{{input}}`: the rendered
+target for a prompt ref, the Result text for `result:`, the serialized batch for
+`results:`. `{{input}}` may not appear in `system_prompt`. `pending_client`
+items carry both messages separately; `system_prompt_hash` and
+`rendered_prompt_hash` hash each. The provider adapter takes `(system, user)`;
+drivers without a system slot prepend it.
+
 **Routing per channel×target** (`execution: auto`): server if the channel's
 provider is active and (`needs_web` is false or the provider has `web_search`);
 otherwise `pending_client` with the rendered system and user prompt returned.
 `server` fails loudly instead of falling back; `client` never dispatches.
 
-**Dependencies resolve within one target.** A level for a target is released
-when every prior-level item for that same target is terminal. Pending client
-items park the DAG for that target only.
+**Dependencies resolve within one target; synthesis spans targets.** A level
+for a target is released when every prior-level item for that same target is
+terminal; pending client items park the DAG for that target only. The synthesis
+channel is the exception: it is **one item per run** with `target_id = null`,
+released when every non-synthesis item across all targets is terminal. It
+receives `{{channel_results}}` as the list of all items, each labelled with
+`target.ref` and `target.branch`, and `{{inputs}}` as the list of rendered
+targets (so a synthesis-only pipeline such as `best-of` over `run:<id>` has
+something to read). `{{target.*}}` is undefined for synthesis. This is why
+`Run.synthesis_result_id` is singular and a synthesis Result has a null
+`prompt_version_id` when targets span versions.
 
 **Persisted state machine.** A run is rows, not a function. Transition table
 for a ChannelResult:
@@ -379,6 +408,7 @@ for a ChannelResult:
 | `pending_client` | `complete_channel(item_id)` | `ok` (or `invalid_json`/`schema_error` if a schema exists; no repair for client items) |
 | `pending_client` | `finalize_run` | `skipped` (reason `finalized`) |
 | any terminal | `complete_channel` again | no-op, returns existing result |
+| `invalid_json` / `schema_error` (client item) | `complete_channel(…, replace=true)` by the requester, run not finalized | re-validated → `ok` or stays invalid; prior output kept in history |
 | `interrupted` / `error` / `timeout` | `run_pipeline(resume, retry_failed)` | `pending_server` |
 
 Run status is derived: `running` while any item is `pending_server`/`running`;
@@ -439,22 +469,23 @@ retry_failed=true)` re-runs only the judge.
 **Application services** (`PromptService`, `RenderService`, `PipelineService`,
 `RunService`, `ResultService`, `ProviderService`, `PersonService`,
 `ExportService`) take an `Actor` on every method and call actor-scoped stores.
-`Actor` = `person(id, is_admin) | key(person_id, read|write) | system`.
+`Actor` = `person(id, is_admin) | key(person_id, read|write|admin) | system`.
 
-**MCP tools** (16 at launch, hard cap 20):
+**MCP tools** (17 at launch, hard cap 20):
 
 | Tool | Purpose |
 |---|---|
 | `list_prompts(type?, tag?, search?, scope?: mine\|shared\|all)` | browse what the actor can see |
 | `get_prompt(ref)` | content, metadata, branches, `used_by`, unshared-include warnings |
-| `save_prompt(slug, content, commit_message?, branch?, fork_from?, type?, tags?, visibility?)` | create prompt / new version / new branch; defined error matrix (§10) |
-| `update_prompt(slug, name?, description?, tags?, visibility?, archived?)` | metadata without a new version; visibility owner-only |
+| `save_prompt(slug, content, commit_message?, name?, branch?, branch_description?, fork_from?, type?, tags?, visibility?, variable_defaults?)` | create prompt / new version / new branch; defined error matrix (§10) |
+| `update_prompt(slug, name?, description?, tags?, visibility?, archived?, branch?, branch_description?)` | metadata without a new version; visibility owner-only |
+| `list_providers()` | active provider slugs, models, capabilities (no keys); needed to author pipelines |
 | `render_prompt(ref, variables, strict?)` | rendered text, `resolved_ref`, `rendered_hash`, used/missing variables, resolved includes |
 | `list_pipelines(scope?)` | browse |
 | `get_pipeline(slug)` | spec, `spec_hash`, routing preview against current providers |
 | `save_pipeline(slug, spec, expected_hash?, visibility?)` | create or replace |
 | `run_pipeline(pipeline?, targets?, variables?, run_source?, resume?, retry_failed?, include_rendered?, wait_ms?)` | start or resume; returns snapshot + pending items (`item_id`, `intended_executor`, prompts) |
-| `complete_channel(run_id, item_id, output, provenance?, wait_ms?)` | client hands back a result into its run |
+| `complete_channel(run_id, item_id, output, provenance?, replace?, wait_ms?)` | client hands back a result into its run; `replace` fixes a malformed client completion |
 | `finalize_run(run_id, wait_ms?)` | skip outstanding client items, synthesize, end `partial` |
 | `get_run(run_id, include_rendered?, wait_ms?)` | full run record; the tool that is polled |
 | `list_runs(pipeline?, target?, status?, run_source?, since?)` | browse runs |
@@ -464,9 +495,12 @@ retry_failed=true)` re-runs only the judge.
 
 **MCP resources**: `urge://prompts`, `urge://prompts/{ref}`, `urge://runs/{id}`.
 
-**Transports**: stdio (`--as <person>`, required when the allowlist has more
-than one entry) and **stateless** Streamable HTTP at `/mcp`. Both call one
-JSON-RPC dispatcher. Over HTTP, authentication happens at the HTTP layer before
+**Transports**: **stateless** Streamable HTTP at `/mcp` is the only server
+transport. `urge mcp-stdio` is a thin stdio-to-HTTP proxy for local clients
+(Claude Code): it holds a URL and an API key and forwards JSON-RPC; it never
+opens the database and never dispatches. The key identifies the person, so
+`--as` is replaced by "which key". There is exactly one process that owns the
+database and the coordinator. Over HTTP, authentication happens at the HTTP layer before
 any JSON-RPC dispatch, `initialize` and `tools/list` included; header-only
 bearer; no token in `params._meta`.
 
@@ -474,9 +508,12 @@ bearer; no token in `params._meta`.
 `/prompts`, `/prompts/{ref}`, `/pipelines`, `/runs`, `/results`, `/providers`,
 `/people`, `/export/...`, `/export/backup` (admin key), `/health`.
 
-**CLI** (`urge`) is thin over REST only (no in-process mode): `serve`,
-`mcp-stdio`, `doctor`, `backup`, `person add|list`, `key create`, `provider
-add|list`, `prompt get|save|render`, `run`, `complete`, `results`, `export`.
+**CLI** (`urge`) is thin over REST, with two exceptions that run in-process
+because no server exists yet: `init` (bootstrap) and `serve` (the server).
+Commands: `init`, `serve`, `mcp-stdio`, `doctor`, `backup`, `person
+add|list|approve`, `key create`, `provider add|list`, `prompt get|save|render`,
+`run`, `complete`, `results`, `export`. `requested_via` for CLI calls is the
+key's name; keys created by the CLI are named `cli-<host>` by default.
 
 ### 7.6 Authentication and authorization
 
@@ -498,9 +535,16 @@ add|list`, `prompt get|save|render`, `run`, `complete`, `results`, `export`.
 - **Client registration happens at the IdP.** Pre-registered client ids satisfy
   Claude.ai (custom client id and secret), ChatGPT (static credentials), and
   Codex (`--oauth-client-id`). DCR and CIMD are the IdP's business.
-- **API keys** (`urge_` prefix, sha256 at rest) belong to a Person, carry
-  `read` or `write`, never admin. Used by cron, CLI, the viewer cookie, and the
-  backup pull.
+- **API keys** (`urge_` prefix, sha256 at rest) belong to a Person and carry
+  `read`, `write`, or `admin`; `admin` can be issued only to a Person with
+  `is_admin` and is what the CLI uses for people, providers, and backups.
+  Used by cron, the CLI, the viewer cookie, and the backup pull.
+- **Bootstrap.** `urge init` is the only in-process CLI command: run once before
+  the server starts, it creates the database, the first admin Person, and prints
+  that person's `admin` key. Everything after that goes over REST.
+- **Pending identities.** A valid token whose `(iss, sub)` is unknown is rejected
+  with 403, and the pair is recorded as *pending* so the admin can approve it
+  (`urge person approve`) without reading `sub` values off an IdP console.
 - **Rate limiting** per actor in the adapter layer, for OAuth and key callers alike.
 - **Required changes to carried Calane auth code:** refuse to start the HTTP
   transport without an auth config (no fail-open); authenticate before dispatch;
@@ -513,8 +557,8 @@ add|list`, `prompt get|save|render`, `run`, `complete`, `results`, `export`.
 
 - **SQLite, WAL mode, one file**, `better-sqlite3` on Node 24 LTS,
   `busy_timeout = 5000`. Synchronous driver means in-process async runs
-  serialize safely; the CLI never opens the file while the server runs (it uses
-  REST). FTS5 for viewer search with quoted queries.
+  serialize safely; only `serve` (and `init`, before `serve`) ever opens the
+  file. FTS5 for viewer search with quoted queries.
 - **Store interface** per entity, actor-scoped; a Postgres module later is an
   addition.
 - **Provider keys** encrypted at rest with a key from the environment, **never
@@ -537,10 +581,11 @@ execution path.
 
 ### 7.9 Human viewer (M5)
 
-Read-only, server-rendered or small static SPA. Browser access: the operator
-pastes a `read` API key once; stored in an `HttpOnly`, `SameSite=Strict` cookie
-honoured only on viewer routes; the three write actions (rate, star, note)
-require a custom header; CSP set; Markdown rendered sanitized. Screens: prompt
+Read-only pages, server-rendered or small static SPA. Browser access: the
+person pastes one of their API keys once (a `write` key if they want to rate,
+star, or note; a `read` key otherwise); stored in an `HttpOnly`,
+`SameSite=Strict` cookie honoured only on viewer routes; the three write
+actions require a custom header and are the only POSTs the viewer makes; CSP set; Markdown rendered sanitized. Screens: prompt
 list; prompt page with branch graph and descriptions; version diff; run list;
 run page with targets × channels grid, provenance, verdict; result page; export
 buttons.
@@ -581,19 +626,20 @@ Each ends with a check the owner performs with a real client.
 
 **M0 — Skeleton.** Repo, pnpm workspace, TypeBox specs for every entity in
 §7.1, SQLite with migrations, actor-scoped stores, services with `Actor`, the
-build-failing "every method has an Actor" test, Person/allowlist CLI, stdio MCP
-with `list_prompts`, `get_prompt`, `save_prompt`, `update_prompt`,
-`render_prompt`.
-Check: as person A, create `escritorio`, fork two branches, render each; as
-person B (`--as`), nothing is visible until A shares it; then B renders and
-saves a version; A sees B's version; A flips to private; B still sees B's own
-version and nothing else.
+build-failing "every method has an Actor" test, `urge init` and `urge serve`
+(HTTP transport on localhost, API-key auth only), `urge mcp-stdio` proxy,
+`person`/`key` CLI over REST, MCP `list_prompts`, `get_prompt`, `save_prompt`,
+`update_prompt`, `render_prompt`.
+Check: from Claude Code via the proxy with person A's key, create `escritorio`,
+fork two branches, render each; with person B's key, nothing is visible until A
+shares it; then B renders and saves a version; A sees B's version; A withdraws
+sharing; B's `get_prompt` returns the withdrawn shell with B's version only.
 
 **M1 — Runs with client execution and the persisted state machine.**
 Pipeline/Channel specs, snapshot on run, `run_pipeline`, `complete_channel`
 with `item_id`, `finalize_run`, `get_run`, `list_runs`, `get_results`,
-`store_result`, `update_result`, `interrupted` and resume, `wait_ms`. No
-providers yet.
+`store_result`, `update_result`, `interrupted` and resume (exercised with the
+mock provider in tests; no real providers yet), `wait_ms`, `list_providers`.
 Check: rebuild the escritório tree end to end from Claude Code with Claude doing
 research and judging; restart the process between two completions and finish the
 run; finalize a run with one item outstanding.
@@ -605,9 +651,9 @@ Check: `evaluation` runs server-side on OpenRouter over `result:<id>`; `best-of`
 runs server-side on Anthropic over `run:<id>`; a prose channel and a schema
 channel in one pipeline both end `ok`.
 
-**M3a — Hosted, keyed.** Stateless HTTP transport, API keys, Docker, volume,
-always-on deploy, `/health`, `urge backup` and `/export/backup`, per-run export,
-minimal REST (`/results`, `/runs`, `/export`).
+**M3a — Hosted, keyed.** TLS-terminated deploy of the existing HTTP transport:
+Docker, volume, always-on host, `/health`, `urge backup` and `/export/backup`,
+per-run export, minimal REST (`/results`, `/runs`, `/export`).
 Check: Claude Code over HTTP with an API key completes M1's flow against the
 hosted instance; a restart mid-run survives; a backup restores on a laptop.
 
@@ -633,7 +679,8 @@ over the weekly recap.
 
 Tests: unit tests on services, renderer, visibility rules (owner, sharer,
 stranger triples), state machine transitions; executor tests with the mock
-provider; one offline end-to-end test per milestone check over stdio.
+provider; one offline end-to-end test per milestone check over the HTTP
+transport on localhost.
 
 ---
 
@@ -776,3 +823,19 @@ See `2026-11-22-urge-v3-design-audit.md`. Owner decisions taken on it
 (2026-11-23): admins cannot read private records; hosting is always-on; the OTel
 exporter is parked. Every other disposition in that file is folded into this
 revision.
+
+## Appendix G — Second builder check (2026-11-23, on revision 2)
+
+| # | Question | Resolution |
+|---|---|---|
+| 1 | Admin auth and first-admin bootstrap with a REST-only CLI | `admin` key scope for admin persons; `urge init` is the one in-process bootstrap (§7.6, §7.5) |
+| 2 | Synthesis per target or across targets | One synthesis item per run, `target_id = null`, released when all other items are terminal; `{{inputs}}` added (§7.3) |
+| 3 | System vs user message | System = rendered `system_prompt`; user = `{{input}}`; adapter takes `(system, user)` (§7.3) |
+| 4 | stdio as a second process | stdio is a proxy to HTTP with a key; one process owns the DB and coordinator (§7.5) |
+| 5 | Malformed client completion is permanent | `complete_channel(replace=true)` by the requester (§7.3) |
+| 6 | Learning a second person's `(iss, sub)` | Rejected identities recorded as pending; `urge person approve` (§7.6) |
+| 7 | B's view after sharing is withdrawn | Withdrawn shell with B's own versions; not listed (§7.1 rule 5) |
+| 8 | Includes of missing or invisible fragments at save | Save rejected; audience-visibility of fragments enforced at save (§7.2) |
+| 9 | Who edits shared pipelines; who rates results | Rule 6 extended to pipelines; per-person Annotation table (§7.1) |
+| 10 | Fields no tool can set; providers not discoverable | `name`, `branch_description`, `variable_defaults` params; `list_providers` tool (17) (§7.5) |
+| 11 | Viewer `read` key vs write actions | Cookie holds the key the person chooses; writes need `write` (§7.9) |
